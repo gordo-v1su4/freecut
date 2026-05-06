@@ -56,9 +56,10 @@ import {
   getMediaForProject as getMediaForProjectDB,
   deleteTranscript,
   readAiOutput,
-} from '@/infrastructure/storage'
-import { saveCaptions, deleteCaptions } from '@/infrastructure/storage/workspace-fs/captions'
-import { deleteScenes } from '@/infrastructure/storage/workspace-fs/scenes'
+  saveCaptions,
+  deleteCaptions,
+  deleteScenes,
+} from '@/features/media-library/deps/storage'
 import {
   filmstripCache,
   gifFrameCache,
@@ -72,7 +73,7 @@ import {
   hasMediaSource,
   readMediaSource,
   writeMediaSource,
-} from '@/infrastructure/storage/workspace-fs/media-source'
+} from '@/features/media-library/deps/storage'
 import {
   buildGeneratedMediaOpfsPath,
   getGeneratedImageDimensions,
