@@ -59,6 +59,9 @@ import {
   saveCaptions,
   deleteCaptions,
   deleteScenes,
+  hasMediaSource,
+  readMediaSource,
+  writeMediaSource,
 } from '@/features/media-library/deps/storage'
 import {
   filmstripCache,
@@ -69,11 +72,6 @@ import { opfsService } from './opfs-service'
 import { proxyService } from './proxy-service'
 import { ensureFileHandlePermission, FileAccessError } from './file-access'
 import { enqueueBackgroundMediaWork } from './background-media-work'
-import {
-  hasMediaSource,
-  readMediaSource,
-  writeMediaSource,
-} from '@/features/media-library/deps/storage'
 import {
   buildGeneratedMediaOpfsPath,
   getGeneratedImageDimensions,
