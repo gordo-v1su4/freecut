@@ -71,6 +71,10 @@ interface LoadedFilmstrip {
   existingIndices: number[]
 }
 
+interface LoadFilmstripOptions {
+  frameIndices?: number[]
+}
+
 class FilmstripStorage {
   private objectUrls = new Map<string, Map<number, string>>()
   private legacyInitPromise: Promise<FileSystemDirectoryHandle | null> | null = null
@@ -252,36 +256,43 @@ class FilmstripStorage {
     )
   }
 
-  async load(mediaId: string): Promise<LoadedFilmstrip | null> {
+  async load(mediaId: string, options?: LoadFilmstripOptions): Promise<LoadedFilmstrip | null> {
     try {
       const metadata = await this.ensureWorkspaceFilmstrip(mediaId)
       if (!metadata) return null
 
       const entries = await listDirectory(requireWorkspaceRoot(), filmstripDir(mediaId))
-      const frameFilesByIndex = new Map<number, { blob: Blob; ext: string }>()
+      const frameExtByIndex = new Map<number, string>()
 
       for (const entry of entries) {
         if (entry.kind !== 'file') continue
         const parsed = parseFrameFileNameParts(entry.name)
         if (!parsed) continue
 
-        const blob = await readBlob(
-          requireWorkspaceRoot(),
-          filmstripFramePath(mediaId, parsed.index, parsed.ext),
-        )
-        if (!blob || blob.size <= 0) continue
-
-        const existing = frameFilesByIndex.get(parsed.index)
+        const existing = frameExtByIndex.get(parsed.index)
         const shouldReplace =
-          !existing || (parsed.ext === PRIMARY_FRAME_EXT && existing.ext !== PRIMARY_FRAME_EXT)
+          !existing || (parsed.ext === PRIMARY_FRAME_EXT && existing !== PRIMARY_FRAME_EXT)
         if (shouldReplace) {
-          frameFilesByIndex.set(parsed.index, { blob, ext: parsed.ext })
+          frameExtByIndex.set(parsed.index, parsed.ext)
         }
       }
 
-      const frameFiles = Array.from(frameFilesByIndex.entries())
-        .map(([index, value]) => ({ index, blob: value.blob }))
-        .sort((a, b) => a.index - b.index)
+      const requestedIndices =
+        options?.frameIndices && options.frameIndices.length > 0
+          ? Array.from(new Set(options.frameIndices)).sort((a, b) => a - b)
+          : null
+      const indicesToRead =
+        requestedIndices ?? Array.from(frameExtByIndex.keys()).sort((a, b) => a - b)
+      const frameFiles: Array<{ index: number; blob: Blob }> = []
+
+      for (const index of indicesToRead) {
+        const ext = frameExtByIndex.get(index)
+        if (!ext) continue
+
+        const blob = await readBlob(requireWorkspaceRoot(), filmstripFramePath(mediaId, index, ext))
+        if (!blob || blob.size <= 0) continue
+        frameFiles.push({ index, blob })
+      }
 
       const nextUrls: Array<{ index: number; url: string }> = []
       const frames: FilmstripFrame[] = frameFiles.map(({ index, blob }) => {

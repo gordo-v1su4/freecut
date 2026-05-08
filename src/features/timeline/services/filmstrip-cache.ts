@@ -195,6 +195,7 @@ class FilmstripCacheService {
   private loadingPromises = new Map<string, Promise<Filmstrip>>()
   private activeExtractions = new Set<string>()
   private extractionQueue: string[] = []
+  private activeConsumerCounts = new Map<string, number>()
   private readonly workerPoolManager = createManagedWorkerPool({
     createWorker: () =>
       new Worker(new URL('../workers/filmstrip-extraction-worker.ts', import.meta.url), {
@@ -950,6 +951,12 @@ class FilmstripCacheService {
     // Return cached if complete
     const cached = this.cache.get(mediaId)
     if (cached?.isComplete && !cached.isExtracting) {
+      const targetIndices = this.buildTargetIndices(
+        totalFrames,
+        normalizedPriorityRange,
+        normalizedTargetFrameCount,
+        normalizedTargetFrameIndices,
+      )
       const needsRefinement = this.needsRefinementForTarget(
         cached.frames,
         totalFrames,
@@ -960,6 +967,36 @@ class FilmstripCacheService {
       if (!needsRefinement) {
         this.touchCacheEntry(mediaId)
         return cached
+      }
+
+      const stored = await filmstripStorage.load(mediaId, {
+        frameIndices: targetIndices,
+      })
+      if (stored?.frames.length) {
+        const framesByIndex = new Map(cached.frames.map((frame) => [frame.index, frame] as const))
+        for (const frame of stored.frames) {
+          framesByIndex.set(frame.index, frame)
+        }
+        const hydratedFrames = Array.from(framesByIndex.values()).sort((a, b) => a.index - b.index)
+        if (
+          stored.metadata.isComplete &&
+          !this.needsRefinementForTarget(
+            hydratedFrames,
+            totalFrames,
+            normalizedPriorityRange,
+            normalizedTargetFrameCount,
+            normalizedTargetFrameIndices,
+          )
+        ) {
+          const hydrated = {
+            frames: hydratedFrames,
+            isComplete: true,
+            isExtracting: false,
+            progress: 100,
+          }
+          this.notifyUpdate(mediaId, hydrated)
+          return hydrated
+        }
       }
 
       // Kick off a focused refinement pass for the active priority window.
@@ -1092,13 +1129,34 @@ class FilmstripCacheService {
     priorityRange?: PriorityFrameRange,
     options?: FilmstripLoadOptions,
   ): Promise<Filmstrip> {
+    const totalFrames = Math.ceil(duration * FRAME_RATE)
+    const normalizedTargetFrameCount = this.normalizeTargetFrameCount(options?.targetFrameCount)
+    const normalizedTargetFrameIndices = this.normalizeTargetFrameIndices(
+      totalFrames,
+      options?.targetFrameIndices,
+    )
+    const targetIndices = this.buildTargetIndices(
+      totalFrames,
+      priorityRange ?? null,
+      normalizedTargetFrameCount,
+      normalizedTargetFrameIndices,
+    )
     // Try loading from storage
-    const stored = await filmstripStorage.load(mediaId)
+    const stored = await filmstripStorage.load(mediaId, {
+      frameIndices: targetIndices,
+    })
+    const existingFrames = stored?.frames || []
+    const existingIndices = stored?.existingIndices || []
+    const targetSet = new Set(targetIndices)
+    const existingTargetCount = existingFrames.reduce(
+      (count, frame) => (targetSet.has(frame.index) ? count + 1 : count),
+      0,
+    )
 
-    if (stored?.metadata.isComplete) {
-      // Complete - return immediately
+    if (stored?.metadata.isComplete && existingTargetCount === targetIndices.length) {
+      // Current viewport target is fully available from persisted storage.
       const filmstrip: Filmstrip = {
-        frames: stored.frames,
+        frames: existingFrames,
         isComplete: true,
         isExtracting: false,
         progress: 100,
@@ -1108,21 +1166,6 @@ class FilmstripCacheService {
     }
 
     // Notify with existing frames (if any)
-    const existingFrames = stored?.frames || []
-    const existingIndices = stored?.existingIndices || []
-    const totalFrames = Math.ceil(duration * FRAME_RATE)
-    const targetIndices = this.buildTargetIndices(
-      totalFrames,
-      priorityRange ?? null,
-      options?.targetFrameCount,
-      options?.targetFrameIndices,
-    )
-    const targetSet = new Set(targetIndices)
-    const existingTargetCount = existingFrames.reduce(
-      (count, frame) => (targetSet.has(frame.index) ? count + 1 : count),
-      0,
-    )
-
     const initialFilmstrip: Filmstrip = {
       frames: existingFrames,
       isComplete: false,
@@ -2307,6 +2350,21 @@ class FilmstripCacheService {
     }
   }
 
+  retainActiveConsumer(mediaId: string): void {
+    this.activeConsumerCounts.set(mediaId, (this.activeConsumerCounts.get(mediaId) ?? 0) + 1)
+  }
+
+  releaseActiveConsumer(mediaId: string): void {
+    const nextCount = (this.activeConsumerCounts.get(mediaId) ?? 0) - 1
+    if (nextCount > 0) {
+      this.activeConsumerCounts.set(mediaId, nextCount)
+      return
+    }
+
+    this.activeConsumerCounts.delete(mediaId)
+    this.abort(mediaId)
+  }
+
   /**
    * Get synchronously from cache (for avoiding flash on remount)
    */
@@ -2449,6 +2507,7 @@ class FilmstripCacheService {
     this.updateCallbacks.clear()
     this.loadingPromises.clear()
     this.activeExtractions.clear()
+    this.activeConsumerCounts.clear()
     this.extractionQueue = []
   }
 }

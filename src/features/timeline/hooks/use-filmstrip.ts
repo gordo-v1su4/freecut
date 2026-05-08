@@ -86,12 +86,18 @@ export function useFilmstrip({
     setProgress(nextProgress)
   })
 
-  // Abort any in-flight extraction when this consumer goes away or switches media.
+  // Track visible consumers so shared media extraction only stops when the last
+  // visible segment leaves the active workset.
   useEffect(() => {
-    return () => {
-      filmstripCache.abort(mediaId)
+    if (!enabled || !blobUrl || !duration || duration <= 0 || !isVisible) {
+      return
     }
-  }, [mediaId])
+
+    filmstripCache.retainActiveConsumer(mediaId)
+    return () => {
+      filmstripCache.releaseActiveConsumer(mediaId)
+    }
+  }, [mediaId, enabled, blobUrl, duration, isVisible])
 
   // Filmstrip extraction runs at 1fps, so quantize the requested source
   // window to frame indices before passing it to the cache.
@@ -146,13 +152,13 @@ export function useFilmstrip({
     return unsubscribe
   }, [mediaId, enabled, blobUrl, duration])
 
-  // Once a clip leaves the active workset, stop spending background decode time on it.
+  // Once this clip leaves the active workset, stop reporting local loading state.
+  // The active-consumer refcount above owns the shared media abort.
   useEffect(() => {
     if (enabled && blobUrl && duration > 0 && isVisible) {
       return
     }
 
-    filmstripCache.abort(mediaId)
     isGeneratingRef.current = false
     hasPendingStartRef.current = false
     setIsLoading(false)
