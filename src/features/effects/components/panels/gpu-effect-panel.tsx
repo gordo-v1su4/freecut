@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, Trash2, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -45,6 +46,7 @@ function ActionButtons({
   onToggle: (id: string) => void
   onRemove: (id: string) => void
 }) {
+  const { t } = useTranslation()
   return (
     <>
       <Button
@@ -52,7 +54,7 @@ function ActionButtons({
         size="icon"
         className={`h-6 w-6 flex-shrink-0 ${isDefault ? 'opacity-30' : ''}`}
         onClick={() => onReset(effectId)}
-        title="Reset to defaults"
+        title={t('effects.panel.resetToDefaults')}
         disabled={isDefault}
       >
         <RotateCcw className="w-3 h-3" />
@@ -62,7 +64,7 @@ function ActionButtons({
         size="icon"
         className="h-6 w-6 flex-shrink-0"
         onClick={() => onToggle(effectId)}
-        title={enabled ? 'Disable effect' : 'Enable effect'}
+        title={enabled ? t('effects.panel.disableEffect') : t('effects.panel.enableEffect')}
       >
         {enabled ? (
           <Eye className="w-3 h-3" />
@@ -75,7 +77,7 @@ function ActionButtons({
         size="icon"
         className="h-6 w-6 flex-shrink-0"
         onClick={() => onRemove(effectId)}
-        title="Remove effect"
+        title={t('effects.panel.removeEffect')}
       >
         <Trash2 className="w-3 h-3" />
       </Button>
@@ -95,6 +97,7 @@ export const GpuEffectPanel = memo(function GpuEffectPanel({
   onToggle,
   onRemove,
 }: GpuEffectPanelProps) {
+  const { t } = useTranslation()
   const paramEntries = Object.entries(definition.params)
   const isDefault = paramEntries.every(([key, param]) => gpuEffect.params[key] === param.default)
 
@@ -221,7 +224,7 @@ export const GpuEffectPanel = memo(function GpuEffectPanel({
                 onClick={() => onParamChange(effect.id, key, !currentValue)}
                 disabled={!paramEnabled}
               >
-                {currentValue ? 'On' : 'Off'}
+                {currentValue ? t('effects.panel.on') : t('effects.panel.off')}
               </Button>
             </PropertyRow>
           )

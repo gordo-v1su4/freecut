@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2, Square } from 'lucide-react'
 import {
   Dialog,
@@ -62,6 +63,7 @@ export function TranscribeDialog({
   onStart,
   onCancel,
 }: TranscribeDialogProps) {
+  const { t } = useTranslation()
   const defaultModel = useSettingsStore((s) => s.defaultWhisperModel)
   const defaultQuantization = useSettingsStore((s) => s.defaultWhisperQuantization)
   const defaultLanguage = useSettingsStore((s) => s.defaultWhisperLanguage)
@@ -124,7 +126,9 @@ export function TranscribeDialog({
     [isRunning, onOpenChange],
   )
 
-  const title = hasTranscript ? 'Refresh Transcript' : 'Generate Transcript'
+  const title = hasTranscript
+    ? t('media.transcribe.refreshTitle')
+    : t('media.transcribe.generateTitle')
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} modal>
@@ -144,7 +148,7 @@ export function TranscribeDialog({
 
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label className="text-sm">Model</Label>
+            <Label className="text-sm">{t('media.transcribe.model')}</Label>
             <Select
               value={model}
               onValueChange={(value) => setModel(value as MediaTranscriptModel)}
@@ -164,7 +168,7 @@ export function TranscribeDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-sm">Quantization</Label>
+            <Label className="text-sm">{t('media.transcribe.quantization')}</Label>
             <Select
               value={quantization}
               onValueChange={(value) => setQuantization(value as MediaTranscriptQuantization)}
@@ -184,14 +188,14 @@ export function TranscribeDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-sm">Language</Label>
+            <Label className="text-sm">{t('media.transcribe.language')}</Label>
             <Combobox
               value={languageValue}
               onValueChange={setLanguageValue}
               options={WHISPER_LANGUAGE_OPTIONS}
-              placeholder="Auto-detect"
-              searchPlaceholder="Search languages..."
-              emptyMessage="No languages match that search."
+              placeholder={t('media.transcribe.autoDetect')}
+              searchPlaceholder={t('media.transcribe.searchLanguages')}
+              emptyMessage={t('media.transcribe.noLanguages')}
               disabled={isRunning}
             />
           </div>
@@ -214,7 +218,7 @@ export function TranscribeDialog({
               {progressPercent !== null && (
                 <div
                   role="progressbar"
-                  aria-label="Transcription progress"
+                  aria-label={t('media.transcribe.progressAria')}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={progressPercent}
@@ -234,14 +238,14 @@ export function TranscribeDialog({
           {isRunning ? (
             <Button variant="destructive" onClick={onCancel}>
               <Square className="mr-1.5 h-3.5 w-3.5" />
-              Stop
+              {t('media.transcribe.stop')}
             </Button>
           ) : (
             <>
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
-              <Button onClick={handleStart}>Start Transcription</Button>
+              <Button onClick={handleStart}>{t('media.transcribe.start')}</Button>
             </>
           )}
         </DialogFooter>

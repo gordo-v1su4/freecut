@@ -27,6 +27,7 @@ import {
   FileText,
   ScanSearch,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { SceneBrowserPanel, useSceneBrowserStore } from '../deps/scene-browser'
 import { createLogger } from '@/shared/logging/logger'
 
@@ -99,6 +100,7 @@ import {
 } from '@/hooks/use-marquee-selection'
 
 function CopyButton({ text }: { text: string }) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(text)
@@ -109,7 +111,7 @@ function CopyButton({ text }: { text: string }) {
     <button
       onClick={handleCopy}
       className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-muted transition-colors"
-      title="Copy to clipboard"
+      title={t('media.library.copyToClipboard')}
     >
       {copied ? (
         <Check className="h-3 w-3 text-green-500" />
@@ -197,6 +199,7 @@ interface PendingLibraryDeletion {
 }
 
 export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaLibraryProps) {
+  const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const isFocusedRef = useRef(false)
@@ -274,13 +277,30 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
       }
     }
     if (videos.length > 0)
-      groups.push({ key: 'video', label: 'Videos', icon: 'video', items: videos })
-    if (audio.length > 0) groups.push({ key: 'audio', label: 'Audio', icon: 'audio', items: audio })
+      groups.push({
+        key: 'video',
+        label: t('media.library.groupVideos'),
+        icon: 'video',
+        items: videos,
+      })
+    if (audio.length > 0)
+      groups.push({
+        key: 'audio',
+        label: t('media.library.groupAudio'),
+        icon: 'audio',
+        items: audio,
+      })
     if (images.length > 0)
-      groups.push({ key: 'image', label: 'Images', icon: 'image', items: images })
-    if (gifs.length > 0) groups.push({ key: 'gif', label: 'GIFs', icon: 'gif', items: gifs })
+      groups.push({
+        key: 'image',
+        label: t('media.library.groupImages'),
+        icon: 'image',
+        items: images,
+      })
+    if (gifs.length > 0)
+      groups.push({ key: 'gif', label: t('media.library.groupGifs'), icon: 'gif', items: gifs })
     return groups
-  }, [filteredMediaItems])
+  }, [filteredMediaItems, t])
   const compositions = useCompositionsStore((s) => s.compositions)
 
   // Composition navigation — show banner when inside a sub-comp
@@ -576,7 +596,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
       if (!supported) {
         showNotification({
           type: 'warning',
-          message: 'Drag-drop not supported in this browser. Use Chrome or Edge.',
+          message: t('media.library.dragDropUnsupported'),
         })
         return
       }
@@ -584,14 +604,14 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
       if (errors.length > 0) {
         showNotification({
           type: 'error',
-          message: `Some files were rejected: ${errors.join(', ')}`,
+          message: t('media.library.filesRejected', { errors: errors.join(', ') }),
         })
       }
       if (entries.length > 0) {
         await handleImportHandles(entries.map((entry) => entry.handle))
       }
     },
-    [showNotification, handleImportHandles],
+    [showNotification, handleImportHandles, t],
   )
 
   // Count of items currently generating proxies
@@ -724,17 +744,15 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
   const deleteSummary = useMemo(() => {
     const parts: string[] = []
     if (pendingDeletion.mediaIds.length > 0) {
-      parts.push(
-        `${pendingDeletion.mediaIds.length} media item${pendingDeletion.mediaIds.length === 1 ? '' : 's'}`,
-      )
+      parts.push(t('media.library.mediaItemsCount', { count: pendingDeletion.mediaIds.length }))
     }
     if (pendingDeletion.compositionIds.length > 0) {
       parts.push(
-        `${pendingDeletion.compositionIds.length} compound clip${pendingDeletion.compositionIds.length === 1 ? '' : 's'}`,
+        t('media.library.compoundClipsCount', { count: pendingDeletion.compositionIds.length }),
       )
     }
-    return parts.join(' and ')
-  }, [pendingDeletion.compositionIds.length, pendingDeletion.mediaIds.length])
+    return parts.join(t('media.library.andJoiner'))
+  }, [pendingDeletion.compositionIds.length, pendingDeletion.mediaIds.length, t])
 
   const affectedMediaImpact = useMemo(
     () =>
@@ -806,7 +824,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
         <TooltipProvider>
           <div className="flex flex-nowrap items-center gap-2 text-xs min-w-0 overflow-hidden">
             {/* Import action */}
-            <HeaderActionTooltip label="Import media files">
+            <HeaderActionTooltip label={t('media.library.importMediaFiles')}>
               <button
                 onClick={handleImport}
                 disabled={!currentProjectId}
@@ -817,11 +835,11 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                   transition-colors duration-150"
               >
                 <FolderOpen className="w-3.5 h-3.5" />
-                <span className="hidden @[260px]:inline">Import</span>
+                <span className="hidden @[260px]:inline">{t('media.library.import')}</span>
               </button>
             </HeaderActionTooltip>
 
-            <HeaderActionTooltip label="Import media from URL">
+            <HeaderActionTooltip label={t('media.library.importMediaFromUrl')}>
               <button
                 onClick={() => setShowImportUrlDialog(true)}
                 disabled={!currentProjectId}
@@ -832,14 +850,16 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                   transition-colors duration-150"
               >
                 <Link className="w-3.5 h-3.5" />
-                <span className="hidden @[360px]:inline">URL</span>
+                <span className="hidden @[360px]:inline">{t('media.library.url')}</span>
               </button>
             </HeaderActionTooltip>
 
             {/* Missing media indicator */}
             {currentProjectBrokenMediaIds.length > 0 && (
               <HeaderActionTooltip
-                label={`View ${currentProjectBrokenMediaIds.length} missing media file${currentProjectBrokenMediaIds.length === 1 ? '' : 's'}`}
+                label={t('media.library.viewMissingMedia', {
+                  count: currentProjectBrokenMediaIds.length,
+                })}
               >
                 <button
                   onClick={openMissingMediaDialog}
@@ -850,7 +870,9 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                 >
                   <Link2Off className="w-3.5 h-3.5" />
                   <span className="hidden @[340px]:inline">
-                    {currentProjectBrokenMediaIds.length} Missing
+                    {t('media.library.missingCount', {
+                      count: currentProjectBrokenMediaIds.length,
+                    })}
                   </span>
                 </button>
               </HeaderActionTooltip>
@@ -864,8 +886,10 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                 {/* Selection badge */}
                 <div className="flex items-center gap-1 h-7 pl-2 pr-1 rounded-md bg-accent/50 border border-border min-w-0 max-w-full">
                   <span className="tabular-nums shrink-0">{selectedAssetCount}</span>
-                  <span className="text-muted-foreground hidden @[360px]:inline">selected</span>
-                  <HeaderActionTooltip label="Clear selection">
+                  <span className="text-muted-foreground hidden @[360px]:inline">
+                    {t('media.library.selected')}
+                  </span>
+                  <HeaderActionTooltip label={t('media.library.clearSelection')}>
                     <button
                       onClick={clearSelection}
                       className="ml-0.5 p-1 rounded hover:bg-foreground/10 text-muted-foreground hover:text-foreground transition-colors shrink-0"
@@ -878,7 +902,9 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                 {/* Generate proxies for selection */}
                 {selectedProxyEligibleCount > 0 && (
                   <HeaderActionTooltip
-                    label={`Generate proxies for ${selectedProxyEligibleCount} selected item${selectedProxyEligibleCount === 1 ? '' : 's'}`}
+                    label={t('media.library.generateProxiesForSelected', {
+                      count: selectedProxyEligibleCount,
+                    })}
                   >
                     <button
                       onClick={handleGenerateSelectedProxies}
@@ -889,14 +915,14 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                     >
                       <Zap className="w-3.5 h-3.5" />
                       <span className="hidden @[440px]:inline">
-                        Proxy ({selectedProxyEligibleCount})
+                        {t('media.library.proxyCount', { count: selectedProxyEligibleCount })}
                       </span>
                     </button>
                   </HeaderActionTooltip>
                 )}
 
                 {/* Delete action */}
-                <HeaderActionTooltip label="Delete selected assets">
+                <HeaderActionTooltip label={t('media.library.deleteSelectedAssets')}>
                   <button
                     onClick={handleDeleteSelected}
                     className="flex items-center gap-1.5 h-7 px-2.5 rounded-md shrink-0
@@ -905,7 +931,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                       transition-colors duration-150"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span className="hidden @[400px]:inline">Delete</span>
+                    <span className="hidden @[400px]:inline">{t('common.delete')}</span>
                   </button>
                 </HeaderActionTooltip>
               </>
@@ -925,12 +951,8 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
       >
         <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>Import From URL</DialogTitle>
-            <DialogDescription>
-              Paste a direct link to a media file. MP4, WebM, MOV, MP3, WAV, JPG, PNG, GIF, WebP,
-              and SVG links work when the site allows browser downloads. YouTube and similar page
-              URLs usually will not.
-            </DialogDescription>
+            <DialogTitle>{t('media.library.importFromUrlTitle')}</DialogTitle>
+            <DialogDescription>{t('media.library.importFromUrlDescription')}</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleImportUrl} className="space-y-4">
@@ -945,7 +967,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                 disabled={isImportUrlSubmitting}
               />
               <p className="text-xs text-muted-foreground">
-                The file is downloaded into the current project and stored locally for editing.
+                {t('media.library.importFromUrlHint')}
               </p>
             </div>
 
@@ -961,7 +983,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                 }}
                 disabled={isImportUrlSubmitting}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
@@ -970,7 +992,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                 }
               >
                 {isImportUrlSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                Import
+                {t('media.library.import')}
               </Button>
             </DialogFooter>
           </form>
@@ -998,7 +1020,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
               onClick={clearError}
               className="h-6 px-2 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10"
             >
-              Dismiss
+              {t('media.library.dismiss')}
             </Button>
           </div>
         </div>
@@ -1065,7 +1087,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
             <div className="relative group flex-1 min-w-0">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
-                placeholder="Search media..."
+                placeholder={t('media.searchMedia')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8 h-7 bg-secondary border border-border focus:border-primary text-foreground placeholder:text-muted-foreground text-xs"
@@ -1083,10 +1105,10 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
           {sceneBrowserOpen && <div className="flex-1 min-w-0" aria-hidden />}
           <div
             role="group"
-            aria-label="Library view"
+            aria-label={t('media.library.libraryView')}
             className="inline-flex items-center h-7 rounded-md border border-border bg-secondary p-0.5 shrink-0"
           >
-            <HeaderActionTooltip label="Show media library">
+            <HeaderActionTooltip label={t('media.library.showMediaLibrary')}>
               <button
                 onClick={() => {
                   if (sceneBrowserOpen) closeSceneBrowser()
@@ -1100,10 +1122,10 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                 )}
               >
                 <Film className="w-3 h-3" />
-                <span className="hidden @[280px]:inline">Media</span>
+                <span className="hidden @[280px]:inline">{t('media.library.mediaTab')}</span>
               </button>
             </HeaderActionTooltip>
-            <HeaderActionTooltip label="Search scenes (Ctrl+Shift+F)">
+            <HeaderActionTooltip label={t('media.library.searchScenes')}>
               <button
                 onClick={() => {
                   if (!sceneBrowserOpen) openSceneBrowser()
@@ -1117,7 +1139,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                 )}
               >
                 <ScanSearch className="w-3 h-3" />
-                <span className="hidden @[280px]:inline">Scenes</span>
+                <span className="hidden @[280px]:inline">{t('media.library.scenesTab')}</span>
               </button>
             </HeaderActionTooltip>
           </div>
@@ -1141,7 +1163,9 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                   >
                     <Filter className="w-2.5 h-2.5" />
                     <span className="hidden @[280px]:inline ml-1">
-                      {filterByType ? filterByType.toUpperCase() : 'ALL'}
+                      {filterByType
+                        ? t(`media.library.typeShort.${filterByType}`)
+                        : t('media.library.allShort')}
                     </span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -1150,7 +1174,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                     onClick={() => setFilterByType(null)}
                     className="text-xs hover:bg-accent hover:text-accent-foreground"
                   >
-                    All Types
+                    {t('media.library.allTypes')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-border" />
                   <DropdownMenuItem
@@ -1158,21 +1182,21 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                     className="text-xs hover:bg-accent hover:text-accent-foreground"
                   >
                     <Video className="w-3 h-3 mr-2" />
-                    Video
+                    {t('media.type.video')}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => setFilterByType('audio')}
                     className="text-xs hover:bg-accent hover:text-accent-foreground"
                   >
                     <FileAudio className="w-3 h-3 mr-2" />
-                    Audio
+                    {t('media.type.audio')}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => setFilterByType('image')}
                     className="text-xs hover:bg-accent hover:text-accent-foreground"
                   >
                     <ImageIcon className="w-3 h-3 mr-2" />
-                    Image
+                    {t('media.type.image')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1187,7 +1211,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                   >
                     <SortAsc className="w-2.5 h-2.5" />
                     <span className="hidden @[280px]:inline ml-1">
-                      {sortBy === 'name' ? 'NAME' : sortBy === 'date' ? 'DATE' : 'SIZE'}
+                      {t(`media.library.sortShort.${sortBy}`)}
                     </span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -1196,19 +1220,19 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                     onClick={() => setSortBy('date')}
                     className="text-xs hover:bg-accent hover:text-accent-foreground"
                   >
-                    Date (Newest)
+                    {t('media.library.sortDate')}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => setSortBy('name')}
                     className="text-xs hover:bg-accent hover:text-accent-foreground"
                   >
-                    Name (A-Z)
+                    {t('media.library.sortName')}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => setSortBy('size')}
                     className="text-xs hover:bg-accent hover:text-accent-foreground"
                   >
-                    Size (Largest)
+                    {t('media.library.sortSize')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1223,7 +1247,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                     value={[mediaItemSize]}
                     onValueChange={([v]) => setMediaItemSize(v ?? 3)}
                     className="flex-1 min-w-6 max-w-24"
-                    aria-label="Grid item size"
+                    aria-label={t('media.library.gridItemSize')}
                   />
                 )}
                 <div className="flex items-center border border-border rounded bg-secondary flex-shrink-0">
@@ -1266,7 +1290,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
             className="flex items-center gap-1.5 text-xs text-violet-300 hover:text-violet-100 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back</span>
+            <span>{t('media.library.back')}</span>
           </button>
           <span className="text-xs text-violet-400/60">/</span>
           <span className="text-xs text-violet-300 font-medium truncate">{activeCompLabel}</span>
@@ -1333,7 +1357,9 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
               <div className="w-16 h-16 rounded-full flex items-center justify-center bg-primary/20 border-2 border-primary">
                 <Upload className="w-7 h-7 text-primary animate-bounce" />
               </div>
-              <p className="text-base font-bold tracking-wide text-primary">DROP FILES HERE</p>
+              <p className="text-base font-bold tracking-wide text-primary">
+                {t('media.library.dropFilesHere')}
+              </p>
               <div className="flex flex-wrap justify-center gap-2 mt-2">
                 <span className="px-2 py-0.5 bg-secondary border border-border rounded text-xs font-mono text-muted-foreground">
                   MP4
@@ -1371,10 +1397,13 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
           icon={<Loader2 className="w-3.5 h-3.5 text-purple-400 animate-spin flex-shrink-0" />}
           label={
             analysisProgress.total > 1
-              ? `Analyzing ${Math.min(analysisProgress.completed + 1, analysisProgress.total)} of ${analysisProgress.total} with AI`
-              : 'Analyzing 1 item with AI'
+              ? t('media.library.analyzingMultiple', {
+                  current: Math.min(analysisProgress.completed + 1, analysisProgress.total),
+                  total: analysisProgress.total,
+                })
+              : t('media.library.analyzingSingle')
           }
-          progressAriaLabel="AI analysis progress"
+          progressAriaLabel={t('media.library.aiAnalysisProgress')}
           progressPercent={analysisPercent}
           meta={
             <>
@@ -1385,10 +1414,10 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                   onClick={() => mediaAnalysisService.requestCancel()}
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
               ) : (
-                <span className="text-muted-foreground/80">Cancelling…</span>
+                <span className="text-muted-foreground/80">{t('media.library.cancelling')}</span>
               )}
             </>
           }
@@ -1401,8 +1430,8 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
       {transcribingCount > 0 && (
         <BackgroundTaskProgress
           icon={<FileText className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
-          label={`Generating ${transcribingCount} ${transcribingCount === 1 ? 'transcript' : 'transcripts'} in background`}
-          progressAriaLabel="Transcript generation progress"
+          label={t('media.library.generatingTranscripts', { count: transcribingCount })}
+          progressAriaLabel={t('media.library.transcriptGenerationProgress')}
           progressPercent={transcribingAvgProgress * 100}
           meta={
             <>
@@ -1415,7 +1444,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                 onClick={handleCancelAllTranscriptions}
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
-                Cancel all
+                {t('media.library.cancelAll')}
               </button>
             </>
           }
@@ -1427,8 +1456,8 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
       {generatingCount > 0 && (
         <BackgroundTaskProgress
           icon={<Loader2 className="w-3.5 h-3.5 text-green-500 animate-spin flex-shrink-0" />}
-          label={`Generating ${generatingCount} ${generatingCount === 1 ? 'proxy' : 'proxies'} in background`}
-          progressAriaLabel="Proxy generation progress"
+          label={t('media.library.generatingProxies', { count: generatingCount })}
+          progressAriaLabel={t('media.library.proxyGenerationProgress')}
           progressPercent={generatingAvgProgress * 100}
           meta={
             <>
@@ -1438,7 +1467,7 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
                 onClick={handleCancelAllProxies}
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
-                Cancel all
+                {t('media.library.cancelAll')}
               </button>
             </>
           }
@@ -1458,24 +1487,25 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete selected assets?</AlertDialogTitle>
+            <AlertDialogTitle>{t('media.library.deleteAssetsTitle')}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
                 <p>
-                  Are you sure you want to delete{' '}
-                  {deleteSummary ||
-                    `${deleteAssetCount} selected asset${deleteAssetCount === 1 ? '' : 's'}`}
-                  ? This action cannot be undone.
+                  {t('media.library.deleteAssetsBody', {
+                    summary:
+                      deleteSummary ||
+                      t('media.library.selectedAssetsCount', { count: deleteAssetCount }),
+                  })}
                 </p>
                 {affectedAssetInstanceCount > 0 && (
                   <div className="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-md">
                     <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
                     <div className="text-sm text-yellow-600 dark:text-yellow-400">
-                      <p className="font-medium">Linked instances will be removed</p>
+                      <p className="font-medium">{t('media.library.linkedInstancesTitle')}</p>
                       <p className="text-xs mt-1 text-yellow-600/80 dark:text-yellow-400/80">
-                        {affectedAssetInstanceCount} clip{affectedAssetInstanceCount > 1 ? 's' : ''}{' '}
-                        across the timeline and nested compound clips reference these assets and
-                        will also be deleted.
+                        {t('media.library.linkedInstancesDetail', {
+                          count: affectedAssetInstanceCount,
+                        })}
                       </p>
                     </div>
                   </div>
@@ -1484,16 +1514,21 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete{' '}
-              {deleteSummary || `${deleteAssetCount} asset${deleteAssetCount === 1 ? '' : 's'}`}
               {affectedAssetInstanceCount > 0
-                ? ` & ${affectedAssetInstanceCount} clip${affectedAssetInstanceCount > 1 ? 's' : ''}`
-                : ''}
+                ? t('media.library.deleteWithClips', {
+                    summary:
+                      deleteSummary || t('media.library.assetsCount', { count: deleteAssetCount }),
+                    count: affectedAssetInstanceCount,
+                  })
+                : t('media.library.deleteSummary', {
+                    summary:
+                      deleteSummary || t('media.library.assetsCount', { count: deleteAssetCount }),
+                  })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

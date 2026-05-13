@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { MediaMetadata } from '@/types/storage'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -64,26 +66,31 @@ import { clearPreviewAudioCache } from '@/features/editor/deps/composition-runti
 import { createLogger } from '@/shared/logging/logger'
 import { cn } from '@/shared/ui/cn'
 import { EDITOR_DENSITY_OPTIONS } from '@/app/editor-layout'
+import { SUPPORTED_LANGUAGES, resolveSupportedLanguage } from '@/i18n/languages'
 
 const log = createLogger('SettingsDialog')
 
 const SETTINGS_SECTIONS = [
-  { id: 'general', label: 'General', icon: Settings2 },
-  { id: 'timeline', label: 'Timeline', icon: Rows3 },
-  { id: 'ai', label: 'AI', icon: Sparkles },
-  { id: 'storage', label: 'Storage', icon: HardDrive },
+  { id: 'general', labelKey: 'settings.sections.general', icon: Settings2 },
+  { id: 'timeline', labelKey: 'settings.sections.timeline', icon: Rows3 },
+  { id: 'ai', labelKey: 'settings.sections.ai', icon: Sparkles },
+  { id: 'storage', labelKey: 'settings.sections.storage', icon: HardDrive },
 ] as const
 
 const ESTIMATE_REFERENCE_DURATION_SEC = 60
 const ESTIMATE_REFERENCE_FPS = 30
 
-function formatCaptionEstimate(unit: CaptioningIntervalUnit, value: number): string {
+function formatCaptionEstimate(t: TFunction, unit: CaptioningIntervalUnit, value: number): string {
   const intervalSec = resolveCaptioningIntervalSec(unit, value, ESTIMATE_REFERENCE_FPS)
   if (intervalSec <= 0) {
-    return 'Enter an interval above zero.'
+    return t('settings.ai.enterIntervalAboveZero')
   }
   const sceneCount = Math.max(1, Math.round(ESTIMATE_REFERENCE_DURATION_SEC / intervalSec))
-  return `~${sceneCount} ${sceneCount === 1 ? 'scene' : 'scenes'} per 1-min clip at ${ESTIMATE_REFERENCE_FPS}fps`
+  return t('settings.ai.captionEstimate', {
+    sceneCount,
+    scenes: t('settings.ai.scene', { count: sceneCount }),
+    fps: ESTIMATE_REFERENCE_FPS,
+  })
 }
 
 type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]['id']
@@ -105,14 +112,21 @@ interface ActionFeedback {
   message: string
 }
 
-function formatCount(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`
-}
+type BatchActionId = 'clearCache' | 'regenerateThumbnails' | 'deleteProxies'
 
-function formatFailedItems(items: string[]): string {
+const BATCH_ACTION_LABEL_KEYS = {
+  clearCache: 'settings.feedback.actionClearCache',
+  regenerateThumbnails: 'settings.feedback.actionRegenerateThumbnails',
+  deleteProxies: 'settings.feedback.actionDeleteProxies',
+} as const satisfies Record<BatchActionId, string>
+
+function formatFailedItems(t: TFunction, items: string[]): string {
   if (items.length === 0) return ''
   if (items.length <= 2) return items.join(', ')
-  return `${items.slice(0, 2).join(', ')}, +${items.length - 2} more`
+  return t('settings.feedback.moreItems', {
+    items: items.slice(0, 2).join(', '),
+    count: items.length - 2,
+  })
 }
 
 function createBatchResult(total: number, failedItems: string[]): BatchActionResult {
@@ -124,64 +138,77 @@ function createBatchResult(total: number, failedItems: string[]): BatchActionRes
   }
 }
 
-function getBatchOutcomeFeedback(actionLabel: string, result: BatchActionResult): ActionFeedback {
+function getBatchOutcomeFeedback(
+  t: TFunction,
+  action: BatchActionId,
+  result: BatchActionResult,
+): ActionFeedback {
+  const actionLabel = t(BATCH_ACTION_LABEL_KEYS[action])
+
   if (result.total === 0) {
-    return {
-      tone: 'success',
-      message: `No project media to ${actionLabel.toLowerCase()}.`,
-    }
+    return { tone: 'success', message: t('settings.feedback.noMediaNeededUpdating') }
   }
 
   if (result.failed === 0) {
     return {
       tone: 'success',
-      message: `${actionLabel} completed for ${formatCount(result.succeeded, 'item')}.`,
+      message: t('settings.feedback.completedForItems', {
+        count: result.succeeded,
+        action: actionLabel,
+      }),
     }
   }
 
-  const failedLabel = formatFailedItems(result.failedItems)
+  const failedLabel = formatFailedItems(t, result.failedItems)
 
   if (result.succeeded === 0) {
     return {
       tone: 'error',
-      message: `Couldn't ${actionLabel.toLowerCase()} ${formatCount(result.failed, 'item')}${failedLabel ? `: ${failedLabel}` : '.'}`,
+      message: t('settings.feedback.couldntProcessItems', {
+        count: result.failed,
+        action: actionLabel,
+        detail: failedLabel ? `: ${failedLabel}` : '.',
+      }),
     }
   }
 
   return {
     tone: 'error',
-    message: `${actionLabel} completed for ${result.succeeded}/${result.total} items. Needs attention: ${failedLabel}.`,
+    message: t('settings.feedback.partialOutcome', {
+      action: actionLabel,
+      succeeded: result.succeeded,
+      total: result.total,
+      failed: failedLabel,
+    }),
   }
 }
 
 function showBatchOutcomeToast(
-  successTitle: string,
-  partialTitle: string,
-  failureTitle: string,
+  t: TFunction,
+  titles: { success: string; partial: string; failure: string },
   result: BatchActionResult,
 ): void {
   if (result.total === 0) {
-    toast.success(successTitle, {
-      description: 'No project media needed updating.',
-    })
+    toast.success(titles.success, { description: t('settings.feedback.noMediaNeededUpdating') })
     return
   }
 
   if (result.failed === 0) {
-    toast.success(successTitle, {
-      description: `${formatCount(result.succeeded, 'item')} updated.`,
+    toast.success(titles.success, {
+      description: t('settings.toasts.itemsUpdated', { count: result.succeeded }),
     })
     return
   }
 
   const description =
     result.succeeded === 0
-      ? formatFailedItems(result.failedItems)
-      : `${formatCount(result.succeeded, 'item')} updated. Failed: ${formatFailedItems(result.failedItems)}`
+      ? formatFailedItems(t, result.failedItems)
+      : t('settings.toasts.itemsUpdatedFailed', {
+          count: result.succeeded,
+          failed: formatFailedItems(t, result.failedItems),
+        })
 
-  toast.error(result.succeeded === 0 ? failureTitle : partialTitle, {
-    description,
-  })
+  toast.error(result.succeeded === 0 ? titles.failure : titles.partial, { description })
 }
 
 /**
@@ -334,6 +361,7 @@ async function regenerateProjectThumbnails(
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+  const { t, i18n } = useTranslation()
   const snapEnabled = useSettingsStore((s) => s.snapEnabled)
   const editorDensity = useSettingsStore((s) => s.editorDensity)
   const showWaveforms = useSettingsStore((s) => s.showWaveforms)
@@ -347,7 +375,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   const intervalBounds = CAPTIONING_INTERVAL_BOUNDS[captioningIntervalUnit]
   const intervalInputStep = captioningIntervalUnit === 'seconds' ? 0.5 : 1
-  const intervalUnitLabel = captioningIntervalUnit === 'seconds' ? 'sec' : 'frames'
+  const intervalUnitLabel =
+    captioningIntervalUnit === 'seconds' ? t('settings.ai.unitSec') : t('settings.ai.unitFrames')
 
   const mediaItems = useMediaLibraryStore((s) => s.mediaItems)
   const proxyStatus = useMediaLibraryStore((s) => s.proxyStatus)
@@ -368,26 +397,26 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     try {
       const items = mediaItems.map((m) => ({ id: m.id, fileName: m.fileName }))
       const result = await clearProjectCaches(items)
-      const feedback = getBatchOutcomeFeedback('Clear Cache', result)
+      const feedback = getBatchOutcomeFeedback(t, 'clearCache', result)
       setClearFeedback(feedback)
       setClearState(result.failed === 0 ? 'done' : 'partial')
       showBatchOutcomeToast(
-        'Project cache cleared',
-        'Project cache partially cleared',
-        'Project cache not cleared',
+        t,
+        {
+          success: t('settings.toasts.projectCacheCleared'),
+          partial: t('settings.toasts.projectCachePartiallyCleared'),
+          failure: t('settings.toasts.projectCacheNotCleared'),
+        },
         result,
       )
       setTimeout(() => setClearState('idle'), 2000)
     } catch (err) {
       log.error('Failed to clear caches', err)
-      setClearFeedback({
-        tone: 'error',
-        message: "Couldn't clear project cache.",
-      })
-      toast.error('Failed to clear project cache')
+      setClearFeedback({ tone: 'error', message: t('settings.feedback.couldntClearCache') })
+      toast.error(t('settings.toasts.failedToClearCache'))
       setClearState('idle')
     }
-  }, [mediaItems])
+  }, [mediaItems, t])
 
   const handleRegenThumbnails = useCallback(async () => {
     setRegenState('working')
@@ -401,13 +430,16 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       const result = await regenerateProjectThumbnails(items, (done, total) => {
         setRegenProgress(`${done}/${total}`)
       })
-      const feedback = getBatchOutcomeFeedback('Regenerate Thumbnails', result)
+      const feedback = getBatchOutcomeFeedback(t, 'regenerateThumbnails', result)
       setRegenFeedback(feedback)
       setRegenState(result.failed === 0 ? 'done' : 'partial')
       showBatchOutcomeToast(
-        'Thumbnails regenerated',
-        'Thumbnails partially regenerated',
-        'Thumbnails not regenerated',
+        t,
+        {
+          success: t('settings.toasts.thumbnailsRegenerated'),
+          partial: t('settings.toasts.thumbnailsPartiallyRegenerated'),
+          failure: t('settings.toasts.thumbnailsNotRegenerated'),
+        },
         result,
       )
       setTimeout(() => {
@@ -418,38 +450,38 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       log.error('Failed to regenerate thumbnails', err)
       setRegenFeedback({
         tone: 'error',
-        message: "Couldn't regenerate thumbnails.",
+        message: t('settings.feedback.couldntRegenerateThumbnails'),
       })
-      toast.error('Failed to regenerate thumbnails')
+      toast.error(t('settings.toasts.failedToRegenerateThumbnails'))
       setRegenState('idle')
       setRegenProgress('')
     }
-  }, [mediaItems])
+  }, [mediaItems, t])
 
   const handleClearProxies = useCallback(async () => {
     setProxyState('clearing')
     try {
       const result = await clearProjectProxies(mediaItems)
-      const feedback = getBatchOutcomeFeedback('Delete Proxies', result)
+      const feedback = getBatchOutcomeFeedback(t, 'deleteProxies', result)
       setProxyFeedback(feedback)
       setProxyState(result.failed === 0 ? 'done' : 'partial')
       showBatchOutcomeToast(
-        'Proxies deleted',
-        'Proxies partially deleted',
-        'Proxies not deleted',
+        t,
+        {
+          success: t('settings.toasts.proxiesDeleted'),
+          partial: t('settings.toasts.proxiesPartiallyDeleted'),
+          failure: t('settings.toasts.proxiesNotDeleted'),
+        },
         result,
       )
       setTimeout(() => setProxyState('idle'), 2000)
     } catch (err) {
       log.error('Failed to clear proxies', err)
-      setProxyFeedback({
-        tone: 'error',
-        message: "Couldn't delete proxies.",
-      })
-      toast.error('Failed to delete proxies')
+      setProxyFeedback({ tone: 'error', message: t('settings.feedback.couldntDeleteProxies') })
+      toast.error(t('settings.toasts.failedToDeleteProxies'))
       setProxyState('idle')
     }
-  }, [mediaItems])
+  }, [mediaItems, t])
 
   const handleGenerateMissingProxies = useCallback(async () => {
     setProxyGenerateState('queueing')
@@ -503,12 +535,13 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       proxyStatus.get(media.id) !== 'ready' &&
       proxyStatus.get(media.id) !== 'generating',
   ).length
+  const currentLanguage = resolveSupportedLanguage(i18n.resolvedLanguage ?? i18n.language)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl gap-0 overflow-hidden p-0 sm:top-16 sm:max-h-[calc(100vh-4rem)] sm:translate-y-0 sm:origin-top">
         <DialogHeader className="flex flex-row items-center justify-between border-b px-6 py-4 pr-14">
-          <DialogTitle>Editor Settings</DialogTitle>
+          <DialogTitle>{t('settings.title')}</DialogTitle>
           <Button
             variant="ghost"
             size="sm"
@@ -516,7 +549,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             className="h-8 shrink-0 gap-1.5"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            Reset
+            {t('common.reset')}
           </Button>
         </DialogHeader>
         <div className="flex min-h-0">
@@ -537,7 +570,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   )}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
-                  {section.label}
+                  {t(section.labelKey)}
                 </button>
               )
             })}
@@ -549,7 +582,30 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               {activeSection === 'general' && (
                 <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <Label className="text-sm">Editor Density</Label>
+                    <Label className="text-sm">{t('settings.general.language')}</Label>
+                    <Select
+                      value={currentLanguage}
+                      onValueChange={(value) => {
+                        void i18n.changeLanguage(resolveSupportedLanguage(value))
+                      }}
+                    >
+                      <SelectTrigger aria-label={t('language.ariaLabel')}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SUPPORTED_LANGUAGES.map((lng) => (
+                          <SelectItem key={lng.code} value={lng.code}>
+                            {lng.nativeName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {t('settings.general.languageDescription')}
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{t('settings.general.editorDensity')}</Label>
                     <Select
                       value={editorDensity}
                       onValueChange={(value) =>
@@ -568,12 +624,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      Compact fits more of the editor into a 1080p screen. Default restores the
-                      roomier layout.
+                      {t('settings.general.editorDensityDescription')}
                     </p>
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm">Auto-save</Label>
+                    <Label className="text-sm">{t('settings.general.autoSave')}</Label>
                     <Switch
                       checked={autoSaveInterval > 0}
                       onCheckedChange={(v) => setSetting('autoSaveInterval', v ? 5 : 0)}
@@ -581,7 +636,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   </div>
                   {autoSaveInterval > 0 && (
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm text-muted-foreground">Interval</Label>
+                      <Label className="text-sm text-muted-foreground">
+                        {t('settings.general.interval')}
+                      </Label>
                       <div className="w-32 flex items-center gap-2">
                         <Slider
                           value={[autoSaveInterval]}
@@ -591,13 +648,13 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                           step={5}
                         />
                         <span className="text-xs text-muted-foreground w-6">
-                          {autoSaveInterval}m
+                          {t('settings.general.intervalMinutes', { count: autoSaveInterval })}
                         </span>
                       </div>
                     </div>
                   )}
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm">Undo History Depth</Label>
+                    <Label className="text-sm">{t('settings.general.undoHistoryDepth')}</Label>
                     <div className="w-32 flex items-center gap-2">
                       <Slider
                         value={[maxUndoHistory]}
@@ -617,9 +674,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label className="text-sm">Caption sample interval</Label>
+                        <Label className="text-sm">{t('settings.ai.captionSampleInterval')}</Label>
                         <p className="text-xs text-muted-foreground">
-                          How often Analyze with AI samples a frame for captioning.
+                          {t('settings.ai.captionSampleIntervalDescription')}
                         </p>
                       </div>
                     </div>
@@ -637,7 +694,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                 : 'text-muted-foreground hover:text-foreground',
                             )}
                           >
-                            {unit === 'seconds' ? 'Seconds' : 'Frames'}
+                            {unit === 'seconds'
+                              ? t('settings.ai.seconds')
+                              : t('settings.ai.frames')}
                           </button>
                         ))}
                       </div>
@@ -670,12 +729,17 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                           captioningIntervalValue === DEFAULT_CAPTIONING_INTERVAL_SECONDS
                         }
                       >
-                        Reset
+                        {t('common.reset')}
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {formatCaptionEstimate(captioningIntervalUnit, captioningIntervalValue)}.
-                      Smaller intervals produce denser scenes but take longer to generate.
+                      {t('settings.ai.captionIntervalHint', {
+                        estimate: formatCaptionEstimate(
+                          t,
+                          captioningIntervalUnit,
+                          captioningIntervalValue,
+                        ),
+                      })}
                     </p>
                   </div>
                 </div>
@@ -685,9 +749,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-sm">Snap by Default</Label>
+                      <Label className="text-sm">{t('settings.timeline.snapByDefault')}</Label>
                       <p className="text-xs text-muted-foreground">
-                        Sets the initial snap state when a project opens.
+                        {t('settings.timeline.snapByDefaultDescription')}
                       </p>
                     </div>
                     <Switch
@@ -696,14 +760,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm">Show Waveforms</Label>
+                    <Label className="text-sm">{t('settings.timeline.showWaveforms')}</Label>
                     <Switch
                       checked={showWaveforms}
                       onCheckedChange={(v) => setSetting('showWaveforms', v)}
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm">Show Filmstrips</Label>
+                    <Label className="text-sm">{t('settings.timeline.showFilmstrips')}</Label>
                     <Switch
                       checked={showFilmstrips}
                       onCheckedChange={(v) => setSetting('showFilmstrips', v)}
@@ -716,9 +780,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-sm">Generate Missing Proxies</Label>
+                      <Label className="text-sm">
+                        {t('settings.storage.generateMissingProxies')}
+                      </Label>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Queue proxy generation for video in this project that does not have one yet
+                        {t('settings.storage.generateMissingProxiesDescription')}
                       </p>
                     </div>
                     <Button
@@ -734,20 +800,22 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       {proxyGenerateState === 'done' && <Check className="w-3.5 h-3.5" />}
                       {proxyGenerateState === 'idle' && <Film className="w-3.5 h-3.5" />}
                       {proxyGenerateState === 'queueing'
-                        ? 'Queueing...'
+                        ? t('common.queueing')
                         : proxyGenerateState === 'done'
-                          ? 'Queued'
+                          ? t('settings.storage.queued')
                           : missingProjectProxyCount > 0
-                            ? `Generate (${missingProjectProxyCount})`
-                            : 'Up to date'}
+                            ? t('settings.storage.generateWithCount', {
+                                count: missingProjectProxyCount,
+                              })
+                            : t('settings.storage.upToDate')}
                     </Button>
                   </div>
                   <Separator className="bg-white/8" />
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-sm">Clear Project Cache</Label>
+                      <Label className="text-sm">{t('settings.storage.clearProjectCache')}</Label>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Waveforms, filmstrips, GIF frames, decoded audio
+                        {t('settings.storage.clearProjectCacheDescription')}
                       </p>
                       {clearFeedback && (
                         <p
@@ -776,19 +844,21 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       {clearState === 'partial' && <TriangleAlert className="w-3.5 h-3.5" />}
                       {clearState === 'idle' && <Trash2 className="w-3.5 h-3.5" />}
                       {clearState === 'clearing'
-                        ? 'Clearing...'
+                        ? t('common.clearing')
                         : clearState === 'done'
-                          ? 'Cleared'
+                          ? t('settings.storage.cleared')
                           : clearState === 'partial'
-                            ? 'Partial'
-                            : 'Clear'}
+                            ? t('common.partial')
+                            : t('settings.storage.clear')}
                     </Button>
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-sm">Regenerate Thumbnails</Label>
+                      <Label className="text-sm">
+                        {t('settings.storage.regenerateThumbnails')}
+                      </Label>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Re-create media library thumbnails for this project
+                        {t('settings.storage.regenerateThumbnailsDescription')}
                       </p>
                       {regenFeedback && (
                         <p
@@ -817,17 +887,17 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       {regenState === 'working'
                         ? regenProgress
                         : regenState === 'done'
-                          ? 'Done'
+                          ? t('common.done')
                           : regenState === 'partial'
-                            ? 'Partial'
-                            : 'Regenerate'}
+                            ? t('common.partial')
+                            : t('settings.storage.regenerate')}
                     </Button>
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-sm">Delete Proxies</Label>
+                      <Label className="text-sm">{t('settings.storage.deleteProxies')}</Label>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Remove generated proxy videos for this project
+                        {t('settings.storage.deleteProxiesDescription')}
                       </p>
                       {proxyFeedback && (
                         <p
@@ -856,20 +926,20 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       {proxyState === 'partial' && <TriangleAlert className="w-3.5 h-3.5" />}
                       {proxyState === 'idle' && <Film className="w-3.5 h-3.5" />}
                       {proxyState === 'clearing'
-                        ? 'Deleting...'
+                        ? t('common.deleting')
                         : proxyState === 'done'
-                          ? 'Deleted'
+                          ? t('settings.storage.deleted')
                           : proxyState === 'partial'
-                            ? 'Partial'
-                            : 'Delete'}
+                            ? t('common.partial')
+                            : t('common.delete')}
                     </Button>
                   </div>
                   <Separator className="bg-white/8" />
                   <div className="space-y-3">
                     <div className="space-y-1">
-                      <Label className="text-sm">Local AI</Label>
+                      <Label className="text-sm">{t('settings.storage.localAi')}</Label>
                       <p className="text-xs text-muted-foreground">
-                        Unload resident runtimes or clear cached model downloads.
+                        {t('settings.storage.localAiDescription')}
                       </p>
                     </div>
                     <LocalInferenceUnloadControl />
@@ -885,22 +955,19 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Clear project cache?</AlertDialogTitle>
+            <AlertDialogTitle>{t('settings.storage.clearCacheConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will delete cached waveforms, filmstrips, GIF frames, and decoded audio for the
-              current project ({mediaItems.length} media items). These will be regenerated
-              automatically when needed. Your project data, media files, thumbnails, and proxies
-              will not be affected.
+              {t('settings.storage.clearCacheConfirmDescription', { count: mediaItems.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 void handleClearCache()
               }}
             >
-              Clear Cache
+              {t('settings.storage.clearCache')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

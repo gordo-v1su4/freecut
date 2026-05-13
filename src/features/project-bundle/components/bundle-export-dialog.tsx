@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -39,18 +40,18 @@ export interface BundleExportDialogProps {
 
 type ExportStatus = 'idle' | 'saving' | 'exporting' | 'completed' | 'failed'
 
-function getStageLabel(stage: ExportProgress['stage']): string {
+function getStageLabel(stage: ExportProgress['stage'], t: (key: string) => string): string {
   switch (stage) {
     case 'collecting':
-      return 'Collecting project data...'
+      return t('projects.bundleExport.stageCollecting')
     case 'hashing':
-      return 'Computing file hashes...'
+      return t('projects.bundleExport.stageHashing')
     case 'packaging':
-      return 'Packaging files...'
+      return t('projects.bundleExport.stagePackaging')
     case 'complete':
-      return 'Complete!'
+      return t('projects.bundleExport.stageComplete')
     default:
-      return 'Processing...'
+      return t('projects.bundleExport.stageProcessing')
   }
 }
 
@@ -61,6 +62,7 @@ export function BundleExportDialog({
   onBeforeExport,
   fileHandle,
 }: BundleExportDialogProps) {
+  const { t } = useTranslation()
   const [status, setStatus] = useState<ExportStatus>('idle')
   const [progress, setProgress] = useState<ExportProgress>({ percent: 0, stage: 'collecting' })
   const [result, setResult] = useState<ExportResult | null>(null)
@@ -129,10 +131,10 @@ export function BundleExportDialog({
       setResult(exportResult)
       setStatus('completed')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Export failed')
+      setError(err instanceof Error ? err.message : t('projects.bundleExport.exportFailed'))
       setStatus('failed')
     }
-  }, [projectId, onBeforeExport, fileHandle])
+  }, [projectId, onBeforeExport, fileHandle, t])
 
   // Auto-start export when dialog opens
   useEffect(() => {
@@ -181,19 +183,19 @@ export function BundleExportDialog({
             {isCompleted && <CheckCircle2 className="h-5 w-5 text-green-500" />}
             {isFailed && <AlertCircle className="h-5 w-5 text-destructive" />}
             {status === 'idle' && <FolderArchive className="h-5 w-5" />}
-            {status === 'saving' && 'Saving project...'}
-            {status === 'exporting' && 'Exporting project...'}
-            {isCompleted && 'Export complete!'}
-            {isFailed && 'Export failed'}
-            {status === 'idle' && 'Export Project'}
+            {status === 'saving' && t('projects.bundleExport.savingProject')}
+            {status === 'exporting' && t('projects.bundleExport.exportingProject')}
+            {isCompleted && t('projects.bundleExport.exportComplete')}
+            {isFailed && t('projects.bundleExport.exportFailed')}
+            {status === 'idle' && t('projects.bundleExport.title')}
           </DialogTitle>
           <DialogDescription>
-            {isExporting && 'Creating project bundle with all media files'}
+            {isExporting && t('projects.bundleExport.creatingBundle')}
             {isCompleted &&
               (usedStreaming
-                ? 'Your project bundle has been saved'
-                : 'Your project bundle is ready to download')}
-            {isFailed && 'Something went wrong during export'}
+                ? t('projects.bundleExport.bundleSavedDescription')
+                : t('projects.bundleExport.bundleReadyDescription'))}
+            {isFailed && t('projects.bundleExport.somethingWentWrong')}
           </DialogDescription>
         </DialogHeader>
 
@@ -209,8 +211,8 @@ export function BundleExportDialog({
                 <div className="flex items-center justify-between text-sm gap-2">
                   <span className="text-muted-foreground truncate">
                     {status === 'saving'
-                      ? 'Saving latest changes...'
-                      : getStageLabel(progress.stage)}
+                      ? t('projects.bundleExport.savingLatestChanges')
+                      : getStageLabel(progress.stage, t)}
                   </span>
                   <span className="font-medium tabular-nums flex-shrink-0">
                     {Math.round(progress.percent)}%
@@ -221,7 +223,9 @@ export function BundleExportDialog({
               {/* Current file */}
               {progress.currentFile && (
                 <div className="rounded-md bg-muted/50 px-3 py-2 min-w-0 overflow-hidden">
-                  <p className="text-xs text-muted-foreground mb-1">Current file</p>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    {t('projects.bundleExport.currentFile')}
+                  </p>
                   <p className="text-sm truncate" title={progress.currentFile}>
                     {progress.currentFile}
                   </p>
@@ -232,7 +236,9 @@ export function BundleExportDialog({
               {elapsedSeconds > 0 && (
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <span className="text-muted-foreground">Elapsed:</span>
+                  <span className="text-muted-foreground">
+                    {t('projects.bundleExport.elapsed')}
+                  </span>
                   <span className="font-medium tabular-nums">{formatDuration(elapsedSeconds)}</span>
                 </div>
               )}
@@ -246,32 +252,36 @@ export function BundleExportDialog({
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                 <AlertDescription className="text-green-700 dark:text-green-400">
                   {usedStreaming
-                    ? 'Project bundle saved to disk successfully!'
-                    : 'Project bundle created successfully!'}
+                    ? t('projects.bundleExport.savedSuccess')
+                    : t('projects.bundleExport.createdSuccess')}
                 </AlertDescription>
               </Alert>
 
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                   <FolderArchive className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">File:</span>
+                  <span className="text-muted-foreground">{t('projects.bundleExport.file')}</span>
                   <span className="font-medium truncate">{result.filename}</span>
                 </div>
                 <div className="flex flex-wrap gap-x-6 gap-y-2">
                   <div className="flex items-center gap-2 text-sm">
                     <HardDrive className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Size:</span>
+                    <span className="text-muted-foreground">{t('projects.bundleExport.size')}</span>
                     <span className="font-medium">{formatBytes(result.size)}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <FileVideo className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Media files:</span>
+                    <span className="text-muted-foreground">
+                      {t('projects.bundleExport.mediaFiles')}
+                    </span>
                     <span className="font-medium">{result.mediaCount}</span>
                   </div>
                   {elapsedSeconds > 0 && (
                     <div className="flex items-center gap-2 text-sm">
                       <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Time taken:</span>
+                      <span className="text-muted-foreground">
+                        {t('projects.bundleExport.timeTaken')}
+                      </span>
                       <span className="font-medium">{formatDuration(elapsedSeconds)}</span>
                     </div>
                   )}
@@ -294,12 +304,12 @@ export function BundleExportDialog({
           {isCompleted && (
             <>
               <Button variant="outline" onClick={onClose}>
-                Close
+                {t('common.close')}
               </Button>
               {!usedStreaming && (
                 <Button onClick={handleDownload}>
                   <Download className="mr-2 h-4 w-4" />
-                  Download
+                  {t('projects.bundleExport.download')}
                 </Button>
               )}
             </>
@@ -307,7 +317,7 @@ export function BundleExportDialog({
 
           {isFailed && (
             <Button variant="outline" onClick={onClose}>
-              Close
+              {t('common.close')}
             </Button>
           )}
         </div>

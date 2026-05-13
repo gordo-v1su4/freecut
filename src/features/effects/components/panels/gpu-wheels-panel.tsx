@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, Trash2, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { ItemEffect, GpuEffect } from '@/types/effects'
@@ -72,6 +73,7 @@ const WheelControl = memo(function WheelControl({
   onCommit,
   onReset,
 }: WheelControlProps) {
+  const { t } = useTranslation()
   const wheelRef = useRef<HTMLButtonElement>(null)
   const [dragging, setDragging] = useState(false)
   const [localHue, setLocalHue] = useState(hue)
@@ -183,7 +185,7 @@ const WheelControl = memo(function WheelControl({
         className="h-5 w-5"
         onClick={onReset}
         disabled={disabled}
-        title={`Reset ${label}`}
+        title={t('effects.wheels.resetWheel', { name: label })}
       >
         <RotateCcw className="w-3 h-3" />
       </Button>
@@ -192,9 +194,9 @@ const WheelControl = memo(function WheelControl({
 })
 
 const WHEEL_DESCRIPTORS = [
-  { label: 'Shadows', hueKey: 'shadowsHue', amountKey: 'shadowsAmount' },
-  { label: 'Midtones', hueKey: 'midtonesHue', amountKey: 'midtonesAmount' },
-  { label: 'Highlights', hueKey: 'highlightsHue', amountKey: 'highlightsAmount' },
+  { labelKey: 'effects.wheels.shadows', hueKey: 'shadowsHue', amountKey: 'shadowsAmount' },
+  { labelKey: 'effects.wheels.midtones', hueKey: 'midtonesHue', amountKey: 'midtonesAmount' },
+  { labelKey: 'effects.wheels.highlights', hueKey: 'highlightsHue', amountKey: 'highlightsAmount' },
 ] as const
 
 const TONAL_PARAMS = ['temperature', 'tint', 'saturation'] as const
@@ -213,6 +215,7 @@ export const GpuWheelsPanel = memo(function GpuWheelsPanel({
   onToggle,
   onRemove,
 }: GpuWheelsPanelProps) {
+  const { t } = useTranslation()
   const wheelGridRef = useRef<HTMLDivElement>(null)
   const [wheelSize, setWheelSize] = useState(MAX_WHEEL_SIZE)
 
@@ -248,7 +251,7 @@ export const GpuWheelsPanel = memo(function GpuWheelsPanel({
             size="icon"
             className={`h-6 w-6 flex-shrink-0 ${isDefault ? 'opacity-30' : ''}`}
             onClick={() => onReset(effect.id)}
-            title="Reset to defaults"
+            title={t('effects.panel.resetToDefaults')}
             disabled={isDefault}
           >
             <RotateCcw className="w-3 h-3" />
@@ -258,7 +261,9 @@ export const GpuWheelsPanel = memo(function GpuWheelsPanel({
             size="icon"
             className="h-6 w-6 flex-shrink-0"
             onClick={() => onToggle(effect.id)}
-            title={effect.enabled ? 'Disable effect' : 'Enable effect'}
+            title={
+              effect.enabled ? t('effects.panel.disableEffect') : t('effects.panel.enableEffect')
+            }
           >
             {effect.enabled ? (
               <Eye className="w-3 h-3" />
@@ -271,7 +276,7 @@ export const GpuWheelsPanel = memo(function GpuWheelsPanel({
             size="icon"
             className="h-6 w-6 flex-shrink-0"
             onClick={() => onRemove(effect.id)}
-            title="Remove effect"
+            title={t('effects.panel.removeEffect')}
           >
             <Trash2 className="w-3 h-3" />
           </Button>
@@ -282,8 +287,8 @@ export const GpuWheelsPanel = memo(function GpuWheelsPanel({
         <div ref={wheelGridRef} className="grid grid-cols-3 gap-1">
           {WHEEL_DESCRIPTORS.map((desc) => (
             <WheelControl
-              key={desc.label}
-              label={desc.label}
+              key={desc.labelKey}
+              label={t(desc.labelKey)}
               hue={(gpuEffect.params[desc.hueKey] as number) ?? 0}
               amount={(gpuEffect.params[desc.amountKey] as number) ?? 0}
               size={wheelSize}

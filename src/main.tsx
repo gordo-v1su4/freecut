@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { toast } from 'sonner'
+import { i18n } from './i18n'
 import { App } from './app'
 import { initializeDebugUtils } from '@/app/debug'
 import { createLogger } from '@/shared/logging/logger'
@@ -28,10 +29,10 @@ window.addEventListener('vite:preloadError', () => {
   const projectId = projectIdMatch?.[1]
 
   if (projectId) {
-    toast.error('A new version is available. Save your work and reload.', {
+    toast.error(i18n.t('appShell.newVersionAvailable'), {
       duration: Infinity,
       action: {
-        label: 'Save & Reload',
+        label: i18n.t('appShell.saveAndReload'),
         onClick: async () => {
           try {
             const { useTimelineStore } =
@@ -44,7 +45,7 @@ window.addEventListener('vite:preloadError', () => {
         },
       },
       cancel: {
-        label: 'Reload without saving',
+        label: i18n.t('appShell.reloadWithoutSaving'),
         onClick: () => window.location.reload(),
       },
     })

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { i18n } from '@/i18n'
 import type { TimelineItem as TimelineItemType } from '@/types/timeline'
 import type { AnimatableProperty } from '@/types/keyframe'
 import type { MediaTranscriptModel, MediaTranscriptQuantization } from '@/types/storage'
@@ -268,13 +269,14 @@ export function useTimelineItemActions({
             replaceExisting,
           })
 
+          const modelLabel = getMediaTranscriptionModelLabel(model)
           const successMessage = replaceExisting
             ? result.insertedItemCount > 0
               ? result.removedItemCount > 0
-                ? `Updated captions on this segment with ${getMediaTranscriptionModelLabel(model)}`
-                : `Refreshed captions on this segment with ${getMediaTranscriptionModelLabel(model)}`
-              : `Removed captions from this segment`
-            : `Added captions to this segment with ${getMediaTranscriptionModelLabel(model)}`
+                ? i18n.t('timeline.captions.updatedWithModel', { model: modelLabel })
+                : i18n.t('timeline.captions.refreshedWithModel', { model: modelLabel })
+              : i18n.t('timeline.captions.removedFromSegment')
+            : i18n.t('timeline.captions.addedWithModel', { model: modelLabel })
 
           store.showNotification({
             type: 'success',
@@ -293,7 +295,9 @@ export function useTimelineItemActions({
           )
           store.clearTranscriptProgress(mediaId)
           const fallbackMessage =
-            error instanceof Error ? error.message : 'Failed to generate captions for segment'
+            error instanceof Error
+              ? error.message
+              : i18n.t('timeline.captions.failedGenerateSegment')
           const friendlyMessage = isTranscriptionOutOfMemoryError(error)
             ? TRANSCRIPTION_OOM_HINT
             : fallbackMessage
@@ -361,14 +365,17 @@ export function useTimelineItemActions({
           type: 'success',
           message: replaceExisting
             ? result.insertedItemCount > 0 || result.removedItemCount > 0
-              ? 'Updated captions on this segment from the current transcript'
-              : 'Removed captions from this segment'
-            : 'Added captions to this segment from the current transcript',
+              ? i18n.t('timeline.captions.updatedFromTranscript')
+              : i18n.t('timeline.captions.removedFromSegment')
+            : i18n.t('timeline.captions.addedFromTranscript'),
         })
       } catch (error) {
         store.showNotification({
           type: 'error',
-          message: error instanceof Error ? error.message : 'Failed to update captions for segment',
+          message:
+            error instanceof Error
+              ? error.message
+              : i18n.t('timeline.captions.failedUpdateSegment'),
         })
       }
     }
@@ -438,7 +445,7 @@ export function useTimelineItemActions({
         try {
           overlayStore.upsertOverlay(clipId, {
             id: SCENE_DETECTION_OVERLAY_ID,
-            label: 'Detecting scenes',
+            label: i18n.t('timeline.sceneDetection.detectingScenes'),
             progress: 0,
             tone: 'info',
           })
@@ -512,7 +519,7 @@ export function useTimelineItemActions({
           }
 
           if (cuts.length === 0) {
-            toast.info('No scene cuts detected')
+            toast.info(i18n.t('timeline.sceneDetection.noScenesDetected'))
             return
           }
 
@@ -526,25 +533,25 @@ export function useTimelineItemActions({
             .map((frame) => frame + clipFrom)
 
           if (splitFrames.length === 0) {
-            toast.info('No scene cuts within clip bounds')
+            toast.info(i18n.t('timeline.sceneDetection.noScenesWithinBounds'))
             return
           }
 
           const splitCount = splitItemAtFrames(clipId, splitFrames)
 
           if (splitCount > 0) {
-            toast.success(`Split clip at ${splitCount} scene cut${splitCount > 1 ? 's' : ''}`)
+            toast.success(i18n.t('timeline.sceneDetection.splitAtScenes', { count: splitCount }))
           } else {
-            toast.info('No valid split points found')
+            toast.info(i18n.t('timeline.sceneDetection.noValidSplitPoints'))
           }
         } catch (error) {
           if (error instanceof DOMException && error.name === 'AbortError') {
             return
           }
           if (error instanceof Error && error.message.includes('WebGPU')) {
-            toast.error('Optical flow scene detection requires WebGPU support')
+            toast.error(i18n.t('timeline.sceneDetection.requiresWebGpu'))
           } else {
-            toast.error('Scene detection failed')
+            toast.error(i18n.t('timeline.sceneDetection.failed'))
           }
         } finally {
           if (video) {
@@ -577,7 +584,7 @@ export function useTimelineItemActions({
       )
 
     if (targetItems.length === 0) {
-      toast.info('Select an audio or video clip first')
+      toast.info(i18n.t('timeline.itemActions.selectAvClipFirst'))
       return
     }
 
@@ -592,7 +599,7 @@ export function useTimelineItemActions({
         const summary = applySilencePreviewOverlays(targetItemIds, silenceRangesByMediaId)
 
         if (summary.rangeCount === 0) {
-          toast.info('No removable silence detected')
+          toast.info(i18n.t('timeline.silenceRemoval.noRemovableDetectedShort'))
           return
         }
 
@@ -604,7 +611,11 @@ export function useTimelineItemActions({
         })
       } catch (error) {
         logger.warn('Remove silence failed', error)
-        toast.error(error instanceof Error ? error.message : 'Failed to preview silence')
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : i18n.t('timeline.silenceRemoval.toastPreviewFailed'),
+        )
       } finally {
         setIsRemovingSilence(false)
       }
@@ -641,7 +652,7 @@ export function useTimelineItemActions({
         const summary = applyFillerPreviewOverlays(targetItemIds, rangesByMediaId)
 
         if (summary.rangeCount === 0) {
-          toast.info('No removable filler words detected')
+          toast.info(i18n.t('timeline.fillerRemoval.noRemovableDetectedShort'))
           return
         }
 
@@ -653,7 +664,11 @@ export function useTimelineItemActions({
         })
       } catch (error) {
         logger.warn('Remove filler words failed', error)
-        toast.error(error instanceof Error ? error.message : 'Failed to preview filler words')
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : i18n.t('timeline.fillerRemoval.toastPreviewFailed'),
+        )
       } finally {
         setIsRemovingFillers(false)
       }

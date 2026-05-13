@@ -1,4 +1,5 @@
 import { useMemo, useCallback, useEffect, memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Film, Sparkles, Volume2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -66,6 +67,7 @@ function computeItemTypeInfo(items: TimelineItem[]) {
  * Memoized to prevent re-renders when props haven't changed.
  */
 export const ClipPanel = memo(function ClipPanel() {
+  const { t } = useTranslation()
   // Granular selectors with explicit types
   const clipInspectorTab = useEditorStore((s) => s.clipInspectorTab)
   const setClipInspectorTab = useEditorStore((s) => s.setClipInspectorTab)
@@ -220,15 +222,15 @@ export const ClipPanel = memo(function ClipPanel() {
         <TabsList className="grid w-full grid-cols-3 h-8">
           <TabsTrigger value="video" disabled={!showVideoTab} className="text-xs gap-1 px-2">
             <Film className="h-3 w-3" />
-            Video
+            {t('editor.clipPanel.tabVideo')}
           </TabsTrigger>
           <TabsTrigger value="audio" disabled={!showAudioTab} className="text-xs gap-1 px-2">
             <Volume2 className="h-3 w-3" />
-            Audio
+            {t('editor.clipPanel.tabAudio')}
           </TabsTrigger>
           <TabsTrigger value="effects" disabled={!showEffectsTab} className="text-xs gap-1 px-2">
             <Sparkles className="h-3 w-3" />
-            Effects
+            {t('editor.clipPanel.tabEffects')}
           </TabsTrigger>
         </TabsList>
 
@@ -282,7 +284,7 @@ export const ClipPanel = memo(function ClipPanel() {
               {/* Explanatory text for adjustment layers */}
               {hasAdjustmentItems && (
                 <div className="px-2 py-2 text-xs text-muted-foreground bg-purple-500/10 rounded border border-purple-500/20">
-                  Effects on adjustment layers apply to all items on tracks above.
+                  {t('editor.clipPanel.adjustmentLayerHint')}
                 </div>
               )}
               <EffectsSection items={visualItems} />
