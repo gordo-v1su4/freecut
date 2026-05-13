@@ -59,12 +59,30 @@ const mergedLocales: Record<string, LocaleTree> = {}
 for (const lang of SUPPORTED_LANGUAGE_CODES) {
   mergedLocales[lang] = structuredClone(baseLocales[lang] ?? {})
 }
-for (const mod of Object.values(partialModules)) {
+function normalizePartialSlice(path: string, slice: LocaleTree): LocaleTree {
+  if (path.endsWith('/effects.json') && !isPlainObject(slice.effects)) {
+    return { effects: slice }
+  }
+
+  return slice
+}
+
+const orderedPartialModules = Object.entries(partialModules).sort(([leftPath], [rightPath]) => {
+  const leftIsFallback = leftPath.endsWith('/missing.json')
+  const rightIsFallback = rightPath.endsWith('/missing.json')
+  if (leftIsFallback !== rightIsFallback) {
+    return leftIsFallback ? -1 : 1
+  }
+
+  return leftPath.localeCompare(rightPath)
+})
+
+for (const [path, mod] of orderedPartialModules) {
   const partial = mod.default ?? {}
   for (const [lang, slice] of Object.entries(partial)) {
     if (!isPlainObject(slice)) continue
     const dest = mergedLocales[lang] ?? (mergedLocales[lang] = {})
-    deepMerge(dest, slice)
+    deepMerge(dest, normalizePartialSlice(path, slice))
   }
 }
 

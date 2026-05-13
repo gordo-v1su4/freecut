@@ -272,6 +272,9 @@ const TEXT_TEMPLATE_GROUPS: ReadonlyArray<{
   { key: 'three', labelKey: 'editor.mediaSidebar.textGroupThreeSpans' },
 ]
 
+const DEFAULT_TEXT_TEMPLATE_LABEL = 'Text'
+const ADD_TEXT_TEMPLATE_LABEL = 'Add Text'
+
 export const MediaSidebar = memo(function MediaSidebar() {
   const { t } = useTranslation()
   const editorDensity = useSettingsStore((s) => s.editorDensity)
@@ -791,7 +794,7 @@ export const MediaSidebar = memo(function MediaSidebar() {
                               draggable={true}
                               onDragStart={handleTemplateDragStart({
                                 itemType: 'text',
-                                label: t('editor.mediaSidebar.text'),
+                                label: DEFAULT_TEXT_TEMPLATE_LABEL,
                               })}
                               onDragEnd={handleTemplateDragEnd}
                               onClick={() => {
@@ -802,7 +805,7 @@ export const MediaSidebar = memo(function MediaSidebar() {
                             >
                               {renderTextTemplatePreview()}
                               <span className="text-[9px] text-muted-foreground group-hover:text-foreground text-center leading-tight w-full">
-                                {t('editor.mediaSidebar.addText')}
+                                {ADD_TEXT_TEMPLATE_LABEL}
                               </span>
                             </button>
                           ) : null}

@@ -553,12 +553,10 @@ export const EffectsSection = memo(function EffectsSection({ items }: EffectsSec
     return gpuCategories
       .map(({ category, effects: catEffects }) => ({
         category,
-        effects: catEffects.filter((def) =>
-          getEffectDefinitionName(t, def).toLowerCase().includes(q),
-        ),
+        effects: catEffects.filter((def) => getEffectDefinitionName(def).toLowerCase().includes(q)),
       }))
       .filter(({ effects: catEffects }) => catEffects.length > 0)
-  }, [gpuCategories, searchQuery, t])
+  }, [gpuCategories, searchQuery])
 
   const filteredPresets = useMemo(() => {
     if (!searchQuery.trim()) return EFFECT_PRESETS
@@ -634,7 +632,7 @@ export const EffectsSection = memo(function EffectsSection({ items }: EffectsSec
                         ) : (
                           <span className="w-8 h-[18px] rounded-sm bg-muted flex-shrink-0" />
                         )}
-                        {getEffectDefinitionName(t, def)}
+                        {getEffectDefinitionName(def)}
                       </button>
                     ))}
                   </div>

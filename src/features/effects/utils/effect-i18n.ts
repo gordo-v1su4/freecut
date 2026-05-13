@@ -5,8 +5,8 @@ export function getEffectCategoryLabel(t: TFunction, category: string): string {
   return t(`effects.categories.${category}`, { defaultValue: category })
 }
 
-export function getEffectDefinitionName(t: TFunction, definition: GpuEffectDefinition): string {
-  return t(`effects.definitions.${definition.id}.name`, { defaultValue: definition.name })
+export function getEffectDefinitionName(definition: GpuEffectDefinition): string {
+  return definition.name
 }
 
 export function getEffectParamLabel(

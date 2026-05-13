@@ -105,7 +105,7 @@ export const GpuEffectPanel = memo(function GpuEffectPanel({
   const { t } = useTranslation()
   const paramEntries = Object.entries(definition.params)
   const isDefault = paramEntries.every(([key, param]) => gpuEffect.params[key] === param.default)
-  const effectName = getEffectDefinitionName(t, definition)
+  const effectName = getEffectDefinitionName(definition)
 
   // Single number param: compact single-row layout matching CSS filter panels
   if (paramEntries.length === 1 && paramEntries[0]![1].type === 'number') {

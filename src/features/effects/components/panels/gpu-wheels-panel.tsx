@@ -245,7 +245,7 @@ export const GpuWheelsPanel = memo(function GpuWheelsPanel({
 
   return (
     <div className="space-y-0">
-      <PropertyRow label={getEffectDefinitionName(t, definition)}>
+      <PropertyRow label={getEffectDefinitionName(definition)}>
         <div className="flex items-center gap-1 min-w-0 w-full justify-end">
           <Button
             variant="ghost"
