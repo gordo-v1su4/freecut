@@ -73,11 +73,20 @@ import {
   type MossTtsVoice,
 } from '../services/moss-tts-service'
 import {
+  SUPERTONIC_TTS_EXPRESSIVE_TAG_OPTIONS,
+  SUPERTONIC_TTS_LANGUAGE_OPTIONS,
+  SUPERTONIC_TTS_VOICE_OPTIONS,
+  supertonicTtsService,
+  type SupertonicTtsLanguageSelection,
+  type SupertonicTtsVoice,
+} from '../services/supertonic-tts-service'
+import {
   DEFAULT_MUSICGEN_MODEL,
   MUSICGEN_MODEL_OPTIONS,
   musicgenService,
   type MusicgenModelId,
 } from '../services/musicgen-service'
+import { getLanguageDisplayName, insertTextAtCursor } from '../utils/tts-ui-helpers'
 
 const MUSIC_PROMPT_PRESETS = [
   {
@@ -294,6 +303,9 @@ export const AiPanel = memo(function AiPanel() {
   const [ttsEngine, setTtsEngine] = useState<StoredTtsEngine>(() => getStoredTtsEngine())
   const [ttsKokoroVoice, setTtsKokoroVoice] = useState<KokoroTtsVoice>('af_heart')
   const [ttsMossVoice, setTtsMossVoice] = useState<MossTtsVoice>('Xiaoyu')
+  const [ttsSupertonicVoice, setTtsSupertonicVoice] = useState<SupertonicTtsVoice>('M3')
+  const [ttsSupertonicLanguage, setTtsSupertonicLanguage] =
+    useState<SupertonicTtsLanguageSelection>('auto')
   const ttsModel: KokoroTtsModel = KOKORO_TTS_BEST_MODEL
   const [ttsSpeed, setTtsSpeed] = useState(1)
   const [isTtsGenerating, setIsTtsGenerating] = useState(false)
@@ -315,6 +327,7 @@ export const AiPanel = memo(function AiPanel() {
   const [musicSectionOpen, setMusicSectionOpen] = useState(true)
 
   const musicAbortRef = useRef<AbortController | null>(null)
+  const ttsTextareaRef = useRef<HTMLTextAreaElement>(null)
   const generationUrlsRef = useRef<Set<string>>(new Set())
 
   // Revoke all blob URLs on unmount
@@ -345,9 +358,22 @@ export const AiPanel = memo(function AiPanel() {
 
   const isKokoroSupported = kokoroTtsService.isSupported()
   const isMossSupported = mossTtsService.isSupported()
-  const supportsNativeTtsSpeed = ttsEngine === 'kokoro'
+  const isSupertonicSupported = supertonicTtsService.isSupported()
+  const supportsNativeTtsSpeed = ttsEngine === 'kokoro' || ttsEngine === 'supertonic'
+  const ttsSpeedMin = ttsEngine === 'supertonic' ? 0.8 : 0.5
+  const ttsSpeedMax = ttsEngine === 'supertonic' ? 1.3 : 2
+
+  useEffect(() => {
+    setTtsSpeed((current) => Math.min(ttsSpeedMax, Math.max(ttsSpeedMin, current)))
+  }, [ttsSpeedMax, ttsSpeedMin])
+
   const effectiveTtsSpeed = supportsNativeTtsSpeed ? ttsSpeed : 1
-  const isTtsSupported = ttsEngine === 'kokoro' ? isKokoroSupported : isMossSupported
+  const isTtsSupported =
+    ttsEngine === 'kokoro'
+      ? isKokoroSupported
+      : ttsEngine === 'moss'
+        ? isMossSupported
+        : isSupertonicSupported
   const isMusicSupported = musicgenService.isSupported()
   const trimmedTtsText = ttsText.trim()
   const trimmedMusicPrompt = musicPrompt.trim()
@@ -366,7 +392,12 @@ export const AiPanel = memo(function AiPanel() {
   const anyMusicSaving = musicGenerations.some((generation) => generation.saving)
   const text = ttsText
   const setText = setTtsText
-  const voice = ttsEngine === 'kokoro' ? ttsKokoroVoice : ttsMossVoice
+  const voice =
+    ttsEngine === 'kokoro'
+      ? ttsKokoroVoice
+      : ttsEngine === 'moss'
+        ? ttsMossVoice
+        : ttsSupertonicVoice
   const speed = ttsSpeed
   const setSpeed = setTtsSpeed
   const isGenerating = isTtsGenerating
@@ -376,8 +407,10 @@ export const AiPanel = memo(function AiPanel() {
   const totalBytes = totalTtsBytes
   const anySaving = anyTtsSaving
   const trimmedText = trimmedTtsText
-  const currentTtsBackendLabel = ttsEngine === 'kokoro' ? 'WebGPU' : 'CPU'
-  const currentTtsRuntimeLabel = ttsEngine === 'kokoro' ? 'Kokoro TTS Best' : 'MOSS Nano'
+  const currentTtsBackendLabel =
+    ttsEngine === 'kokoro' ? 'WebGPU' : ttsEngine === 'moss' ? 'CPU' : 'WebGPU/WASM'
+  const currentTtsRuntimeLabel =
+    ttsEngine === 'kokoro' ? 'Kokoro TTS Best' : ttsEngine === 'moss' ? 'MOSS Nano' : 'Supertonic 3'
 
   // --- actions ---
 
@@ -394,7 +427,12 @@ export const AiPanel = memo(function AiPanel() {
       setTtsError(
         ttsEngine === 'kokoro'
           ? t('editor.tts.errors.kokoroUnsupported')
-          : t('editor.tts.errors.mossUnsupported'),
+          : ttsEngine === 'moss'
+            ? t('editor.tts.errors.mossUnsupported')
+            : t('editor.tts.errors.supertonicUnsupported', {
+                defaultValue:
+                  'This browser cannot run the local Supertonic TTS runtime. Try a recent Chrome or Edge browser.',
+              }),
       )
       return
     }
@@ -413,12 +451,20 @@ export const AiPanel = memo(function AiPanel() {
               model: ttsModel,
               onProgress: setTtsProgress,
             })
-          : await mossTtsService.generateSpeechFile({
-              text: trimmedTtsText,
-              voice: ttsMossVoice,
-              speed: effectiveTtsSpeed,
-              onProgress: setTtsProgress,
-            })
+          : ttsEngine === 'moss'
+            ? await mossTtsService.generateSpeechFile({
+                text: trimmedTtsText,
+                voice: ttsMossVoice,
+                speed: effectiveTtsSpeed,
+                onProgress: setTtsProgress,
+              })
+            : await supertonicTtsService.generateSpeechFile({
+                text: trimmedTtsText,
+                voice: ttsSupertonicVoice,
+                language: ttsSupertonicLanguage,
+                speed: effectiveTtsSpeed,
+                onProgress: setTtsProgress,
+              })
 
       const { blob, file, duration } = result
 
@@ -427,9 +473,16 @@ export const AiPanel = memo(function AiPanel() {
       const voiceLabel =
         ttsEngine === 'kokoro'
           ? getKokoroTtsVoiceOption(ttsKokoroVoice).label
-          : getMossTtsVoiceOption(ttsMossVoice).label
+          : ttsEngine === 'moss'
+            ? getMossTtsVoiceOption(ttsMossVoice).label
+            : (SUPERTONIC_TTS_VOICE_OPTIONS.find((option) => option.value === ttsSupertonicVoice)
+                ?.label ?? ttsSupertonicVoice)
       const modelLabel =
-        ttsEngine === 'kokoro' ? getKokoroTtsModelOption(ttsModel).label : 'Multilingual Nano'
+        ttsEngine === 'kokoro'
+          ? getKokoroTtsModelOption(ttsModel).label
+          : ttsEngine === 'moss'
+            ? 'Multilingual Nano'
+            : 'Supertonic 3'
       const engineTags =
         ttsEngine === 'kokoro'
           ? [
@@ -439,7 +492,14 @@ export const AiPanel = memo(function AiPanel() {
               `kokoro-quality:${ttsModel}`,
               `kokoro-voice:${ttsKokoroVoice}`,
             ]
-          : ['ai-generated', 'moss-tts', 'tts-engine:moss', `moss-voice:${ttsMossVoice}`]
+          : ttsEngine === 'moss'
+            ? ['ai-generated', 'moss-tts', 'tts-engine:moss', `moss-voice:${ttsMossVoice}`]
+            : [
+                'ai-generated',
+                'supertonic-tts',
+                'tts-engine:supertonic',
+                `supertonic-voice:${ttsSupertonicVoice}`,
+              ]
 
       const generation: AudioGeneration = {
         id: crypto.randomUUID(),
@@ -478,6 +538,8 @@ export const AiPanel = memo(function AiPanel() {
     ttsKokoroVoice,
     ttsModel,
     ttsMossVoice,
+    ttsSupertonicLanguage,
+    ttsSupertonicVoice,
     t,
   ])
 
@@ -734,13 +796,19 @@ export const AiPanel = memo(function AiPanel() {
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100">
                 {ttsEngine === 'kokoro'
                   ? t('editor.tts.kokoroUnsupported')
-                  : t('editor.tts.mossUnsupported')}
+                  : ttsEngine === 'moss'
+                    ? t('editor.tts.mossUnsupported')
+                    : t('editor.tts.supertonicUnsupported', {
+                        defaultValue:
+                          'This browser cannot run the local Supertonic TTS runtime. Try a recent Chrome or Edge browser.',
+                      })}
               </div>
             )}
 
             <div className="space-y-2">
               <Label htmlFor="ai-tts-text">{t('editor.tts.text')}</Label>
               <Textarea
+                ref={ttsTextareaRef}
                 id="ai-tts-text"
                 value={text}
                 onChange={(event) => setText(event.target.value)}
@@ -748,6 +816,33 @@ export const AiPanel = memo(function AiPanel() {
                 className="min-h-24 resize-y bg-secondary/30 text-sm"
                 disabled={isGenerating}
               />
+              {ttsEngine === 'supertonic' && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] text-muted-foreground">
+                    {t('editor.tts.expressiveTags', { defaultValue: 'Expressive tags' })}
+                  </span>
+                  {SUPERTONIC_TTS_EXPRESSIVE_TAG_OPTIONS.map((tag) => (
+                    <Button
+                      key={tag.value}
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="h-6 px-2 text-[11px]"
+                      onClick={() =>
+                        insertTextAtCursor({
+                          input: ttsTextareaRef.current,
+                          insertText: tag.value,
+                          setText,
+                          text,
+                        })
+                      }
+                      disabled={isGenerating}
+                    >
+                      {tag.label}
+                    </Button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -768,6 +863,11 @@ export const AiPanel = memo(function AiPanel() {
                     <SelectItem value="moss" className="text-xs">
                       {t('editor.tts.mossOption')}
                     </SelectItem>
+                    <SelectItem value="supertonic" className="text-xs">
+                      {t('editor.tts.supertonicOption', {
+                        defaultValue: 'Supertonic 3 (31 languages, local ONNX)',
+                      })}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -780,8 +880,10 @@ export const AiPanel = memo(function AiPanel() {
                     onValueChange={(value) => {
                       if (ttsEngine === 'kokoro') {
                         setTtsKokoroVoice(value as KokoroTtsVoice)
-                      } else {
+                      } else if (ttsEngine === 'moss') {
                         setTtsMossVoice(value as MossTtsVoice)
+                      } else {
+                        setTtsSupertonicVoice(value as SupertonicTtsVoice)
                       }
                     }}
                     disabled={isGenerating}
@@ -792,7 +894,9 @@ export const AiPanel = memo(function AiPanel() {
                     <SelectContent className="max-h-72">
                       {(ttsEngine === 'kokoro'
                         ? KOKORO_TTS_VOICE_OPTIONS
-                        : MOSS_TTS_VOICE_OPTIONS
+                        : ttsEngine === 'moss'
+                          ? MOSS_TTS_VOICE_OPTIONS
+                          : SUPERTONIC_TTS_VOICE_OPTIONS
                       ).map((option) => (
                         <SelectItem key={option.value} value={option.value} className="text-xs">
                           {option.label}
@@ -801,6 +905,36 @@ export const AiPanel = memo(function AiPanel() {
                     </SelectContent>
                   </Select>
                 </div>
+                {ttsEngine === 'supertonic' && (
+                  <div className="space-y-1.5">
+                    <Label>{t('editor.tts.language', { defaultValue: 'Language' })}</Label>
+                    <Select
+                      value={ttsSupertonicLanguage}
+                      onValueChange={(value) =>
+                        setTtsSupertonicLanguage(value as SupertonicTtsLanguageSelection)
+                      }
+                      disabled={isGenerating}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        {SUPERTONIC_TTS_LANGUAGE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value} className="text-xs">
+                            {getLanguageDisplayName(
+                              option.value,
+                              option.label,
+                              i18n.language,
+                              t('editor.tts.autoDetectLanguage', {
+                                defaultValue: 'Auto detect',
+                              }),
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -810,8 +944,8 @@ export const AiPanel = memo(function AiPanel() {
                   label={t('editor.tts.speed')}
                   value={speed}
                   onChange={setSpeed}
-                  min={0.5}
-                  max={2}
+                  min={ttsSpeedMin}
+                  max={ttsSpeedMax}
                   step={0.05}
                   unit="x"
                   disabled={isGenerating}

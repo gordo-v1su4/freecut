@@ -3,7 +3,15 @@
     "newVersionAvailable": "Yeni bir sürüm mevcut. Çalışmanızı kaydedip yeniden yükleyin.",
     "saveAndReload": "Kaydet ve Yeniden Yükle",
     "reloadWithoutSaving": "Kaydetmeden Yeniden Yükle",
-    "dockPanel": "Paneli sabitle"
+    "dockPanel": "Paneli sabitle",
+    "installPrompt": {
+      "label": "FreeCut’ı yükle",
+      "title": "FreeCut’ı yükle",
+      "description": "Masaüstünden veya ana ekrandan aç.",
+      "install": "Yükle",
+      "notNow": "Şimdi değil",
+      "dismiss": "Yükleme istemini kapat"
+    }
   },
   "common": {
     "save": "Kaydet",

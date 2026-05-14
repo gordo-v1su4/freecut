@@ -3,7 +3,15 @@
     "newVersionAvailable": "有新版本可用。请保存你的工作并重新加载。",
     "saveAndReload": "保存并重新加载",
     "reloadWithoutSaving": "不保存直接重新加载",
-    "dockPanel": "停靠面板"
+    "dockPanel": "停靠面板",
+    "installPrompt": {
+      "label": "安装 FreeCut",
+      "title": "安装 FreeCut",
+      "description": "从桌面或主屏幕启动。",
+      "install": "安装",
+      "notNow": "暂不",
+      "dismiss": "关闭安装提示"
+    }
   },
   "common": {
     "save": "保存",

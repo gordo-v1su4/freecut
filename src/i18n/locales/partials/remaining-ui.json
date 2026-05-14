@@ -30,15 +30,21 @@
         "dialogDescription": "Generate speech and insert it at the text clip's position.",
         "kokoroUnsupported": "WebGPU is not available in this browser. Kokoro TTS needs Chrome 113+, Edge 113+, or Safari 26+.",
         "mossUnsupported": "Browser-managed storage is not available in this browser. MOSS multilingual TTS works best in a recent Chromium browser.",
+        "supertonicUnsupported": "This browser cannot run the local Supertonic TTS runtime. Try a recent Chrome or Edge browser.",
         "engine": "Engine",
         "engineSupportDetails": "TTS engine support details",
         "kokoroDescription": "English voices on WebGPU.",
+        "supertonicDescription": "31-language local ONNX voices on WebGPU or WASM.",
         "supportedLanguages": "Supported languages: {{languages}}.",
         "kokoroOption": "Kokoro (English, WebGPU)",
         "mossOption": "MOSS Nano (20 languages, CPU)",
+        "supertonicOption": "Supertonic 3 (31 languages, local ONNX)",
+        "language": "Language",
+        "autoDetectLanguage": "Auto detect",
         "voice": "Voice",
         "text": "Text",
         "textPlaceholder": "Enter the text you want to hear spoken...",
+        "expressiveTags": "Expressive tags",
         "speed": "Speed",
         "progressPreparing": "Preparing local TTS...",
         "insertedAndLinked": "Inserted and linked",
@@ -52,6 +58,7 @@
           "enterText": "Enter some text to synthesize.",
           "kokoroUnsupported": "WebGPU is required for Kokoro TTS. Try Chrome 113+, Edge 113+, or Safari 26+.",
           "mossUnsupported": "Browser-managed storage is required for MOSS multilingual TTS. Try a recent Chromium browser.",
+          "supertonicUnsupported": "This browser cannot run the local Supertonic TTS runtime. Try a recent Chrome or Edge browser.",
           "generateFailed": "Failed to generate speech.",
           "insertFailed": "Failed to save and insert audio."
         },
@@ -237,15 +244,21 @@
         "dialogDescription": "Genera voz e ins?rtala en la posici?n del clip de texto.",
         "kokoroUnsupported": "WebGPU no est? disponible en este navegador. Kokoro TTS necesita Chrome 113+, Edge 113+ o Safari 26+.",
         "mossUnsupported": "El almacenamiento gestionado por el navegador no est? disponible. MOSS TTS multiling?e funciona mejor en un navegador Chromium reciente.",
+        "supertonicUnsupported": "Este navegador no puede ejecutar el runtime local de Supertonic TTS. Prueba con una versión reciente de Chrome o Edge.",
         "engine": "Motor",
         "engineSupportDetails": "Detalles de compatibilidad del motor TTS",
         "kokoroDescription": "Voces en ingl?s con WebGPU.",
+        "supertonicDescription": "Voces ONNX locales en 31 idiomas con WebGPU o WASM.",
         "supportedLanguages": "Idiomas compatibles: {{languages}}.",
         "kokoroOption": "Kokoro (ingl?s, WebGPU)",
         "mossOption": "MOSS Nano (20 idiomas, CPU)",
+        "supertonicOption": "Supertonic 3 (31 idiomas, ONNX local)",
+        "language": "Idioma",
+        "autoDetectLanguage": "Detectar automáticamente",
         "voice": "Voz",
         "text": "Texto",
         "textPlaceholder": "Escribe el texto que quieres escuchar...",
+        "expressiveTags": "Etiquetas expresivas",
         "speed": "Velocidad",
         "progressPreparing": "Preparando TTS local...",
         "insertedAndLinked": "Insertado y vinculado",
@@ -259,6 +272,7 @@
           "enterText": "Introduce texto para sintetizar.",
           "kokoroUnsupported": "WebGPU es necesario para Kokoro TTS. Prueba Chrome 113+, Edge 113+ o Safari 26+.",
           "mossUnsupported": "El almacenamiento gestionado por el navegador es necesario para MOSS TTS multiling?e. Prueba un navegador Chromium reciente.",
+          "supertonicUnsupported": "Este navegador no puede ejecutar el runtime local de Supertonic TTS. Prueba con una versión reciente de Chrome o Edge.",
           "generateFailed": "No se pudo generar la voz.",
           "insertFailed": "No se pudo guardar e insertar el audio."
         },
@@ -444,15 +458,21 @@
         "dialogDescription": "G?n?rez une voix et ins?rez-la ? la position du clip de texte.",
         "kokoroUnsupported": "WebGPU n?est pas disponible dans ce navigateur. Kokoro TTS n?cessite Chrome 113+, Edge 113+ ou Safari 26+.",
         "mossUnsupported": "Le stockage g?r? par le navigateur n?est pas disponible. MOSS TTS multilingue fonctionne mieux dans un navigateur Chromium r?cent.",
+        "supertonicUnsupported": "Ce navigateur ne peut pas exécuter le runtime TTS local de Supertonic. Essayez une version récente de Chrome ou Edge.",
         "engine": "Moteur",
         "engineSupportDetails": "D?tails de compatibilit? du moteur TTS",
         "kokoroDescription": "Voix anglaises sur WebGPU.",
+        "supertonicDescription": "Voix ONNX locales en 31 langues sur WebGPU ou WASM.",
         "supportedLanguages": "Langues prises en charge : {{languages}}.",
         "kokoroOption": "Kokoro (anglais, WebGPU)",
         "mossOption": "MOSS Nano (20 langues, CPU)",
+        "supertonicOption": "Supertonic 3 (31 langues, ONNX local)",
+        "language": "Langue",
+        "autoDetectLanguage": "Détection automatique",
         "voice": "Voix",
         "text": "Texte",
         "textPlaceholder": "Saisissez le texte ? lire...",
+        "expressiveTags": "Balises expressives",
         "speed": "Vitesse",
         "progressPreparing": "Pr?paration du TTS local...",
         "insertedAndLinked": "Ins?r? et li?",
@@ -466,6 +486,7 @@
           "enterText": "Saisissez du texte ? synth?tiser.",
           "kokoroUnsupported": "WebGPU est requis pour Kokoro TTS. Essayez Chrome 113+, Edge 113+ ou Safari 26+.",
           "mossUnsupported": "Le stockage g?r? par le navigateur est requis pour MOSS TTS multilingue. Essayez un navigateur Chromium r?cent.",
+          "supertonicUnsupported": "Ce navigateur ne peut pas exécuter le runtime TTS local de Supertonic. Essayez une version récente de Chrome ou Edge.",
           "generateFailed": "?chec de la g?n?ration vocale.",
           "insertFailed": "?chec de l?enregistrement et de l?insertion de l?audio."
         },
@@ -651,15 +672,21 @@
         "dialogDescription": "Sprache erzeugen und an der Position des Textclips einf?gen.",
         "kokoroUnsupported": "WebGPU ist in diesem Browser nicht verf?gbar. Kokoro TTS ben?tigt Chrome 113+, Edge 113+ oder Safari 26+.",
         "mossUnsupported": "Browserverwalteter Speicher ist nicht verf?gbar. MOSS mehrsprachiges TTS funktioniert am besten in einem aktuellen Chromium-Browser.",
+        "supertonicUnsupported": "Dieser Browser kann die lokale Supertonic-TTS-Laufzeit nicht ausführen. Versuche es mit einer aktuellen Version von Chrome oder Edge.",
         "engine": "Engine",
         "engineSupportDetails": "Details zur TTS-Engine-Unterst?tzung",
         "kokoroDescription": "Englische Stimmen ?ber WebGPU.",
+        "supertonicDescription": "Lokale ONNX-Stimmen in 31 Sprachen mit WebGPU oder WASM.",
         "supportedLanguages": "Unterst?tzte Sprachen: {{languages}}.",
         "kokoroOption": "Kokoro (Englisch, WebGPU)",
         "mossOption": "MOSS Nano (20 Sprachen, CPU)",
+        "supertonicOption": "Supertonic 3 (31 Sprachen, lokales ONNX)",
+        "language": "Sprache",
+        "autoDetectLanguage": "Automatisch erkennen",
         "voice": "Stimme",
         "text": "Text",
         "textPlaceholder": "Gib den Text ein, den du h?ren m?chtest...",
+        "expressiveTags": "Ausdrucks-Tags",
         "speed": "Geschwindigkeit",
         "progressPreparing": "Lokales TTS wird vorbereitet...",
         "insertedAndLinked": "Eingef?gt und verkn?pft",
@@ -673,6 +700,7 @@
           "enterText": "Gib Text zum Synthetisieren ein.",
           "kokoroUnsupported": "WebGPU ist f?r Kokoro TTS erforderlich. Versuche Chrome 113+, Edge 113+ oder Safari 26+.",
           "mossUnsupported": "Browserverwalteter Speicher ist f?r MOSS mehrsprachiges TTS erforderlich. Versuche einen aktuellen Chromium-Browser.",
+          "supertonicUnsupported": "Dieser Browser kann die lokale Supertonic-TTS-Laufzeit nicht ausführen. Versuche es mit einer aktuellen Version von Chrome oder Edge.",
           "generateFailed": "Sprache konnte nicht generiert werden.",
           "insertFailed": "Audio konnte nicht gespeichert und eingef?gt werden."
         },
@@ -881,12 +909,19 @@
           "kokoroUnsupported": "WebGPU é necessário para Kokoro TTS. Tente Chrome 113+, Edge 113+ ou Safari 26+.",
           "mossUnsupported": "O armazenamento gerenciado pelo navegador é necessário para MOSS TTS multilíngue. Tente um navegador Chromium recente.",
           "generateFailed": "Falha ao gerar fala.",
-          "insertFailed": "Falha ao salvar e inserir áudio."
+          "insertFailed": "Falha ao salvar e inserir áudio.",
+          "supertonicUnsupported": "Este navegador não consegue executar o runtime local do Supertonic TTS. Tente uma versão recente do Chrome ou Edge."
         },
         "notifications": {
           "addedAndLinked": "\"{{fileName}}\" foi adicionado à linha do tempo e vinculado ao texto.",
           "savedNoTrack": "\"{{fileName}}\" foi salvo, mas nenhuma faixa de áudio está disponível."
-        }
+        },
+        "supertonicUnsupported": "Este navegador não consegue executar o runtime local do Supertonic TTS. Tente uma versão recente do Chrome ou Edge.",
+        "supertonicDescription": "Vozes ONNX locais em 31 idiomas no WebGPU ou WASM.",
+        "supertonicOption": "Supertonic 3 (31 idiomas, ONNX local)",
+        "language": "Idioma",
+        "autoDetectLanguage": "Detectar automaticamente",
+        "expressiveTags": "Tags expressivas"
       },
       "aiPanel": {
         "textToSpeech": "Texto para fala",
@@ -1092,12 +1127,19 @@
           "kokoroUnsupported": "Kokoro TTS には WebGPU が必要です。Chrome 113+、Edge 113+、または Safari 26+ をお試しください。",
           "mossUnsupported": "MOSS 多言語 TTS にはブラウザ管理ストレージが必要です。新しい Chromium ブラウザをお試しください。",
           "generateFailed": "音声を生成できませんでした。",
-          "insertFailed": "音声を保存して挿入できませんでした。"
+          "insertFailed": "音声を保存して挿入できませんでした。",
+          "supertonicUnsupported": "このブラウザーではローカルの Supertonic TTS ランタイムを実行できません。最新の Chrome または Edge をお試しください。"
         },
         "notifications": {
           "addedAndLinked": "\"{{fileName}}\" をタイムラインに追加し、テキストとリンクしました。",
           "savedNoTrack": "\"{{fileName}}\" を保存しましたが、利用可能な音声トラックがありません。"
-        }
+        },
+        "supertonicUnsupported": "このブラウザーではローカルの Supertonic TTS ランタイムを実行できません。最新の Chrome または Edge をお試しください。",
+        "supertonicDescription": "WebGPU または WASM 上で動作する 31 言語対応のローカル ONNX 音声。",
+        "supertonicOption": "Supertonic 3（31 言語、ローカル ONNX）",
+        "language": "言語",
+        "autoDetectLanguage": "自動検出",
+        "expressiveTags": "表現タグ"
       },
       "aiPanel": {
         "textToSpeech": "テキスト読み上げ",
@@ -1299,12 +1341,19 @@
           "kokoroUnsupported": "Kokoro TTS에는 WebGPU가 필요합니다. Chrome 113+, Edge 113+ 또는 Safari 26+를 사용해 보세요.",
           "mossUnsupported": "MOSS 다국어 TTS에는 브라우저 관리 저장소가 필요합니다. 최신 Chromium 브라우저를 사용해 보세요.",
           "generateFailed": "음성을 생성하지 못했습니다.",
-          "insertFailed": "오디오를 저장하고 삽입하지 못했습니다."
+          "insertFailed": "오디오를 저장하고 삽입하지 못했습니다.",
+          "supertonicUnsupported": "이 브라우저에서는 로컬 Supertonic TTS 런타임을 실행할 수 없습니다. 최신 Chrome 또는 Edge를 사용해 보세요."
         },
         "notifications": {
           "addedAndLinked": "\"{{fileName}}\"을(를) 타임라인에 추가하고 텍스트와 연결했습니다.",
           "savedNoTrack": "\"{{fileName}}\"을(를) 저장했지만 사용 가능한 오디오 트랙이 없습니다."
-        }
+        },
+        "supertonicUnsupported": "이 브라우저에서는 로컬 Supertonic TTS 런타임을 실행할 수 없습니다. 최신 Chrome 또는 Edge를 사용해 보세요.",
+        "supertonicDescription": "WebGPU 또는 WASM에서 실행되는 31개 언어 로컬 ONNX 음성입니다.",
+        "supertonicOption": "Supertonic 3 (31개 언어, 로컬 ONNX)",
+        "language": "언어",
+        "autoDetectLanguage": "자동 감지",
+        "expressiveTags": "표현 태그"
       },
       "aiPanel": {
         "textToSpeech": "텍스트 음성 변환",
@@ -1506,12 +1555,19 @@
           "kokoroUnsupported": "Kokoro TTS 需要 WebGPU. 请尝试 Chrome 113+, Edge 113+ 或 Safari 26+.",
           "mossUnsupported": "MOSS 多语言 TTS 需要浏览器管理的存储。请尝试较新的 Chromium 浏览器。",
           "generateFailed": "无法生成语音。",
-          "insertFailed": "无法保存并插入音频。"
+          "insertFailed": "无法保存并插入音频。",
+          "supertonicUnsupported": "此浏览器无法运行本地 Supertonic TTS 运行时。请使用最新版 Chrome 或 Edge。"
         },
         "notifications": {
           "addedAndLinked": "已将\"{{fileName}}\"添加到时间线并与文本链接。",
           "savedNoTrack": "已保存\"{{fileName}}\"，但没有可用的音频轨道。"
-        }
+        },
+        "supertonicUnsupported": "此浏览器无法运行本地 Supertonic TTS 运行时。请使用最新版 Chrome 或 Edge。",
+        "supertonicDescription": "在 WebGPU 或 WASM 上运行的 31 种语言本地 ONNX 语音。",
+        "supertonicOption": "Supertonic 3（31 种语言，本地 ONNX）",
+        "language": "语言",
+        "autoDetectLanguage": "自动检测",
+        "expressiveTags": "表现标签"
       },
       "aiPanel": {
         "textToSpeech": "文本转语音",
@@ -1713,12 +1769,19 @@
           "kokoroUnsupported": "Kokoro TTS için WebGPU gerekir. Chrome 113+, Edge 113+ veya Safari 26+ deneyin.",
           "mossUnsupported": "MOSS çok dilli TTS için tarayıcı tarafından yönetilen depolama gerekir. Güncel bir Chromium tarayıcı deneyin.",
           "generateFailed": "Konuşma oluşturulamadı.",
-          "insertFailed": "Ses kaydedilip eklenemedi."
+          "insertFailed": "Ses kaydedilip eklenemedi.",
+          "supertonicUnsupported": "Bu tarayıcı yerel Supertonic TTS çalışma zamanını çalıştıramıyor. Güncel bir Chrome veya Edge deneyin."
         },
         "notifications": {
           "addedAndLinked": "\"{{fileName}}\" zaman çizelgesine eklendi ve metinle bağlandı.",
           "savedNoTrack": "\"{{fileName}}\" kaydedildi ancak kullanılabilir ses izi yok."
-        }
+        },
+        "supertonicUnsupported": "Bu tarayıcı yerel Supertonic TTS çalışma zamanını çalıştıramıyor. Güncel bir Chrome veya Edge deneyin.",
+        "supertonicDescription": "WebGPU veya WASM üzerinde 31 dilde yerel ONNX sesleri.",
+        "supertonicOption": "Supertonic 3 (31 dil, yerel ONNX)",
+        "language": "Dil",
+        "autoDetectLanguage": "Otomatik algıla",
+        "expressiveTags": "İfade etiketleri"
       },
       "aiPanel": {
         "textToSpeech": "Metinden Sese",

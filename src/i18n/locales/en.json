@@ -3,7 +3,15 @@
     "newVersionAvailable": "A new version is available. Save your work and reload.",
     "saveAndReload": "Save & Reload",
     "reloadWithoutSaving": "Reload without saving",
-    "dockPanel": "Dock panel"
+    "dockPanel": "Dock panel",
+    "installPrompt": {
+      "label": "Install FreeCut",
+      "title": "Install FreeCut",
+      "description": "Launch it from your desktop or home screen.",
+      "install": "Install",
+      "notNow": "Not now",
+      "dismiss": "Dismiss install prompt"
+    }
   },
   "common": {
     "save": "Save",

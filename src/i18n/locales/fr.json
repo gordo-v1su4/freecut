@@ -3,7 +3,15 @@
     "newVersionAvailable": "Une nouvelle version est disponible. Enregistrez votre travail et rechargez.",
     "saveAndReload": "Enregistrer et recharger",
     "reloadWithoutSaving": "Recharger sans enregistrer",
-    "dockPanel": "Ancrer le panneau"
+    "dockPanel": "Ancrer le panneau",
+    "installPrompt": {
+      "label": "Installer FreeCut",
+      "title": "Installer FreeCut",
+      "description": "Lancez-le depuis votre bureau ou écran d’accueil.",
+      "install": "Installer",
+      "notNow": "Pas maintenant",
+      "dismiss": "Masquer l’invite d’installation"
+    }
   },
   "common": {
     "save": "Enregistrer",

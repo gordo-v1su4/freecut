@@ -3,7 +3,15 @@
     "newVersionAvailable": "Eine neue Version ist verfügbar. Speichere deine Arbeit und lade neu.",
     "saveAndReload": "Speichern und neu laden",
     "reloadWithoutSaving": "Ohne Speichern neu laden",
-    "dockPanel": "Panel andocken"
+    "dockPanel": "Panel andocken",
+    "installPrompt": {
+      "label": "FreeCut installieren",
+      "title": "FreeCut installieren",
+      "description": "Starte es vom Desktop oder Startbildschirm.",
+      "install": "Installieren",
+      "notNow": "Jetzt nicht",
+      "dismiss": "Installationshinweis ausblenden"
+    }
   },
   "common": {
     "save": "Speichern",

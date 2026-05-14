@@ -3,7 +3,15 @@
     "newVersionAvailable": "新しいバージョンが利用可能です。作業を保存して再読み込みしてください。",
     "saveAndReload": "保存して再読み込み",
     "reloadWithoutSaving": "保存せずに再読み込み",
-    "dockPanel": "パネルをドック"
+    "dockPanel": "パネルをドック",
+    "installPrompt": {
+      "label": "FreeCut をインストール",
+      "title": "FreeCut をインストール",
+      "description": "デスクトップまたはホーム画面から起動できます。",
+      "install": "インストール",
+      "notNow": "今はしない",
+      "dismiss": "インストール案内を閉じる"
+    }
   },
   "common": {
     "save": "保存",

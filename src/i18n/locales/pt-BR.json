@@ -3,7 +3,15 @@
     "newVersionAvailable": "Uma nova versão está disponível. Salve seu trabalho e recarregue.",
     "saveAndReload": "Salvar e recarregar",
     "reloadWithoutSaving": "Recarregar sem salvar",
-    "dockPanel": "Encaixar painel"
+    "dockPanel": "Encaixar painel",
+    "installPrompt": {
+      "label": "Instalar FreeCut",
+      "title": "Instalar FreeCut",
+      "description": "Abra pelo desktop ou pela tela inicial.",
+      "install": "Instalar",
+      "notNow": "Agora não",
+      "dismiss": "Dispensar aviso de instalação"
+    }
   },
   "common": {
     "save": "Salvar",
