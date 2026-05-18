@@ -273,12 +273,21 @@ export async function readDirectoryFiles(
         if (filter && !filter({ name: entry.name, kind: entry.kind })) continue
         fileHandles.push({ name: entry.name, handle: entry as FileSystemFileHandle })
       }
-      return await Promise.all(
+      const results = await Promise.all(
         fileHandles.map(async ({ name, handle }) => {
-          const file = await handle.getFile()
-          return { name, blob: file as Blob }
+          try {
+            const file = await handle.getFile()
+            return { name, blob: file as Blob }
+          } catch (error) {
+            // A file can disappear between iterating dir.values() and calling
+            // getFile() (e.g. concurrent delete). Skip it instead of failing
+            // the whole batch.
+            if (isNotFound(error)) return null
+            throw error
+          }
         }),
       )
+      return results.filter((r): r is { name: string; blob: Blob } => r !== null)
     } catch (error) {
       if (isNotFound(error)) return []
       throw error

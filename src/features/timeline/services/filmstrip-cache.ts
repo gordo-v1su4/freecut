@@ -218,6 +218,20 @@ class FilmstripCacheService {
   private metricsHistory: ExtractionMetricSample[] = []
   private lastMemoryCheckAt = 0
   private prewarmStarted = false
+  // Generation counters guard against clearMedia/clearAll racing with an
+  // in-flight loadFromDisk: an async hydration captures the token at the
+  // start and discards its writes when the token has moved on.
+  private mediaGeneration = new Map<string, number>()
+  private globalGeneration = 0
+
+  private currentGenerationToken(mediaId: string): string {
+    return `${this.globalGeneration}:${this.mediaGeneration.get(mediaId) ?? 0}`
+  }
+
+  private bumpMediaGeneration(mediaId: string): void {
+    const next = (this.mediaGeneration.get(mediaId) ?? 0) + 1
+    this.mediaGeneration.set(mediaId, next)
+  }
 
   /**
    * Eagerly boot one extraction worker and load mediabunny so the first real
@@ -2503,8 +2517,14 @@ class FilmstripCacheService {
       return inflight
     }
 
+    const tokenAtStart = this.currentGenerationToken(mediaId)
     const promise = (async (): Promise<Filmstrip | null> => {
       const stored = await filmstripStorage.load(mediaId)
+      // If clearMedia/clearAll ran while we were reading from OPFS, abandon —
+      // re-inserting these frames would resurrect just-cleared cache state.
+      if (this.currentGenerationToken(mediaId) !== tokenAtStart) {
+        return this.cache.get(mediaId) ?? null
+      }
       if (!stored) {
         return this.cache.get(mediaId) ?? null
       }
@@ -2624,6 +2644,7 @@ class FilmstripCacheService {
    * Clear filmstrip for a media item
    */
   async clearMedia(mediaId: string): Promise<void> {
+    this.bumpMediaGeneration(mediaId)
     this.abort(mediaId)
     this.clearIdleEvictionTimer(mediaId)
     this.closeBitmapFrames(this.cache.get(mediaId)?.frames ?? [])
@@ -2637,6 +2658,8 @@ class FilmstripCacheService {
    * Clear all
    */
   async clearAll(): Promise<void> {
+    this.globalGeneration += 1
+    this.mediaGeneration.clear()
     for (const mediaId of this.pendingExtractions.keys()) {
       this.abort(mediaId)
     }
