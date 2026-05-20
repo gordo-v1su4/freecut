@@ -68,7 +68,7 @@ function runMigrations(project: Project): {
 
   for (const migration of migrationsToApply) {
     if (import.meta.env.DEV) {
-      log.info(`Running migration v${migration.version}: ${migration.description}`)
+      log.warn(`Running migration v${migration.version}: ${migration.description}`)
     }
     try {
       migratedProject = migration.migrate(migratedProject)

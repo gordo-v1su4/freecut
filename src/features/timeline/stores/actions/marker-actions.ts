@@ -135,7 +135,5 @@ export function setInOutPointsWithoutHistory(
     outPoint,
     maxFrame: getEffectiveMaxFrame(),
   })
-  const markers = useMarkersStore.getState()
-  markers.setInPoint(sanitized.inPoint)
-  markers.setOutPoint(sanitized.outPoint)
+  useMarkersStore.getState().setInOutPoints(sanitized.inPoint, sanitized.outPoint)
 }

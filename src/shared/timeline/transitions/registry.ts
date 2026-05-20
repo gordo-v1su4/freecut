@@ -6,7 +6,7 @@
  *
  * Each registered transition has:
  * - A TransitionDefinition (metadata for UI)
- * - A TransitionRenderer (calculation logic for CSS styles and canvas export)
+ * - A TransitionRenderer (canvas/GPU render logic for export and preview)
  */
 
 import type {
