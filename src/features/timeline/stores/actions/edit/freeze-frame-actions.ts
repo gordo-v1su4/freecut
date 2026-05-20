@@ -152,10 +152,11 @@ export async function insertFreezeFrame(itemId: string, playheadFrame: number): 
       getLogger().warn('[insertFreezeFrame] Failed to mirror frame to workspace', error)
     })
 
-    await createMedia(mediaMetadata)
-    await associateMediaWithProject(currentProjectId, frameMediaId)
-
-    // Save thumbnail (reuse the frame blob)
+    // Save thumbnail first so we can persist the metadata with its
+    // thumbnailId in a single write — createMedia serializes the metadata
+    // verbatim, so setting thumbnailId after createMedia would only update
+    // the in-memory copy and leave the on-disk record without a thumbnail
+    // association (visible after project reload).
     const thumbnailId = crypto.randomUUID()
     const thumbnailData: ThumbnailData = {
       id: thumbnailId,
@@ -168,15 +169,18 @@ export async function insertFreezeFrame(itemId: string, playheadFrame: number): 
     await saveThumbnail(thumbnailData)
     mediaMetadata.thumbnailId = thumbnailId
 
-    // Add to media library store
-    useMediaLibraryStore.getState().prependMediaItem(mediaMetadata)
+    await createMedia(mediaMetadata)
+    await associateMediaWithProject(currentProjectId, frameMediaId)
 
-    // Step 4: Perform timeline mutations atomically (split + insert + shift)
+    // Step 4: Perform timeline mutations atomically (split + insert + shift).
+    // Prepend the media item to the store only after execute() succeeds so a
+    // failed _splitItem (e.g. the source clip was removed between validation
+    // and execute) doesn't leave an orphaned entry in the media library UI.
     const freezeDurationFrames = Math.round(fps * 2) // 2 seconds
 
-    execute(
+    const success = execute<boolean>(
       'INSERT_FREEZE_FRAME',
-      () => {
+      (): boolean => {
         // Split the video at playhead
         const splitResult = useItemsStore.getState()._splitItem(itemId, playheadFrame)
         if (!splitResult) {
@@ -239,10 +243,16 @@ export async function insertFreezeFrame(itemId: string, playheadFrame: number): 
         useSelectionStore.getState().selectItems([freezeFrameItem.id])
 
         useTimelineSettingsStore.getState().markDirty()
+        return true
       },
       { itemId, playheadFrame, freezeDurationFrames },
     )
 
+    if (!success) {
+      return false
+    }
+
+    useMediaLibraryStore.getState().prependMediaItem(mediaMetadata)
     return true
   } catch (error) {
     getLogger().error('[insertFreezeFrame] Failed:', error)
