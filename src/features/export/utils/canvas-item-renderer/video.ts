@@ -190,12 +190,18 @@ export async function renderVideoItem(
       : rawSourceTime
   const tier2ToleranceSeconds = getTier2VideoFrameToleranceSeconds(sourceFps)
   const domVideoElementProvider = rctx.domVideoElementProvider
+  // During transitions, frame can lie outside item's natural span (the
+  // participant's renderSpan is extended to cover the transition zone), and
+  // the policy function below is already transition-aware: it returns a wider
+  // drift threshold and inspects `data-transition-hold`. Check against
+  // effectiveRenderSpan (not the natural item span) and let the policy
+  // function decide whether the DOM video is fresh enough, mirroring the GPU
+  // transition path in gpu.ts which also passes isRenderingTransition through.
   const canUseDomVideoElement =
     isPreviewMode &&
     domVideoElementProvider &&
     sourceFrameOffset === 0 &&
-    !rctx.isRenderingTransition &&
-    isFrameInsideItemTimelineSpan(item, frame)
+    isFrameInsideItemTimelineSpan(effectiveRenderSpan, frame)
   const domVideo = canUseDomVideoElement ? domVideoElementProvider(item.id) : null
   const domVideoDecision = resolvePreviewDomVideoDrawDecision({
     domVideo,

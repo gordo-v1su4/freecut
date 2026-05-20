@@ -51,8 +51,11 @@ export function applyItemTransformToContext(
   ctx.translate(-centerX, -centerY)
 }
 
-export function isFrameInsideItemTimelineSpan(item: TimelineItem, frame: number): boolean {
-  return frame >= item.from && frame < item.from + item.durationInFrames
+export function isFrameInsideItemTimelineSpan(
+  span: { from: number; durationInFrames: number },
+  frame: number,
+): boolean {
+  return frame >= span.from && frame < span.from + span.durationInFrames
 }
 
 export function applyAnimatedCropToItem<TItem extends TimelineItem>(
