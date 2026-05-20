@@ -7,39 +7,11 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useHotkeys } from 'react-hotkeys-hook'
-import {
-  ClipboardPaste,
-  Copy,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  LineChart,
-  Lock,
-  MoveHorizontal,
-  MoveVertical,
-  MoreHorizontal,
-  Scissors,
-  Timer,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, LineChart, Lock, Timer, X } from 'lucide-react'
 import { cn } from '@/shared/ui/cn'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import {
-  KEYFRAME_MARQUEE_THRESHOLD,
-  KeyframeMarqueeOverlay,
-  type KeyframeMarqueeRect,
-} from '../keyframe-marquee'
-import { ValueGraphEditor } from '../value-graph-editor'
+import { KEYFRAME_MARQUEE_THRESHOLD, type KeyframeMarqueeRect } from '../keyframe-marquee'
 import type {
   AnimatableProperty,
   BezierControlPoints,
@@ -51,9 +23,16 @@ import type { BlockedFrameRange } from '../../utils/transition-region'
 import { HOTKEY_OPTIONS } from '@/config/hotkeys'
 import { getFrameAxisX, getFrameFromAxisX, getVisibleKeyframeX } from './layout'
 import { CompactNavigator } from './compact-navigator'
-import { InterpolationTypeIcon } from './interpolation-type-icon'
+import { DopesheetClipboardActions } from './dopesheet-clipboard-actions'
+import { DopesheetEditActions } from './dopesheet-edit-actions'
+import { DopesheetGraphPane } from './dopesheet-graph-pane'
+import { DopesheetHeaderFrameInputs } from './dopesheet-header-frame-inputs'
+import { DopesheetRulerHeader } from './dopesheet-ruler-header'
+import { DopesheetSheetBody } from './dopesheet-sheet-body'
+import { DopesheetInterpolationButtons } from './dopesheet-interpolation-buttons'
+import { DopesheetParameterMenu } from './dopesheet-parameter-menu'
+import { DopesheetViewOptionsMenu } from './dopesheet-view-options-menu'
 import { KeyframeTimingStrip } from './keyframe-timing-strip'
-import { MiniZoomControl } from './mini-zoom-control'
 import { setPointerCaptureSafely } from './dopesheet-utils'
 import {
   arePreviewFramesEqual,
@@ -72,7 +51,6 @@ import {
   MIN_VISIBLE_FRAMES,
   PROPERTY_COLUMN_WIDTH,
   ROW_HEIGHT,
-  RULER_HEIGHT,
   SNAP_THRESHOLD_PX,
   ZOOM_IN_FACTOR,
   ZOOM_OUT_FACTOR,
@@ -3282,59 +3260,18 @@ export const DopesheetEditor = memo(function DopesheetEditor({
             <span className="text-xs text-muted-foreground">
               {t('timeline.keyframeEditor.parameters')}
             </span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  disabled={disabled || availableProperties.length === 0}
-                  aria-label={t('timeline.keyframeEditor.parameterDisplayOptions')}
-                >
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[240px]">
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    setShowKeyframedOnly((prev) => !prev)
-                  }}
-                >
-                  <Check className={cn('h-3.5 w-3.5', !showKeyframedOnly && 'opacity-0')} />
-                  {t('timeline.keyframeEditor.displayKeyframedParameters')}
-                </DropdownMenuItem>
-                {allPropertyGroups.length > 0 && <DropdownMenuSeparator />}
-                {allPropertyGroups.map((group) => {
-                  const isVisible = visibleGroups[group.id] ?? true
-                  return (
-                    <DropdownMenuItem
-                      key={group.id}
-                      onSelect={(event) => {
-                        event.preventDefault()
-                        toggleVisibleGroup(group.id)
-                      }}
-                    >
-                      <Check className={cn('h-3.5 w-3.5', !isVisible && 'opacity-0')} />
-                      {t('timeline.keyframeEditor.displayGroupParameters', {
-                        group: getKeyframeGroupLabel(t, group.id, group.label),
-                      })}
-                    </DropdownMenuItem>
-                  )
-                })}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => setAllGroupsExpanded(true)}>
-                  {t('timeline.keyframeEditor.expandAllParameters')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setAllGroupsExpanded(false)}>
-                  {t('timeline.keyframeEditor.collapseAllParameters')}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={resetParameterView}>
-                  {t('timeline.keyframeEditor.resetParameterView')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <DopesheetParameterMenu
+              disabled={disabled}
+              hasAvailableProperties={availableProperties.length > 0}
+              showKeyframedOnly={showKeyframedOnly}
+              onToggleKeyframedOnly={() => setShowKeyframedOnly((prev) => !prev)}
+              allPropertyGroups={allPropertyGroups}
+              visibleGroups={visibleGroups}
+              onToggleVisibleGroup={toggleVisibleGroup}
+              onExpandAll={() => setAllGroupsExpanded(true)}
+              onCollapseAll={() => setAllGroupsExpanded(false)}
+              onResetParameterView={resetParameterView}
+            />
           </div>
 
           {hasPropertyFilters && (
@@ -3355,258 +3292,68 @@ export const DopesheetEditor = memo(function DopesheetEditor({
             {t('timeline.keyframeEditor.keyframes', { count: visibleKeyframes.length })}
           </span>
 
-          <div className="flex items-center gap-1">
-            <div className="flex items-center gap-0.5">
-              <span className="text-[10px] text-muted-foreground">
-                {t('timeline.keyframeEditor.local')}
-              </span>
-              <Input
-                type="number"
-                value={localFrameInputValue}
-                onChange={(event) => setLocalFrameInputValue(event.target.value)}
-                placeholder="-"
-                onBlur={() => {
-                  if (skipNextHeaderFrameBlurRef.current === 'local') {
-                    skipNextHeaderFrameBlurRef.current = null
-                    return
-                  }
-                  commitLocalFrameInput()
-                }}
-                onKeyDown={(event) =>
-                  handleHeaderFrameInputKeyDown(event, 'local', commitLocalFrameInput)
-                }
-                aria-label={t('timeline.keyframeEditor.localFrame')}
-                className="h-5 w-12 px-1 text-center text-[10px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                min={0}
-                max={Math.max(totalFrames - 1, 0)}
-                disabled={
-                  disabled ||
-                  !onKeyframeMove ||
-                  !selectedFrameSummary.hasSelection ||
-                  selectedFrameSummary.hasMixedFrames
-                }
-              />
-            </div>
-            {globalFrame !== null && (
-              <div className="flex items-center gap-0.5">
-                <span className="text-[10px] text-muted-foreground">
-                  {t('timeline.keyframeEditor.global')}
-                </span>
-                <Input
-                  type="number"
-                  value={globalFrameInputValue}
-                  onChange={(event) => setGlobalFrameInputValue(event.target.value)}
-                  placeholder="-"
-                  onBlur={() => {
-                    if (skipNextHeaderFrameBlurRef.current === 'global') {
-                      skipNextHeaderFrameBlurRef.current = null
-                      return
-                    }
-                    commitGlobalFrameInput()
-                  }}
-                  onKeyDown={(event) =>
-                    handleHeaderFrameInputKeyDown(event, 'global', commitGlobalFrameInput)
-                  }
-                  aria-label={t('timeline.keyframeEditor.globalFrame')}
-                  className="h-5 w-14 px-1 text-center text-[10px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  disabled={
-                    disabled ||
-                    !onKeyframeMove ||
-                    !selectedFrameSummary.hasSelection ||
-                    selectedFrameSummary.hasMixedFrames
-                  }
-                />
-              </div>
-            )}
-          </div>
+          <DopesheetHeaderFrameInputs
+            disabled={disabled}
+            inputsEnabled={
+              Boolean(onKeyframeMove) &&
+              selectedFrameSummary.hasSelection &&
+              !selectedFrameSummary.hasMixedFrames
+            }
+            totalFrames={totalFrames}
+            globalFrame={globalFrame}
+            localFrameInputValue={localFrameInputValue}
+            globalFrameInputValue={globalFrameInputValue}
+            setLocalFrameInputValue={setLocalFrameInputValue}
+            setGlobalFrameInputValue={setGlobalFrameInputValue}
+            skipNextHeaderFrameBlurRef={skipNextHeaderFrameBlurRef}
+            commitLocalFrameInput={commitLocalFrameInput}
+            commitGlobalFrameInput={commitGlobalFrameInput}
+            handleHeaderFrameInputKeyDown={handleHeaderFrameInputKeyDown}
+          />
         </div>
 
         <div className="flex items-center gap-1.5">
-          {visualizationMode === 'graph' && interpolationOptions.length > 0 && (
-            <div
-              className="flex items-center gap-0.5 rounded-md border border-border/80 bg-muted/20 px-0.5 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
-              aria-label={t('timeline.keyframeEditor.interpolationControls', {
-                defaultValue: 'Interpolation controls',
-              })}
-            >
-              {interpolationOptions.map((option) => {
-                const isActive = selectedInterpolation === option.value
-                return (
-                  <Button
-                    key={option.value}
-                    variant="ghost"
-                    size="sm"
-                    className={cn(
-                      'h-6 w-6 p-0 text-muted-foreground/80 hover:bg-background/60 hover:text-foreground',
-                      isActive &&
-                        'bg-background text-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] hover:bg-background hover:text-foreground',
-                    )}
-                    onClick={() => onInterpolationChange?.(option.value)}
-                    disabled={disabled || interpolationDisabled || !onInterpolationChange}
-                    title={option.label}
-                    aria-label={t('timeline.keyframeEditor.setInterpolationTo', {
-                      label: option.label,
-                      defaultValue: `Set interpolation to ${option.label}`,
-                    })}
-                    aria-pressed={isActive}
-                  >
-                    <InterpolationTypeIcon type={option.value} />
-                  </Button>
-                )
-              })}
-            </div>
-          )}
-          {(onCopyKeyframes || onCutKeyframes || onPasteKeyframes) && (
-            <div className="flex items-center gap-0.5 rounded-md border border-border/70 bg-background/85 px-0.5 py-0.5">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={onCopyKeyframes}
-                disabled={disabled || selectedRefs.length === 0 || !onCopyKeyframes}
-                title={t('timeline.keyframeEditor.copySelectedKeyframes')}
-                aria-label={t('timeline.keyframeEditor.copySelectedKeyframes')}
-              >
-                <Copy className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={onCutKeyframes}
-                disabled={disabled || selectedRefs.length === 0 || !onCutKeyframes}
-                title={t('timeline.keyframeEditor.cutSelectedKeyframes')}
-                aria-label={t('timeline.keyframeEditor.cutSelectedKeyframes')}
-              >
-                <Scissors className="h-3 w-3" />
-              </Button>
-              <Button
-                variant={isKeyframeClipboardCut ? 'secondary' : 'ghost'}
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={onPasteKeyframes}
-                disabled={disabled || !hasKeyframeClipboard || !onPasteKeyframes}
-                title={
-                  isKeyframeClipboardCut
-                    ? t('timeline.keyframeEditor.moveKeyframesFromClipboard')
-                    : t('timeline.keyframeEditor.pasteKeyframes')
-                }
-                aria-label={
-                  isKeyframeClipboardCut
-                    ? t('timeline.keyframeEditor.moveKeyframesFromClipboard')
-                    : t('timeline.keyframeEditor.pasteKeyframes')
-                }
-              >
-                <ClipboardPaste className="h-3 w-3" />
-              </Button>
-              {isKeyframeClipboardCut && hasKeyframeClipboard && (
-                <span className="pl-0.5 text-[10px] font-medium text-amber-500">
-                  {t('timeline.keyframeEditor.cut')}
-                </span>
-              )}
-            </div>
-          )}
-          <div className="flex items-center rounded-md border border-border/70 bg-background/85 px-0.5 py-0.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-              onClick={handleRemoveKeyframes}
-              disabled={disabled || selectedRefs.length === 0 || !onRemoveKeyframes}
-              title={t('timeline.keyframeEditor.removeSelectedKeyframes')}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
-            <div className="mx-0.5 h-3.5 w-px bg-border/80" />
-            <MiniZoomControl
-              icon={<MoveHorizontal className="h-3 w-3" />}
-              label={t('timeline.keyframeEditor.horizontalZoom')}
-              value={horizontalZoomValue}
-              disabled={disabled || horizontalZoomRatioBase <= 1}
-              onValueChange={setHorizontalZoomValue}
-              onReset={resetViewport}
+          {visualizationMode === 'graph' && (
+            <DopesheetInterpolationButtons
+              options={interpolationOptions}
+              selected={selectedInterpolation}
+              disabled={disabled || interpolationDisabled}
+              onSelect={onInterpolationChange}
             />
-            {visualizationMode === 'graph' && (
-              <>
-                <div className="mx-0.5 h-3.5 w-px bg-border/80" />
-                <MiniZoomControl
-                  icon={<MoveVertical className="h-3 w-3" />}
-                  label={t('timeline.keyframeEditor.verticalZoom')}
-                  value={graphVerticalZoomValue}
-                  disabled={
-                    disabled || visibleGraphProperties.length === 0 || verticalZoomRatioBase <= 1
-                  }
-                  onValueChange={setGraphVerticalZoomValue}
-                  onReset={() => setGraphVerticalZoomValue(0)}
-                />
-              </>
-            )}
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                disabled={disabled}
-                aria-label={
-                  visualizationMode === 'graph'
-                    ? t('timeline.keyframeEditor.graphViewOptions')
-                    : t('timeline.keyframeEditor.sheetViewOptions')
-                }
-                title={
-                  visualizationMode === 'graph'
-                    ? t('timeline.keyframeEditor.graphViewOptions')
-                    : t('timeline.keyframeEditor.sheetViewOptions')
-                }
-              >
-                <MoreHorizontal className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[220px]">
-              <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault()
-                  setGraphRulerUnit('seconds')
-                }}
-              >
-                <Check className={cn('h-3.5 w-3.5', graphRulerUnit !== 'seconds' && 'opacity-0')} />
-                {t('timeline.keyframeEditor.displayTimeRulerSeconds')}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault()
-                  setGraphRulerUnit('frames')
-                }}
-              >
-                <Check className={cn('h-3.5 w-3.5', graphRulerUnit !== 'frames' && 'opacity-0')} />
-                {t('timeline.keyframeEditor.displayTimeRulerFrames')}
-              </DropdownMenuItem>
-              {visualizationMode === 'graph' && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault()
-                      setShowAllGraphHandles((prev) => !prev)
-                    }}
-                  >
-                    <Check className={cn('h-3.5 w-3.5', !showAllGraphHandles && 'opacity-0')} />
-                    {t('timeline.keyframeEditor.showAllHandles')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault()
-                      setAutoZoomGraphHeight((prev) => !prev)
-                    }}
-                  >
-                    <Check className={cn('h-3.5 w-3.5', !autoZoomGraphHeight && 'opacity-0')} />
-                    {t('timeline.keyframeEditor.autoZoomGraphHeight')}
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          )}
+          <DopesheetClipboardActions
+            disabled={disabled}
+            hasSelection={selectedRefs.length > 0}
+            hasKeyframeClipboard={hasKeyframeClipboard}
+            isKeyframeClipboardCut={isKeyframeClipboardCut}
+            onCopyKeyframes={onCopyKeyframes}
+            onCutKeyframes={onCutKeyframes}
+            onPasteKeyframes={onPasteKeyframes}
+          />
+          <DopesheetEditActions
+            disabled={disabled}
+            hasSelection={selectedRefs.length > 0}
+            removeKeyframesAvailable={Boolean(onRemoveKeyframes)}
+            handleRemoveKeyframes={handleRemoveKeyframes}
+            horizontalZoomValue={horizontalZoomValue}
+            horizontalZoomDisabled={horizontalZoomRatioBase <= 1}
+            setHorizontalZoomValue={setHorizontalZoomValue}
+            resetViewport={resetViewport}
+            visualizationMode={visualizationMode}
+            graphVerticalZoomValue={graphVerticalZoomValue}
+            verticalZoomDisabled={visibleGraphProperties.length === 0 || verticalZoomRatioBase <= 1}
+            setGraphVerticalZoomValue={setGraphVerticalZoomValue}
+          />
+          <DopesheetViewOptionsMenu
+            disabled={disabled}
+            visualizationMode={visualizationMode}
+            graphRulerUnit={graphRulerUnit}
+            onChangeRulerUnit={setGraphRulerUnit}
+            showAllGraphHandles={showAllGraphHandles}
+            onToggleShowAllGraphHandles={() => setShowAllGraphHandles((prev) => !prev)}
+            autoZoomGraphHeight={autoZoomGraphHeight}
+            onToggleAutoZoomGraphHeight={() => setAutoZoomGraphHeight((prev) => !prev)}
+          />
         </div>
       </div>
 
@@ -3630,146 +3377,77 @@ export const DopesheetEditor = memo(function DopesheetEditor({
         </div>
         {visualizationMode === 'graph' ? (
           <>
-            <div className="grid border-b border-border bg-muted/25" style={propertyGridStyle}>
-              <div
-                className="px-1 flex items-center text-[10px] font-medium text-muted-foreground"
-                style={{ height: RULER_HEIGHT }}
-              >
-                {t('timeline.keyframeEditor.property')}
-              </div>
-              <div
-                data-testid="dopesheet-ruler"
-                ref={timelineRef}
-                className="relative border-l border-border cursor-ew-resize overflow-hidden"
-                style={{ height: RULER_HEIGHT }}
-                onPointerDown={handleRulerPointerDown}
-                onPointerMove={handleRulerPointerMove}
-                onPointerUp={handleRulerPointerUp}
-                onPointerCancel={handleRulerPointerUp}
-              >
-                {rulerTickElements}
-              </div>
-            </div>
+            <DopesheetRulerHeader
+              propertyGridStyle={propertyGridStyle}
+              timelineRef={timelineRef}
+              onRulerPointerDown={handleRulerPointerDown}
+              onRulerPointerMove={handleRulerPointerMove}
+              onRulerPointerUp={handleRulerPointerUp}
+              rulerTickElements={rulerTickElements}
+            />
 
-            {propertyRows.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                {emptyStateMessage}
-              </div>
-            ) : (
-              <div className="flex min-h-0" style={{ height: `calc(100% - ${RULER_HEIGHT}px)` }}>
-                <div
-                  className="flex-shrink-0 overflow-auto"
-                  style={{ width: PROPERTY_COLUMN_WIDTH }}
-                >
-                  {propertyColumnElements}
-                </div>
-                <div
-                  ref={graphPaneRef}
-                  data-testid="dopesheet-graph-pane"
-                  tabIndex={disabled || graphDisplayPropertyLocked ? undefined : -1}
-                  className="min-w-0 flex-1 border-l border-border/60 outline-none"
-                  onMouseEnter={focusGraphPane}
-                  onPointerDownCapture={focusGraphPane}
-                  onKeyDown={handleGraphPaneKeyDown}
-                >
-                  {graphPaneSize.width > 0 &&
-                  graphPaneSize.height > 0 &&
-                  graphVisibleProperties.size > 0 ? (
-                    <ValueGraphEditor
-                      frameViewport={viewport}
-                      onFrameViewportChange={updateViewport}
-                      itemId={itemId}
-                      keyframesByProperty={keyframesByProperty}
-                      selectedProperty={graphDisplayProperty}
-                      overlayProperties={[...graphVisibleProperties]}
-                      selectedKeyframeIds={selectedKeyframeIds}
-                      currentFrame={currentFrame}
-                      totalFrames={totalFrames}
-                      fps={fps}
-                      width={graphPaneSize.width}
-                      height={graphPaneSize.height}
-                      onKeyframeMove={onKeyframeMove}
-                      previewFramesById={timingStripPreviewFrames}
-                      constrainFrameDelta={constrainGraphFrameDelta}
-                      onBezierHandleMove={onBezierHandleMove}
-                      onSelectionChange={onSelectionChange}
-                      onPropertyChange={onPropertyChange}
-                      onScrub={onScrub}
-                      onScrubEnd={onScrubEnd}
-                      onDragStart={onDragStart}
-                      onDragEnd={onDragEnd}
-                      onAddKeyframe={onAddKeyframe}
-                      onRemoveKeyframes={onRemoveKeyframes}
-                      onNavigateToKeyframe={onNavigateToKeyframe}
-                      transitionBlockedRanges={transitionBlockedRanges}
-                      snapEnabled={snapEnabled}
-                      showToolbar={false}
-                      showKeyboardHints={false}
-                      borderless
-                      showAllHandles={showAllGraphHandles}
-                      rulerUnit={graphRulerUnit}
-                      autoZoomGraphHeight={autoZoomGraphHeight}
-                      externalValueZoomLevel={graphVerticalZoomValue}
-                      hideXLabels
-                      disabled={disabled || graphDisplayPropertyLocked}
-                    />
-                  ) : null}
-                </div>
-              </div>
-            )}
+            <DopesheetGraphPane
+              hasRows={propertyRows.length > 0}
+              emptyStateMessage={emptyStateMessage}
+              propertyColumnElements={propertyColumnElements}
+              graphPaneRef={graphPaneRef}
+              disabled={disabled}
+              graphDisplayPropertyLocked={graphDisplayPropertyLocked}
+              focusGraphPane={focusGraphPane}
+              handleGraphPaneKeyDown={handleGraphPaneKeyDown}
+              graphPaneSize={graphPaneSize}
+              graphVisiblePropertiesSize={graphVisibleProperties.size}
+              viewport={viewport}
+              updateViewport={updateViewport}
+              itemId={itemId}
+              keyframesByProperty={keyframesByProperty}
+              graphDisplayProperty={graphDisplayProperty}
+              graphVisibleProperties={[...graphVisibleProperties]}
+              selectedKeyframeIds={selectedKeyframeIds}
+              currentFrame={currentFrame}
+              totalFrames={totalFrames}
+              fps={fps}
+              onKeyframeMove={onKeyframeMove}
+              timingStripPreviewFrames={timingStripPreviewFrames}
+              constrainGraphFrameDelta={constrainGraphFrameDelta}
+              onBezierHandleMove={onBezierHandleMove}
+              onSelectionChange={onSelectionChange}
+              onPropertyChange={onPropertyChange}
+              onScrub={onScrub}
+              onScrubEnd={onScrubEnd}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              onAddKeyframe={onAddKeyframe}
+              onRemoveKeyframes={onRemoveKeyframes}
+              onNavigateToKeyframe={onNavigateToKeyframe}
+              transitionBlockedRanges={transitionBlockedRanges}
+              snapEnabled={snapEnabled}
+              showAllGraphHandles={showAllGraphHandles}
+              graphRulerUnit={graphRulerUnit}
+              autoZoomGraphHeight={autoZoomGraphHeight}
+              graphVerticalZoomValue={graphVerticalZoomValue}
+            />
           </>
         ) : (
           <>
-            <div className="grid border-b border-border bg-muted/25" style={propertyGridStyle}>
-              <div
-                className="px-1 flex items-center text-[10px] font-medium text-muted-foreground"
-                style={{ height: RULER_HEIGHT }}
-              >
-                {t('timeline.keyframeEditor.property')}
-              </div>
-              <div
-                data-testid="dopesheet-ruler"
-                ref={timelineRef}
-                className="relative border-l border-border cursor-ew-resize overflow-hidden"
-                style={{ height: RULER_HEIGHT }}
-                onPointerDown={handleRulerPointerDown}
-                onPointerMove={handleRulerPointerMove}
-                onPointerUp={handleRulerPointerUp}
-                onPointerCancel={handleRulerPointerUp}
-              >
-                {rulerTickElements}
-              </div>
-            </div>
+            <DopesheetRulerHeader
+              propertyGridStyle={propertyGridStyle}
+              timelineRef={timelineRef}
+              onRulerPointerDown={handleRulerPointerDown}
+              onRulerPointerMove={handleRulerPointerMove}
+              onRulerPointerUp={handleRulerPointerUp}
+              rulerTickElements={rulerTickElements}
+            />
 
-            <div
-              ref={scrollAreaRef}
-              className="overflow-auto"
-              style={{ height: `calc(100% - ${RULER_HEIGHT}px)` }}
-            >
-              {sheetRows.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                  {emptyStateMessage}
-                </div>
-              ) : (
-                <div className="relative min-h-full">
-                  <div
-                    data-testid="dopesheet-selection-surface"
-                    className="absolute inset-y-0 right-0 z-0"
-                    style={{ left: PROPERTY_COLUMN_WIDTH }}
-                    onPointerDown={handleTimelineBackgroundPointerDown}
-                  />
-                  <div className="relative z-10">{rowElements}</div>
-                  {marqueeRect && !marqueeJustEndedRef.current && (
-                    <KeyframeMarqueeOverlay
-                      rect={{
-                        ...marqueeRect,
-                        x: PROPERTY_COLUMN_WIDTH + marqueeRect.x,
-                      }}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
+            <DopesheetSheetBody
+              scrollAreaRef={scrollAreaRef}
+              hasRows={sheetRows.length > 0}
+              emptyStateMessage={emptyStateMessage}
+              rowElements={rowElements}
+              marqueeRect={marqueeRect}
+              marqueeJustEnded={marqueeJustEndedRef.current}
+              onTimelineBackgroundPointerDown={handleTimelineBackgroundPointerDown}
+            />
           </>
         )}
       </div>
