@@ -19,7 +19,7 @@ import { useTrackPushPreviewStore } from '../../stores/track-push-preview-store'
 import { useSlipEditPreviewStore } from '../../stores/slip-edit-preview-store'
 import { useSlideEditPreviewStore } from '../../stores/slide-edit-preview-store'
 import { useSelectionStore } from '@/shared/state/selection'
-import { useEditorStore } from '@/app/state/editor'
+import { useEditorStore } from '@/shared/state/editor'
 import { useSourcePlayerStore } from '@/shared/state/source-player'
 import { usePlaybackStore } from '@/shared/state/playback'
 import { useTransitionDragStore } from '@/shared/state/transition-drag'
@@ -145,7 +145,7 @@ import {
   getAudioVisualizationScale,
   getAudioVolumeLineY,
 } from '../../utils/audio-volume'
-import { EDITOR_LAYOUT_CSS_VALUES } from '@/app/editor-layout'
+import { EDITOR_LAYOUT_CSS_VALUES } from '@/config/editor-layout'
 import { formatSignedFrameDelta, formatTimecodeCompact } from '@/shared/utils/time-utils'
 import {
   findHandleNeighborWithTransitions,

@@ -15,7 +15,7 @@ import { useSettingsStore } from '@/features/timeline/deps/settings'
 import { useTimelineZoomContext } from '../contexts/timeline-zoom-context'
 import { formatTimecode, secondsToFrames } from '@/shared/utils/time-utils'
 import { createScrubThrottleState, shouldCommitScrubFrame } from '../utils/scrub-throttle'
-import { EDITOR_LAYOUT_CSS_VALUES, getEditorLayout } from '@/app/editor-layout'
+import { EDITOR_LAYOUT_CSS_VALUES, getEditorLayout } from '@/config/editor-layout'
 import { sanitizeInOutPoints } from '../utils/in-out-points'
 
 // Edge-scrolling configuration

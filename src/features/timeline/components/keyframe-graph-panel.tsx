@@ -44,7 +44,7 @@ import { useTimelineCommandStore } from '../stores/timeline-command-store'
 import { captureSnapshot } from '../stores/commands/snapshot'
 import type { TimelineSnapshot } from '../stores/commands/types'
 import { usePlaybackStore } from '@/shared/state/playback'
-import { useEditorStore } from '@/app/state/editor'
+import { useEditorStore } from '@/shared/state/editor'
 import { useTimelineSettingsStore } from '../stores/timeline-settings-store'
 import { DEFAULT_BEZIER_POINTS, DEFAULT_SPRING_PARAMS } from '@/types/keyframe'
 import type {

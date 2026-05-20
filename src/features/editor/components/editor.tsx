@@ -32,20 +32,20 @@ import { useMediaLibraryStore } from '@/features/editor/deps/media-library'
 import { useSettingsStore } from '@/features/editor/deps/settings'
 import { useMaskEditorStore } from '@/features/editor/deps/preview'
 import { usePlaybackStore } from '@/shared/state/playback'
-import { useEditorStore } from '@/app/state/editor'
+import { useEditorStore } from '@/shared/state/editor'
 import { clearPreviewAudioCache } from '@/features/editor/deps/composition-runtime'
 import { useProjectStore } from '@/features/editor/deps/projects'
 import { importExportDialog } from '@/features/editor/deps/export-contract'
 import { prewarmEffectPreviews } from '@/features/editor/deps/effects-contract'
-import { getEditorLayout, getEditorLayoutCssVars } from '@/app/editor-layout'
+import { getEditorLayout, getEditorLayoutCssVars } from '@/config/editor-layout'
 import {
   createProjectUpgradeBackup,
   formatProjectUpgradeBackupName,
 } from '@/features/editor/deps/projects'
 import { ProjectUpgradeDialog } from './project-upgrade-dialog'
-import { useClearKeyframesDialogStore } from '@/app/state/clear-keyframes-dialog'
-import { useTtsGenerateDialogStore } from '@/app/state/tts-generate-dialog'
-import { useProjectMediaMatchDialogStore } from '@/app/state/project-media-match-dialog'
+import { useClearKeyframesDialogStore } from '@/shared/state/clear-keyframes-dialog'
+import { useTtsGenerateDialogStore } from '@/shared/state/tts-generate-dialog'
+import { useProjectMediaMatchDialogStore } from '@/shared/state/project-media-match-dialog'
 import {
   importEmbeddedSubtitleTrackPickerHost,
   importSubtitleScanProgressDialog,

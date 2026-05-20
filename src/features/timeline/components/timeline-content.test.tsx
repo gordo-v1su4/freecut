@@ -2,7 +2,7 @@ import { createRef, type ReactNode } from 'react'
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 
-import { useEditorStore } from '@/app/state/editor'
+import { useEditorStore } from '@/shared/state/editor'
 import { usePlaybackStore } from '@/shared/state/playback'
 import { usePreviewBridgeStore } from '@/shared/state/preview-bridge'
 import { useSelectionStore } from '@/shared/state/selection'

@@ -34,7 +34,7 @@ import { useTimelineZoom } from '../hooks/use-timeline-zoom'
 import { useTimelineStore } from '../stores/timeline-store'
 import { useTimelineCommandStore } from '../stores/timeline-command-store'
 import { usePlaybackStore } from '@/shared/state/playback'
-import { useEditorStore } from '@/app/state/editor'
+import { useEditorStore } from '@/shared/state/editor'
 import { useSelectionStore } from '@/shared/state/selection'
 import {
   ZOOM_FRICTION,
@@ -43,7 +43,7 @@ import {
   ZOOM_MAX,
   SLIP_SLIDE_TOOLS_ENABLED,
 } from '../constants'
-import { EDITOR_LAYOUT_CSS_VALUES } from '@/app/editor-layout'
+import { EDITOR_LAYOUT_CSS_VALUES } from '@/config/editor-layout'
 import { useResolvedHotkeys } from '@/features/timeline/deps/settings'
 
 interface TimelineHeaderProps {
