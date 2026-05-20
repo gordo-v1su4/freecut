@@ -37,7 +37,7 @@ import {
   type AdjustmentLayerWithTrackOrder,
 } from './canvas-effects'
 import { renderTransition, type ActiveTransition } from './canvas-transitions'
-import { transitionRegistry } from '@/core/timeline/transitions/registry'
+import { transitionRegistry } from '@/shared/timeline/transitions/registry'
 import type { ResolvedTransform } from '@/types/transform'
 import { applyMasks, buildPreparedMask, type MaskCanvasSettings } from './canvas-masks'
 import { renderShape } from './canvas-shapes'
@@ -73,16 +73,16 @@ import {
   resolveTransitionRenderTimelineSpan,
   type RenderTimelineSpan,
 } from './render-span'
-import type { GpuTexturePool } from '@/infrastructure/gpu/compositor'
+import type { GpuTexturePool } from '@/infrastructure/gpu-compositor'
 import type {
   MediaBlendPipeline,
   GpuMediaRect,
   GpuMediaRenderParams,
   MediaRenderPipeline,
-} from '@/infrastructure/gpu/media'
-import { MAX_GPU_SHAPE_PATH_VERTICES, type ShapeRenderPipeline } from '@/infrastructure/gpu/shapes'
-import type { GlyphAtlasTextPipeline } from '@/infrastructure/gpu/text'
-import type { MaskCombinePipeline } from '@/infrastructure/gpu/masks'
+} from '@/infrastructure/gpu-media'
+import { MAX_GPU_SHAPE_PATH_VERTICES, type ShapeRenderPipeline } from '@/infrastructure/gpu-shapes'
+import type { GlyphAtlasTextPipeline } from '@/infrastructure/gpu-text'
+import type { MaskCombinePipeline } from '@/infrastructure/gpu-masks'
 
 const log = createLogger('CanvasItemRenderer')
 
@@ -221,10 +221,10 @@ export interface ItemRenderContext {
   subCompRenderData: Map<string, SubCompRenderData>
 
   // GPU effects pipeline (lazily initialized)
-  gpuPipeline?: import('@/infrastructure/gpu/effects').EffectsPipeline | null
+  gpuPipeline?: import('@/infrastructure/gpu-effects').EffectsPipeline | null
 
   // GPU transition pipeline (lazily initialized, shares device with gpuPipeline)
-  gpuTransitionPipeline?: import('@/infrastructure/gpu/transitions').TransitionPipeline | null
+  gpuTransitionPipeline?: import('@/infrastructure/gpu-transitions').TransitionPipeline | null
 
   // GPU media renderer (lazily initialized, shares device with gpuPipeline)
   gpuMediaPipeline?: MediaRenderPipeline | null

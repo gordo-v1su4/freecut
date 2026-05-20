@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/shared/ui/cn'
-import { useEditorStore } from '@/app/state/editor'
+import { useEditorStore } from '@/shared/state/editor'
 import { useTimelineStore } from '@/features/editor/deps/timeline-store'
 import { usePlaybackStore } from '@/shared/state/playback'
 import { useSelectionStore } from '@/shared/state/selection'
@@ -50,7 +50,7 @@ import { EFFECT_PRESETS } from '@/types/effects'
 import {
   getGpuCategoriesWithEffects,
   getGpuEffectDefaultParams,
-} from '@/infrastructure/gpu/effects'
+} from '@/infrastructure/gpu-effects'
 import { useEffectPreviews } from '@/features/editor/deps/effects-contract'
 import { createLogger } from '@/shared/logging/logger'
 import { useSettingsStore } from '@/features/editor/deps/settings'
@@ -64,7 +64,7 @@ import {
   EDITOR_LAYOUT_CSS_VALUES,
   clampLeftEditorSidebarWidth,
   getEditorLayout,
-} from '@/app/editor-layout'
+} from '@/config/editor-layout'
 
 const logger = createLogger('MediaSidebar')
 const TEXT_TEMPLATE_PREVIEW_SHELL =

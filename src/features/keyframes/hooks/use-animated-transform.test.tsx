@@ -258,9 +258,9 @@ describe('useAnimatedTransform skimming frame resolution', () => {
     render(<HeightProbe item={WRAPPED_TEXT_ITEM} />)
 
     await waitFor(() => {
-      expect(Number(screen.getByTestId('height-probe').getAttribute('data-height'))).toBeGreaterThan(
-        80,
-      )
+      expect(
+        Number(screen.getByTestId('height-probe').getAttribute('data-height')),
+      ).toBeGreaterThan(80)
     })
   })
 

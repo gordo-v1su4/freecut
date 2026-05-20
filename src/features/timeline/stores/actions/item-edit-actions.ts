@@ -8,7 +8,7 @@ import { useItemsStore } from '../items-store'
 import { useTransitionsStore } from '../transitions-store'
 import { useKeyframesStore } from '../keyframes-store'
 import { useTimelineSettingsStore } from '../timeline-settings-store'
-import { useEditorStore } from '@/app/state/editor'
+import { useEditorStore } from '@/shared/state/editor'
 import { useSelectionStore } from '@/shared/state/selection'
 import { useMediaLibraryStore } from '@/features/timeline/deps/media-library-store'
 import { mediaLibraryService, opfsService } from '@/features/timeline/deps/media-library-service'
@@ -33,7 +33,7 @@ import {
 import { computeClampedSlipDelta } from '../../utils/slip-utils'
 import { computeSlideContinuitySourceDelta } from '../../utils/slide-utils'
 import { clampSlideDeltaToPreserveTransitions } from '../../utils/transition-utils'
-import { calculateTransitionPortions } from '@/core/timeline/transitions/transition-planner'
+import { calculateTransitionPortions } from '@/shared/timeline/transitions/transition-planner'
 import {
   expandItemIdsWithAttachedCaptions,
   getAttachedCaptionItemIds,

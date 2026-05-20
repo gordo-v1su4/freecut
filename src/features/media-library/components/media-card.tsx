@@ -44,7 +44,7 @@ import { setMediaDragData, clearMediaDragData } from '../utils/drag-data-cache'
 import { proxyService } from '../services/proxy-service'
 import { mediaTranscriptionService } from '../services/media-transcription-service'
 import { subtitleSidecarService } from '../services/subtitle-sidecar-service'
-import { useEditorStore } from '@/app/state/editor'
+import { useEditorStore } from '@/shared/state/editor'
 import { usePlaybackStore } from '@/shared/state/playback'
 import { useSourcePlayerStore } from '@/shared/state/source-player'
 import {
