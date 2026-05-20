@@ -3,6 +3,7 @@ import { useCallback, useRef, useState, useEffect, useMemo, memo } from 'react'
 
 // Stores and selectors
 import { useTimelineStore } from '../stores/timeline-store'
+import { setInOutPointsWithoutHistory } from '../stores/actions/marker-actions'
 import { usePlaybackStore } from '@/shared/state/playback'
 import { useSelectionStore } from '@/shared/state/selection'
 
@@ -385,10 +386,7 @@ export const TimelineMarkers = memo(function TimelineMarkers({
       return
     }
 
-    useTimelineStore.setState({
-      inPoint: safeInPoint,
-      outPoint: safeOutPoint,
-    })
+    setInOutPointsWithoutHistory(safeInPoint, safeOutPoint)
   }, [inPoint, outPoint, safeInPoint, safeOutPoint])
 
   // Track viewport and scroll
@@ -887,7 +885,7 @@ export const TimelineMarkers = memo(function TimelineMarkers({
         return
       }
 
-      useTimelineStore.setState({ inPoint: nextIn, outPoint: nextOut })
+      setInOutPointsWithoutHistory(nextIn, nextOut)
       rangeDragLastInRef.current = nextIn
       rangeDragLastOutRef.current = nextOut
     }

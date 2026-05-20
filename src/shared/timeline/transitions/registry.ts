@@ -6,7 +6,7 @@
  *
  * Each registered transition has:
  * - A TransitionDefinition (metadata for UI)
- * - A TransitionRenderer (calculation logic for CSS styles and canvas export)
+ * - A TransitionRenderer (canvas/GPU render logic for export and preview)
  */
 
 import type {
@@ -16,26 +16,15 @@ import type {
   SlideDirection,
   FlipDirection,
 } from '@/types/transition'
-import type { TransitionStyleCalculation } from './engine'
+import { createLogger } from '@/shared/logging/logger'
+
+const log = createLogger('TransitionRegistry')
 
 /**
- * Renderer interface for CSS/DOM-based transitions (preview + Composition).
+ * Renderer interface for transitions.
  * Each registered transition must provide this.
  */
 export interface TransitionRenderer {
-  /**
-   * Calculate CSS styles for a clip at a given transition progress.
-   * Used by the engine, preview, and Composition renderer.
-   */
-  calculateStyles(
-    progress: number,
-    isOutgoing: boolean,
-    canvasWidth: number,
-    canvasHeight: number,
-    direction?: WipeDirection | SlideDirection | FlipDirection,
-    properties?: Record<string, unknown>,
-  ): TransitionStyleCalculation
-
   /**
    * Render the transition onto a Canvas 2D context (for export).
    * @param ctx - Output canvas context
@@ -55,9 +44,6 @@ export interface TransitionRenderer {
     canvas?: { width: number; height: number },
     properties?: Record<string, unknown>,
   ): void
-
-  /** Optional GLSL fragment shader source for WebGL acceleration */
-  glslShader?: string
 
   /** GPU transition ID for WebGPU-accelerated rendering via TransitionPipeline */
   gpuTransitionId?: string
@@ -83,7 +69,7 @@ export class TransitionRegistry {
    */
   register(id: string, definition: TransitionDefinition, renderer: TransitionRenderer): void {
     if (this.entries.has(id)) {
-      console.warn(`[TransitionRegistry] Transition "${id}" is being overwritten`)
+      log.warn(`Transition "${id}" is being overwritten`)
     }
     this.entries.set(id, { definition, renderer })
   }

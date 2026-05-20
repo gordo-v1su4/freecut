@@ -203,9 +203,7 @@ export function PlaybackControls({ totalFrames, fps }: PlaybackControlsProps) {
         },
       )
 
-      useMediaLibraryStore.setState((state) => ({
-        mediaItems: [savedMedia, ...state.mediaItems],
-      }))
+      useMediaLibraryStore.getState().prependMediaItem(savedMedia)
 
       toast.success(i18n.t('preview.controls.frameSaved', { name: savedMedia.fileName }))
     } catch (error) {
