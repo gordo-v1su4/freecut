@@ -179,7 +179,7 @@ export function isAAContinuousSplit(
   const leftSourceStart = leftClip.sourceStart ?? leftClip.trimStart ?? leftClip.offset ?? 0
   const rightSourceStart = rightClip.sourceStart ?? rightClip.trimStart ?? rightClip.offset ?? 0
   const speed = leftClip.speed ?? 1
-  const sourceFps = leftClip.sourceFps ?? rightClip.sourceFps ?? fps
+  const sourceFps = leftClip.sourceFps ?? fps
   const leftSourceFrames = (leftClip.durationInFrames * speed * sourceFps) / fps
   const leftNaturalSourceEnd = leftSourceStart + leftSourceFrames
   return Math.abs(leftNaturalSourceEnd - rightSourceStart) < 0.5
