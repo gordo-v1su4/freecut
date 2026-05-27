@@ -90,8 +90,7 @@ import { useTimelineItemOverlayStore } from '../../stores/timeline-item-overlay-
 import { useRollHoverStore } from '../../stores/roll-hover-store'
 import { useZoomStore } from '../../stores/zoom-store'
 import { frameToPixelsNow, pixelsToFrameNow } from '../../utils/zoom-conversions'
-import { timelineToSourceFrames } from '../../utils/source-calculations'
-import { computeSlideContinuitySourceDelta } from '../../utils/slide-utils'
+import { useTimelineItemBounds } from './use-timeline-item-bounds'
 import { getTransitionBridgeBounds } from '../../utils/transition-preview-geometry'
 import { getAudioVisualizationScale, getAudioVolumeLineY } from '../../utils/audio-volume'
 import { useFadeEditors } from './use-fade-editors'
@@ -613,263 +612,39 @@ export const TimelineItem = memo(
       transitionDragPreviewRightClip,
     ])
 
-    // Calculate position and width (convert frames to seconds, then to pixels)
-    // Clip edges stay at their true cut positions; transition bridges render as an overlay.
-    // Fold overlap + ripple + slide into the frame value BEFORE rounding so both clip edges
-    // derive from a single Math.round - avoids 1px gaps from independent rounding
-    // (Math.round(A) + Math.round(B) != Math.round(A + B)).
-    //
-    // Slide edit: the slid clip shifts by slideEditOffset. Neighbors adjust edges:
-    // - Left neighbor (slideNeighborSide==='left'): end edge extends/shrinks by slideNeighborDelta
-    // - Right neighbor (slideNeighborSide==='right'): start edge shifts by slideNeighborDelta
-    const slideFromOffset =
-      slideEditOffset + (slideNeighborSide === 'right' ? slideNeighborDelta : 0)
-    const slideDurationOffset =
-      (slideNeighborSide === 'left' ? slideNeighborDelta : 0) +
-      (slideNeighborSide === 'right' ? -slideNeighborDelta : 0)
-
-    const leftFrame = previewBaseItem.from + slideFromOffset + rippleEditOffset + trackPushOffset
-    const rightFrame =
-      previewBaseItem.from +
-      previewBaseItem.durationInFrames +
-      slideDurationOffset +
-      slideFromOffset +
-      rippleEditOffset +
-      trackPushOffset
-    const left = Math.round(frameToPixelsNow(leftFrame))
-    const right = Math.round(frameToPixelsNow(rightFrame))
-    const width = right - left
-
-    // Source FPS for converting source frames -> timeline frames (sourceStart etc. are in source-native FPS)
-    const effectiveSourceFps = previewBaseItem.sourceFps ?? fps
-
-    // Preview item for clip internals (filmstrip/waveform) during edit drags.
-    const contentPreviewItem = useMemo<TimelineItemType>(() => {
-      let nextItem = previewBaseItem
-      let previewStartTrimDelta = 0
-      let previewEndTrimDelta = 0
-      let previewDurationDelta = 0
-
-      // Active local trim (normal / rolling / ripple on trimmed item).
-      if (isTrimming && trimHandle) {
-        if (trimHandle === 'start') {
-          previewStartTrimDelta += trimDelta
-          previewDurationDelta += -trimDelta
-        } else {
-          previewEndTrimDelta += trimDelta
-          previewDurationDelta += trimDelta
-        }
-      }
-
-      // Rolling neighbor preview (this item is the inverse-adjusted neighbor).
-      if (rollingEditDelta !== 0) {
-        if (rollingEditHandle === 'end') {
-          // Neighbor start handle equivalent.
-          previewStartTrimDelta += rollingEditDelta
-          previewDurationDelta += -rollingEditDelta
-        } else if (rollingEditHandle === 'start') {
-          // Neighbor end handle equivalent.
-          previewEndTrimDelta += rollingEditDelta
-          previewDurationDelta += rollingEditDelta
-        }
-      }
-
-      // Slide neighbor preview (left adjusts end, right adjusts start).
-      if (slideNeighborSide && slideNeighborDelta !== 0) {
-        if (slideNeighborSide === 'right') {
-          previewStartTrimDelta += slideNeighborDelta
-          previewDurationDelta += -slideNeighborDelta
-        } else {
-          previewEndTrimDelta += slideNeighborDelta
-          previewDurationDelta += slideNeighborDelta
-        }
-      }
-
-      // Slide continuity preview for split-contiguous chains:
-      // match slideItem commit logic so playback continuity stays correct in-drag.
-      if ((nextItem.type === 'video' || nextItem.type === 'audio') && slideEditOffset !== 0) {
-        const sourceDelta = computeSlideContinuitySourceDelta(
-          nextItem,
-          slideLeftNeighborForSlidItem,
-          slideRightNeighborForSlidItem,
-          slideEditOffset,
-          fps,
-        )
-        if (sourceDelta !== 0 && nextItem.sourceEnd !== undefined) {
-          nextItem = {
-            ...nextItem,
-            sourceStart: (nextItem.sourceStart ?? 0) + sourceDelta,
-            sourceEnd: nextItem.sourceEnd + sourceDelta,
-          }
-        }
-      }
-
-      if (
-        (previewBaseItem.type === 'video' || previewBaseItem.type === 'audio') &&
-        slipEditDelta !== 0
-      ) {
-        const nextSourceStart = Math.max(0, (nextItem.sourceStart ?? 0) + slipEditDelta)
-        const nextSourceEnd =
-          nextItem.sourceEnd !== undefined
-            ? Math.max(nextSourceStart + 1, nextItem.sourceEnd + slipEditDelta)
-            : undefined
-
-        nextItem = {
-          ...nextItem,
-          sourceStart: nextSourceStart,
-          sourceEnd: nextSourceEnd,
-        }
-      }
-
-      // Composition wrappers clip their inner segments by sourceEnd/sourceStart,
-      // so treat them like video/audio for source-frame trims.
-      const isCompositionWrapper =
-        nextItem.type === 'composition' || (nextItem.type === 'audio' && !!nextItem.compositionId)
-
-      // Start-trim equivalents shift sourceStart in source-frame units.
-      const supportsStartTrimSourceShift =
-        previewBaseItem.type === 'video' || previewBaseItem.type === 'audio' || isCompositionWrapper
-      if (supportsStartTrimSourceShift && previewStartTrimDelta !== 0) {
-        const sourceFramesDelta = timelineToSourceFrames(
-          previewStartTrimDelta,
-          nextItem.speed ?? 1,
-          fps,
-          effectiveSourceFps,
-        )
-        nextItem = {
-          ...nextItem,
-          sourceStart: Math.max(0, (nextItem.sourceStart ?? 0) + sourceFramesDelta),
-        }
-      }
-
-      if (previewDurationDelta !== 0) {
-        nextItem = {
-          ...nextItem,
-          durationInFrames: Math.max(1, nextItem.durationInFrames + previewDurationDelta),
-        }
-      }
-
-      // Composition wrappers clip their inner segments by sourceEnd, so live
-      // end-trim needs sourceEnd bumped alongside durationInFrames — otherwise
-      // the filmstrip stops at the stale committed value while the clip grows.
-      if (isCompositionWrapper && previewEndTrimDelta !== 0 && nextItem.sourceEnd !== undefined) {
-        const endSourceFramesDelta = timelineToSourceFrames(
-          previewEndTrimDelta,
-          nextItem.speed ?? 1,
-          fps,
-          effectiveSourceFps,
-        )
-        nextItem = {
-          ...nextItem,
-          sourceEnd: Math.max(
-            (nextItem.sourceStart ?? 0) + 1,
-            nextItem.sourceEnd + endSourceFramesDelta,
-          ),
-        }
-      }
-
-      return nextItem
-    }, [
+    const {
+      left,
+      width,
+      visualLeftFrame,
+      visualWidthFrames,
+      visualLeft,
+      visualWidth,
+      isCompactWidth,
+      slideFromOffset,
+      contentPreviewItem,
+      preferImmediateContentRendering,
+    } = useTimelineItemBounds({
       previewBaseItem,
+      fps,
       isTrimming,
       trimHandle,
       trimDelta,
-      rollingEditDelta,
-      rollingEditHandle,
+      isStretching,
+      stretchFeedback,
+      isSlipSlideActive,
       slipEditDelta,
       slideEditOffset,
       slideNeighborSide,
       slideNeighborDelta,
       slideLeftNeighborForSlidItem,
       slideRightNeighborForSlidItem,
-      fps,
-      effectiveSourceFps,
-    ])
-    // During edit previews, prioritize visual sync over deferred rendering so
-    // filmstrip growth keeps up with the edit gesture.
-    const preferImmediateContentRendering =
-      isTrimming ||
-      isSlipSlideActive ||
-      rollingEditDelta !== 0 ||
-      rippleEditOffset !== 0 ||
-      rippleEdgeDelta !== 0 ||
-      slideEditOffset !== 0 ||
-      slideNeighborDelta !== 0
-
-    // Calculate visual positions during trim/stretch
-    const { visualLeftFrame, visualWidthFrames } = useMemo(() => {
-      let trimVisualLeftFrame = leftFrame
-      let trimVisualRightFrame = rightFrame
-
-      // Ripple edit: compute the new right edge from frames - the SAME rounding
-      // path that downstream items use for their `left` - so both edges go through
-      // a single Math.round(timeToPixels(totalFrames / fps)) and can never diverge
-      // by even 1 px.  `rippleEdgeDelta` equals the downstream `rippleEditOffset`.
-      if (rippleEdgeDelta !== 0) {
-        trimVisualRightFrame =
-          previewBaseItem.from + previewBaseItem.durationInFrames + rippleEdgeDelta
-      } else if (isTrimming && trimHandle) {
-        if (trimHandle === 'start') {
-          trimVisualLeftFrame = previewBaseItem.from + trimDelta
-        } else {
-          trimVisualRightFrame = previewBaseItem.from + previewBaseItem.durationInFrames + trimDelta
-        }
-      }
-
-      // Rolling edit neighbor visual feedback
-      // Compute the shared boundary from absolute frame position (same path as anchor)
-      // to avoid sub-pixel divergence between the two clips.
-      if (rollingEditDelta !== 0) {
-        if (rollingEditHandle === 'end') {
-          // Trimmed item's end handle was dragged -- this neighbor's start adjusts
-          trimVisualLeftFrame = previewBaseItem.from + rollingEditDelta
-        } else if (rollingEditHandle === 'start') {
-          // Trimmed item's start handle was dragged -- this neighbor's end adjusts
-          trimVisualRightFrame =
-            previewBaseItem.from + previewBaseItem.durationInFrames + rollingEditDelta
-        }
-      }
-
-      let stretchVisualLeftFrame = trimVisualLeftFrame
-      let stretchVisualRightFrame = trimVisualRightFrame
-
-      if (isStretching && stretchFeedback) {
-        stretchVisualLeftFrame = stretchFeedback.from
-        stretchVisualRightFrame = stretchFeedback.from + stretchFeedback.duration
-      }
-
-      const isActive = rippleEdgeDelta !== 0 || isTrimming || rollingEditDelta !== 0
-      const nextVisualLeftFrame = isStretching
-        ? stretchVisualLeftFrame
-        : isActive
-          ? trimVisualLeftFrame
-          : leftFrame
-      const nextVisualRightFrame = isStretching
-        ? stretchVisualRightFrame
-        : isActive
-          ? trimVisualRightFrame
-          : rightFrame
-
-      return {
-        visualLeftFrame: nextVisualLeftFrame,
-        visualWidthFrames: Math.max(1, nextVisualRightFrame - nextVisualLeftFrame),
-      }
-    }, [
-      isTrimming,
-      trimHandle,
-      isStretching,
-      stretchFeedback,
-      previewBaseItem.from,
-      previewBaseItem.durationInFrames,
-      trimDelta,
       rollingEditDelta,
       rollingEditHandle,
+      rippleEditOffset,
       rippleEdgeDelta,
-      leftFrame,
-      rightFrame,
-    ])
-    const visualLeft = Math.round(frameToPixelsNow(visualLeftFrame))
-    const visualWidth = Math.round(frameToPixelsNow(visualWidthFrames))
+      trackPushOffset,
+    })
+
     const transitionDropHitWidth = Math.min(
       TRANSITION_DROP_HIT_MAX_WIDTH_PX,
       Math.max(
@@ -878,9 +653,6 @@ export const TimelineItem = memo(
       ),
     )
     const transitionDropHalfHitWidth = transitionDropHitWidth / 2
-    // Early width check ââ‚¬” used to short-circuit expensive computations below.
-    // The full useCompactClipShell (which also checks interaction/badge state) is computed later for JSX gating.
-    const isCompactWidth = visualWidth > 0 && visualWidth <= COMPACT_CLIP_MAX_WIDTH_PX
 
     const toolOperationOverlay = useMemo(() => {
       if (visualWidth <= 0) return null
