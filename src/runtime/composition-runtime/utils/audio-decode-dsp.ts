@@ -46,6 +46,21 @@ export function int16ToFloat32(int16: Int16Array): Float32Array {
 }
 
 /**
+ * Dequantize Int16 samples straight into a destination Float32 buffer at the
+ * given offset. Avoids the throwaway Float32Array allocation (and the second
+ * copy) that `int16ToFloat32` + `Float32Array.set` pays when filling a larger
+ * channel buffer bin-by-bin — both the allocation churn and the extra pass show
+ * up on the AudioBuffer-assembly hot path.
+ */
+export function int16ToFloat32Into(int16: Int16Array, dst: Float32Array, dstOffset: number): void {
+  const n = int16.length
+  for (let i = 0; i < n; i++) {
+    const s = int16[i]!
+    dst[dstOffset + i] = s < 0 ? s * INT16_NEG_SCALE : s * INT16_POS_SCALE
+  }
+}
+
+/**
  * Downmix N-channel audio to stereo using standard ITU-R BS.775 coefficients.
  * 5.1 layout: L R C LFE Ls Rs
  * 7.1 layout: L R C LFE Ls Rs Lrs Rrs (rear surrounds folded into Ls/Rs)

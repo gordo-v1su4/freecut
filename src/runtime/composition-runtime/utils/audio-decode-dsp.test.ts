@@ -5,6 +5,7 @@ import {
   downsampleStereo,
   float32ToInt16,
   int16ToFloat32,
+  int16ToFloat32Into,
   produceDecodedBin,
 } from './audio-decode-dsp'
 
@@ -15,6 +16,17 @@ describe('audio-decode-dsp', () => {
     for (let i = 0; i < input.length; i++) {
       expect(Math.abs(back[i]! - input[i]!)).toBeLessThan(1 / 0x7fff + 1e-6)
     }
+  })
+
+  it('int16ToFloat32Into writes the same values as int16ToFloat32 at an offset', () => {
+    const int16 = float32ToInt16(new Float32Array([0, 0.5, -0.5, 1, -1, 0.123]))
+    const expected = int16ToFloat32(int16)
+    const dst = new Float32Array(int16.length + 3)
+    int16ToFloat32Into(int16, dst, 3)
+    for (let i = 0; i < int16.length; i++) {
+      expect(dst[3 + i]).toBe(expected[i])
+    }
+    expect(dst[0]).toBe(0)
   })
 
   it('clamps out-of-range float samples before Int16 conversion', () => {

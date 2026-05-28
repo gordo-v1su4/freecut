@@ -32,11 +32,15 @@ import { getWorkspaceRoot } from '@/infrastructure/storage/workspace-fs/root'
 import { ensureAc3DecoderRegistered, isAc3AudioCodec } from '@/shared/utils/ac3-decoder'
 import { createManagedWorker, type ManagedWorker } from '@/shared/utils/managed-worker'
 import type { DecodedPreviewAudioMeta, DecodedPreviewAudioBin } from '@/types/storage'
-import { persistPreviewAudioConform } from './preview-audio-conform'
+import {
+  isPreviewAudioConformed,
+  persistPreviewAudioConform,
+  persistPreviewAudioConformFromInt16,
+} from './preview-audio-conform'
 import {
   buildDownsampledStereo,
   downmixToStereo,
-  int16ToFloat32,
+  int16ToFloat32Into,
   produceDecodedBin,
   type DecodedAudioBinData,
 } from './audio-decode-dsp'
@@ -222,6 +226,13 @@ export async function startPreviewAudioConform(
   mediaId: string,
   src: PreviewAudioSource,
 ): Promise<void> {
+  // Bail before the decode/AudioBuffer rebuild when the conform asset already
+  // exists. Otherwise every time the clip scrolls back into view we pay the
+  // full `loadFromBins` Int16→Float32 reconstruction (~hundreds of ms, on the
+  // main thread) just to feed a WAV that is already persisted.
+  if (await isPreviewAudioConformed(mediaId)) {
+    return
+  }
   const buffer = await ensureDecodeStarted(mediaId, src)
   await persistPreviewAudioConform(mediaId, buffer)
 }
@@ -324,8 +335,8 @@ async function loadPartialFromBins(
     const right = new Int16Array(bin.right)
     const frames = Math.min(bin.frames, left.length, right.length)
     if (frames <= 0) continue
-    leftChannel.set(int16ToFloat32(left.subarray(0, frames)), offset)
-    rightChannel.set(int16ToFloat32(right.subarray(0, frames)), offset)
+    int16ToFloat32Into(left.subarray(0, frames), leftChannel, offset)
+    int16ToFloat32Into(right.subarray(0, frames), rightChannel, offset)
     offset += frames
   }
   if (offset <= 0) {
@@ -904,8 +915,8 @@ async function loadFromBins(meta: DecodedPreviewAudioMeta): Promise<AudioBuffer>
       throw new Error(`Decoded audio bins exceed expected frame length (${mediaId})`)
     }
 
-    leftChannel.set(int16ToFloat32(leftInt16), offset)
-    rightChannel.set(int16ToFloat32(rightInt16), offset)
+    int16ToFloat32Into(leftInt16, leftChannel, offset)
+    int16ToFloat32Into(rightInt16, rightChannel, offset)
     offset += b.frames
   }
 
@@ -1010,10 +1021,17 @@ function finalizeDecodedAudio(
   const outLeft = combined.getChannelData(0)
   const outRight = combined.getChannelData(1)
 
+  // Assemble the playback float buffer and a planar Int16 copy in one pass. The
+  // Int16 copy feeds the conform WAV directly, avoiding a redundant
+  // Float32→Int16 re-quantization of the whole buffer.
+  const wavLeft = new Int16Array(storedTotalFrames)
+  const wavRight = new Int16Array(storedTotalFrames)
   let offset = 0
   for (const bin of persistedBins) {
-    outLeft.set(int16ToFloat32(bin.left), offset)
-    outRight.set(int16ToFloat32(bin.right), offset)
+    int16ToFloat32Into(bin.left, outLeft, offset)
+    int16ToFloat32Into(bin.right, outRight, offset)
+    wavLeft.set(bin.left, offset)
+    wavRight.set(bin.right, offset)
     offset += bin.frames
   }
   if (offset !== storedTotalFrames) {
@@ -1028,7 +1046,7 @@ function finalizeDecodedAudio(
     sizeMB: ((storedTotalFrames * 2 * 2) / (1024 * 1024)).toFixed(1),
   })
 
-  void persistPreviewAudioConform(mediaId, combined)
+  void persistPreviewAudioConformFromInt16(mediaId, wavLeft, wavRight, storedSampleRate)
 
   // Save meta last as the decode-complete marker.
   void saveDecodedPreviewAudio({
