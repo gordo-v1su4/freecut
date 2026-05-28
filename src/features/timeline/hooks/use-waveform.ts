@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef, useEffectEvent } from 'react'
-import { waveformCache, type CachedWaveform } from '../services/waveform-cache'
+import {
+  waveformCache,
+  type CachedWaveform,
+  type CachedWaveformLevel,
+} from '../services/waveform-cache'
+import { chooseDisplayLevelForZoom } from '../services/waveform-opfs-storage'
 import { getPreviewStartupDelayMs, schedulePreviewWork } from './preview-work-budget'
 import { createLogger } from '@/shared/logging/logger'
 
@@ -16,6 +21,12 @@ interface UseWaveformOptions {
   enabled?: boolean
   /** Source/media duration used to size the deferred startup budget */
   deferDurationSec?: number
+  /**
+   * Current timeline zoom (pixels/sec). Selects which downsampled resolution
+   * level to render so memory stays bounded regardless of clip length. Omit to
+   * render the full-resolution peaks (legacy behavior).
+   */
+  pixelsPerSecond?: number
 }
 
 interface UseWaveformResult {
@@ -42,15 +53,19 @@ interface UseWaveformResult {
 }
 
 /**
- * Hook for managing waveform data for an audio clip
+ * Hook for managing waveform data for an audio clip.
  *
- * - Loads cached waveforms when visible, even before a blobUrl is available
- * - Only generates missing waveforms when visible and has valid blobUrl
- * - Subscribes to progressive updates for streaming loading
- * - Caches results in memory and OPFS
- * - Defers startup until interaction/idle budget allows so new clips do not
- *   block creation gestures
- * - Sync cache check on mount to avoid skeleton flash when moving clips
+ * Rendering source priority:
+ * 1. A zoom-appropriate downsampled level from the persisted OPFS
+ *    multi-resolution file (small, bounded memory) — preferred when available.
+ * 2. The full-resolution peaks (memory cache → IndexedDB/OPFS → worker
+ *    generation) — used while a waveform is still being generated, or for media
+ *    that has no persisted multi-resolution file yet.
+ *
+ * Loading a level instead of the full-res peaks keeps only a fraction of the
+ * data resident when zoomed out, so a long clip no longer pins tens of MB in
+ * memory — and a clip that remounts (e.g. dragged to another track) renders
+ * from the synchronously-cached level without a skeleton flash.
  */
 export function useWaveform({
   mediaId,
@@ -58,15 +73,32 @@ export function useWaveform({
   isVisible,
   enabled = true,
   deferDurationSec = 0,
+  pixelsPerSecond,
 }: UseWaveformOptions): UseWaveformResult {
-  // State for waveform data - initialize from memory cache to avoid skeleton flash
-  // This is important when clips move across tracks (component remounts but cache persists)
+  // Which downsampled level the current zoom wants. When pixelsPerSecond is
+  // omitted, force the full-res path by treating the level as unavailable.
+  const useLevels = pixelsPerSecond !== undefined
+  const levelIndex = chooseDisplayLevelForZoom(pixelsPerSecond ?? 0)
+
+  // Preferred display source: a single downsampled level. Seeded synchronously
+  // so a remount with an already-loaded level shows no skeleton.
+  const [displayLevel, setDisplayLevel] = useState<CachedWaveformLevel | null>(() =>
+    useLevels && enabled ? waveformCache.getDisplayLevelSync(mediaId, levelIndex) : null,
+  )
+  // Whether we've checked OPFS for a persisted level for the current media.
+  // Generation is gated on this so we never regenerate a clip that already has
+  // a persisted multi-resolution file.
+  const [levelProbed, setLevelProbed] = useState<boolean>(
+    () =>
+      !useLevels || (enabled && waveformCache.getDisplayLevelSync(mediaId, levelIndex) !== null),
+  )
+
+  // Full-resolution fallback state (generation + progressive streaming).
   const [waveform, setWaveform] = useState<CachedWaveform | null>(() => {
     return waveformCache.getFromMemoryCacheSync(mediaId)
   })
   const [isLoading, setIsLoading] = useState(false)
   const [progress, setProgress] = useState(() => {
-    // If we have cached data, start at 100%
     const cached = waveformCache.getFromMemoryCacheSync(mediaId)
     return cached?.isComplete ? 100 : 0
   })
@@ -87,8 +119,52 @@ export function useWaveform({
       setIsLoading(false)
       setProgress(waveformCache.getFromMemoryCacheSync(mediaId)?.isComplete ? 100 : 0)
       setError(null)
+      const seededLevel =
+        useLevels && enabled ? waveformCache.getDisplayLevelSync(mediaId, levelIndex) : null
+      setDisplayLevel(seededLevel)
+      setLevelProbed(!useLevels || seededLevel !== null)
     }
-  }, [mediaId])
+  }, [mediaId, useLevels, enabled, levelIndex])
+
+  // Load the zoom-appropriate display level. Re-runs when the level changes
+  // (zoom crossing a resolution threshold). The previous level stays visible
+  // until the new one loads, so zooming never flashes a skeleton.
+  useEffect(() => {
+    if (!useLevels || !enabled || !isVisible) {
+      return
+    }
+
+    const sync = waveformCache.getDisplayLevelSync(mediaId, levelIndex)
+    if (sync) {
+      setDisplayLevel(sync)
+      setLevelProbed(true)
+      return
+    }
+
+    let cancelled = false
+    const requestMediaId = mediaId
+    waveformCache
+      .getDisplayLevel(mediaId, levelIndex)
+      .then((level) => {
+        if (cancelled || lastMediaIdRef.current !== requestMediaId) return
+        // A null result means this zoom's level isn't persisted: clear any
+        // previously-shown (now stale) level so `needsFullRes` flips true and
+        // the full-resolution generation path takes over. Leaving a stale
+        // coarser level in place would keep `needsFullRes` false forever and
+        // permanently strand the clip on the wrong level's peaks.
+        setDisplayLevel(level)
+        setLevelProbed(true)
+      })
+      .catch((err) => {
+        if (cancelled || lastMediaIdRef.current !== requestMediaId) return
+        logger.warn(`Failed to load waveform display level for ${mediaId}`, err)
+        setLevelProbed(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [mediaId, levelIndex, isVisible, enabled, useLevels])
 
   // Progress callback - using useEffectEvent so it doesn't need to be in effect deps
   const onProgress = useEffectEvent((nextProgress: number) => {
@@ -114,9 +190,13 @@ export function useWaveform({
     return unsubscribe
   }, [mediaId, enabled])
 
-  // Load waveform when visible and conditions are met
+  // Generate the full-resolution waveform — only when no persisted display
+  // level exists (levelProbed && !displayLevel) or when levels are disabled.
+  // A clip with a persisted multi-resolution file renders from its level and
+  // never reaches this path, so its full-res peaks stay off the heap.
+  const needsFullRes = !useLevels || (levelProbed && !displayLevel)
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !needsFullRes) {
       return
     }
 
@@ -211,7 +291,7 @@ export function useWaveform({
       }
       cancelScheduledStart()
     }
-  }, [mediaId, blobUrl, isVisible, enabled, waveform?.isComplete, deferDurationSec])
+  }, [mediaId, blobUrl, isVisible, enabled, waveform?.isComplete, deferDurationSec, needsFullRes])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -220,6 +300,26 @@ export function useWaveform({
     }
   }, [mediaId])
 
+  // Prefer the downsampled display level; fall back to full-resolution peaks
+  // while generating or for media without a persisted multi-resolution file.
+  if (displayLevel) {
+    return {
+      peaks: displayLevel.peaks,
+      duration: displayLevel.duration,
+      sampleRate: displayLevel.sampleRate,
+      channels: displayLevel.channels,
+      stereo: displayLevel.stereo,
+      maxPeak: displayLevel.maxPeak,
+      loadedSamples: displayLevel.loadedSamples,
+      isLoading: false,
+      progress: 100,
+      error: null,
+    }
+  }
+
+  // No level yet: show full-res if present, otherwise report loading until the
+  // OPFS probe (and any generation) resolves.
+  const loadingUntilResolved = useLevels && !levelProbed && isVisible && enabled && !waveform
   return {
     peaks: waveform?.peaks ?? null,
     duration: waveform?.duration || 0,
@@ -228,7 +328,7 @@ export function useWaveform({
     stereo: waveform?.stereo ?? false,
     maxPeak: waveform?.maxPeak ?? 1,
     loadedSamples: waveform?.loadedSamples ?? 0,
-    isLoading,
+    isLoading: isLoading || loadingUntilResolved,
     progress,
     error,
   }

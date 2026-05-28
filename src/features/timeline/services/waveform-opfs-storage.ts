@@ -73,8 +73,8 @@ export interface MultiResolutionWaveform {
 }
 
 /**
- * Choose the best resolution level for a given pixelsPerSecond
- * Higher zoom (more pixels/sec) = higher resolution needed
+ * Choose a resolution level for range-based reads where bars are a few pixels
+ * wide (used by getWaveformRange/getWaveformLevel).
  */
 export function chooseLevelForZoom(pixelsPerSecond: number): number {
   // Bars are typically 2-3 pixels wide, so we want ~1 sample per 3 pixels
@@ -86,6 +86,36 @@ export function chooseLevelForZoom(pixelsPerSecond: number): number {
     }
   }
   return WAVEFORM_LEVELS.length - 1
+}
+
+// At or above this zoom we render full resolution (level 0). Any downsampled
+// level visibly loses transient detail when scrutinizing a waveform, so we only
+// drop below full-res at overview zoom, where the whole (often long) clip is on
+// screen — there the detail is imperceptible but the memory savings are largest
+// (16 px/s ≈ a full minute of audio across a ~960px viewport).
+const DISPLAY_FULL_RES_MIN_PIXELS_PER_SECOND = 16
+
+/**
+ * Choose the resolution level for rendering a full clip's waveform at a given
+ * zoom. Returns full resolution (level 0) whenever zoomed in enough to inspect
+ * detail; only at overview zoom does it step down to the coarsest level that
+ * still keeps comfortably more than one sample per pixel (so it stays smooth
+ * while using a fraction of the memory for a long clip).
+ */
+export function chooseDisplayLevelForZoom(pixelsPerSecond: number): number {
+  if (pixelsPerSecond >= DISPLAY_FULL_RES_MIN_PIXELS_PER_SECOND) {
+    return 0
+  }
+
+  const neededSamplesPerSecond = Math.max(1, pixelsPerSecond * 1.5)
+  // WAVEFORM_LEVELS is descending; walk from coarsest to finest and take the
+  // first (coarsest) level that still meets the needed density.
+  for (let i = WAVEFORM_LEVELS.length - 1; i >= 0; i--) {
+    if (WAVEFORM_LEVELS[i]! >= neededSamplesPerSecond) {
+      return i
+    }
+  }
+  return 0
 }
 
 /**

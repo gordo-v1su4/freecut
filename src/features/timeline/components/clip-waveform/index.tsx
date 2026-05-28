@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { TiledCanvas } from '../clip-filmstrip/tiled-canvas'
 import { WaveformSkeleton } from './waveform-skeleton'
 import { useWaveform } from '../../hooks/use-waveform'
@@ -89,8 +89,11 @@ export const ClipWaveform = memo(function ClipWaveform({
   const conformStartedRef = useRef(false)
   const { blobUrl, setBlobUrl, hasStartedLoadingRef, blobUrlVersion } = useMediaBlobUrl(mediaId)
 
-  // Measure container height
-  useEffect(() => {
+  // Measure container height. useLayoutEffect (not useEffect) so the initial
+  // measurement commits before paint: when a clip remounts under a new track
+  // (moving a segment across tracks), height would otherwise start at 0 for one
+  // painted frame and flash the loading skeleton even though peaks are cached.
+  useLayoutEffect(() => {
     const container = containerRef.current
     if (!container) return
 
@@ -193,6 +196,7 @@ export const ClipWaveform = memo(function ClipWaveform({
       isVisible,
       enabled: audioCodecSupported,
       deferDurationSec: sourceDuration,
+      pixelsPerSecond,
     })
   const normalizationPeak = maxPeak > 0 ? maxPeak : 1
   const peakSampleCount = useMemo(
