@@ -18,14 +18,28 @@
 import { createLogger } from '@/shared/logging/logger'
 import { createMediabunnyInputSource } from '@/infrastructure/browser/mediabunny-input-source'
 import {
+  getObjectUrlBlob,
+  getObjectUrlSourceMetadata,
+  type ObjectUrlSourceMetadata,
+} from '@/infrastructure/browser/object-url-registry'
+import {
   getDecodedPreviewAudio,
   saveDecodedPreviewAudio,
   deleteDecodedPreviewAudio,
   getMedia,
 } from '@/infrastructure/storage'
 import { ensureAc3DecoderRegistered, isAc3AudioCodec } from '@/shared/utils/ac3-decoder'
+import { createManagedWorker, type ManagedWorker } from '@/shared/utils/managed-worker'
 import type { DecodedPreviewAudioMeta, DecodedPreviewAudioBin } from '@/types/storage'
 import { persistPreviewAudioConform } from './preview-audio-conform'
+import {
+  buildDownsampledStereo,
+  downmixToStereo,
+  int16ToFloat32,
+  produceDecodedBin,
+  type DecodedAudioBinData,
+} from './audio-decode-dsp'
+import type { AudioDecodeWorkerResponse } from './audio-decode-worker.types'
 
 const log = createLogger('PreviewAudioCache')
 export type PreviewAudioSource = string | Blob
@@ -141,68 +155,6 @@ function rememberPlaybackSlice(mediaId: string, slice: PlaybackAudioSlice): void
   if (nextCoverageEnd > existingCoverageEnd + 0.05 || slice.startTime < existing.startTime - 0.05) {
     playbackSliceCache.set(mediaId, slice)
   }
-}
-
-// ---------------------------------------------------------------------------
-// Int16 <-> Float32 conversion
-// ---------------------------------------------------------------------------
-
-function float32ToInt16(float32: Float32Array): Int16Array {
-  const n = float32.length
-  const int16 = new Int16Array(n)
-  for (let i = 0; i < n; i++) {
-    const s = Math.max(-1, Math.min(1, float32[i]!))
-    int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff
-  }
-  return int16
-}
-
-const INT16_NEG_SCALE = 1 / 0x8000
-const INT16_POS_SCALE = 1 / 0x7fff
-
-function int16ToFloat32(int16: Int16Array): Float32Array {
-  const n = int16.length
-  const float32 = new Float32Array(n)
-  for (let i = 0; i < n; i++) {
-    const s = int16[i]!
-    float32[i] = s < 0 ? s * INT16_NEG_SCALE : s * INT16_POS_SCALE
-  }
-  return float32
-}
-
-// ---------------------------------------------------------------------------
-// Resampling
-// ---------------------------------------------------------------------------
-
-async function downsampleBuffer(buffer: AudioBuffer, targetRate: number): Promise<AudioBuffer> {
-  if (buffer.sampleRate <= targetRate) return buffer
-
-  const ratio = targetRate / buffer.sampleRate
-  const numChannels = buffer.numberOfChannels
-  const sourceFrames = buffer.length
-  const targetFrames = Math.ceil(sourceFrames * ratio)
-
-  // Manual linear interpolation — ~10x faster than OfflineAudioContext
-  // for preview-quality downsampling (22050 Hz). Quality is sufficient
-  // since we're going from 48kHz?22kHz with anti-aliasing handled by
-  // the Nyquist limit at the target rate.
-  const ctx = new OfflineAudioContext(numChannels, targetFrames, targetRate)
-  const outBuffer = ctx.createBuffer(numChannels, targetFrames, targetRate)
-
-  for (let ch = 0; ch < numChannels; ch++) {
-    const input = buffer.getChannelData(ch)
-    const output = outBuffer.getChannelData(ch)
-    for (let i = 0; i < targetFrames; i++) {
-      const srcPos = i / ratio
-      const idx = Math.floor(srcPos)
-      const frac = srcPos - idx
-      const s0 = input[idx] ?? 0
-      const s1 = input[idx + 1] ?? s0
-      output[i] = s0 + (s1 - s0) * frac
-    }
-  }
-
-  return outBuffer
 }
 
 // ---------------------------------------------------------------------------
@@ -649,6 +601,121 @@ export function clearPreviewAudioCache(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Off-thread full decode (worker)
+// ---------------------------------------------------------------------------
+
+let audioDecodeWorkerManager: ManagedWorker | null = null
+let audioDecodeRequestCounter = 0
+
+function canUseAudioDecodeWorker(): boolean {
+  return typeof Worker !== 'undefined'
+}
+
+function getAudioDecodeWorker(): Worker {
+  if (!audioDecodeWorkerManager) {
+    audioDecodeWorkerManager = createManagedWorker({
+      createWorker: () =>
+        new Worker(new URL('./audio-decode-worker.ts', import.meta.url), { type: 'module' }),
+    })
+  }
+  return audioDecodeWorkerManager.getWorker()
+}
+
+/**
+ * Resolve a preview-audio source into a form the worker can use. Blobs cross the
+ * worker boundary directly; object-URL strings carry along their registry
+ * metadata (file handle / fallback blob) so the worker can stream from disk.
+ */
+function prepareWorkerSource(src: PreviewAudioSource): {
+  src: string | Blob
+  sourceMetadata: ObjectUrlSourceMetadata | null
+  fallbackBlob: Blob | null
+} {
+  if (src instanceof Blob) {
+    return { src, sourceMetadata: null, fallbackBlob: null }
+  }
+  return {
+    src,
+    sourceMetadata: getObjectUrlSourceMetadata(src),
+    fallbackBlob: getObjectUrlBlob(src),
+  }
+}
+
+function decodeFullAudioViaWorker(mediaId: string, src: PreviewAudioSource): Promise<AudioBuffer> {
+  return new Promise<AudioBuffer>((resolve, reject) => {
+    const worker = getAudioDecodeWorker()
+    const requestId = `audio-decode-${++audioDecodeRequestCounter}`
+    const persistedBins: DecodedAudioBinData[] = []
+    const persistPromises: Array<Promise<void>> = []
+
+    const cleanup = () => {
+      worker.removeEventListener('message', onMessage)
+      worker.removeEventListener('error', onError)
+    }
+
+    const onMessage = (event: MessageEvent<AudioDecodeWorkerResponse>) => {
+      const message = event.data
+      if (message.requestId !== requestId) {
+        return
+      }
+
+      if (message.type === 'bin') {
+        const bin: DecodedAudioBinData = {
+          binIndex: message.binIndex,
+          frames: message.frames,
+          sampleRate: message.sampleRate,
+          left: new Int16Array(message.left),
+          right: new Int16Array(message.right),
+        }
+        persistedBins.push(bin)
+        persistPromises.push(
+          saveDecodedBin(mediaId, bin).catch((err) => {
+            log.warn('Failed to persist decoded audio bin from worker', {
+              mediaId,
+              binIndex: bin.binIndex,
+              err,
+            })
+          }),
+        )
+      } else if (message.type === 'complete') {
+        cleanup()
+        const totalBins = message.totalBins
+        void Promise.all(persistPromises).then(() => {
+          try {
+            resolve(finalizeDecodedAudio(mediaId, persistedBins, totalBins))
+          } catch (err) {
+            reject(err instanceof Error ? err : new Error(String(err)))
+          }
+        })
+      } else {
+        cleanup()
+        reject(new Error(message.error))
+      }
+    }
+
+    const onError = (event: ErrorEvent) => {
+      cleanup()
+      reject(event.error instanceof Error ? event.error : new Error('Audio decode worker error'))
+    }
+
+    worker.addEventListener('message', onMessage)
+    worker.addEventListener('error', onError)
+
+    const prepared = prepareWorkerSource(src)
+    worker.postMessage({
+      type: 'decode',
+      requestId,
+      mediaId,
+      src: prepared.src,
+      sourceMetadata: prepared.sourceMetadata,
+      fallbackBlob: prepared.fallbackBlob,
+      binDurationSec: BIN_DURATION_SEC,
+      storageSampleRate: STORAGE_SAMPLE_RATE,
+    })
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Load from persisted bins
 // ---------------------------------------------------------------------------
 
@@ -671,7 +738,16 @@ async function loadOrDecodeAudio(mediaId: string, src: PreviewAudioSource): Prom
     log.warn('Failed to load persisted decoded audio, will decode', { mediaId, err })
   }
 
-  // Full decode with progressive bin persistence
+  // Full decode with progressive bin persistence. Prefer the worker so the
+  // decode + DSP stays off the main thread; fall back to a main-thread decode
+  // when workers are unavailable (e.g. tests) or the worker errors.
+  if (canUseAudioDecodeWorker()) {
+    try {
+      return await decodeFullAudioViaWorker(mediaId, src)
+    } catch (err) {
+      log.warn('Worker audio decode failed, falling back to main-thread decode', { mediaId, err })
+    }
+  }
   return decodeFullAudio(mediaId, src)
 }
 
@@ -742,85 +818,8 @@ async function loadFromBins(meta: DecodedPreviewAudioMeta): Promise<AudioBuffer>
 }
 
 // ---------------------------------------------------------------------------
-// Downmix surround -> stereo (ITU-R BS.775)
-// ---------------------------------------------------------------------------
-
-/**
- * Downmix N-channel audio to stereo using standard ITU-R BS.775 coefficients.
- * 5.1 layout: L R C LFE Ls Rs
- * 7.1 layout: L R C LFE Ls Rs Lrs Rrs (rear surrounds folded into Ls/Rs)
- *
- * For mono/stereo input, returns the data unchanged (or duplicated for mono).
- */
-function downmixToStereo(
-  channels: Float32Array[],
-  totalFrames: number,
-): { left: Float32Array; right: Float32Array } {
-  const numCh = channels.length
-
-  if (numCh <= 2) {
-    const left = channels[0] ?? new Float32Array(totalFrames)
-    const right = channels[1] ?? left
-    return { left, right }
-  }
-
-  // ITU coefficients for 5.1 downmix
-  const centerGain = 0.7071 // -3 dB
-  const lfeGain = 0 // discard LFE for preview
-  const surroundGain = 0.7071
-
-  const left = new Float32Array(totalFrames)
-  const right = new Float32Array(totalFrames)
-
-  const L = channels[0]!
-  const R = channels[1]!
-  const C = channels[2]
-  const LFE = channels[3] // used with lfeGain (0)
-  const Ls = channels[4]
-  const Rs = channels[5]
-  // 7.1 rear surrounds (fold into Ls/Rs)
-  const Lrs = channels[6]
-  const Rrs = channels[7]
-
-  for (let i = 0; i < totalFrames; i++) {
-    let l = L[i]!
-    let r = R[i]!
-
-    if (C) {
-      const c = C[i]! * centerGain
-      l += c
-      r += c
-    }
-    if (lfeGain !== 0 && LFE) {
-      const lfe = LFE[i]! * lfeGain
-      l += lfe
-      r += lfe
-    }
-    if (Ls) l += Ls[i]! * surroundGain
-    if (Rs) r += Rs[i]! * surroundGain
-    if (Lrs) l += Lrs[i]! * surroundGain
-    if (Rrs) r += Rrs[i]! * surroundGain
-
-    left[i] = l
-    right[i] = r
-  }
-
-  return { left, right }
-}
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function assembleChunks(chunks: Float32Array[], totalFrames: number): Float32Array {
-  const result = new Float32Array(totalFrames)
-  let offset = 0
-  for (const chunk of chunks) {
-    result.set(chunk, offset)
-    offset += chunk.length
-  }
-  return result
-}
 
 async function buildPreviewStereoBuffer(
   leftChunks: Float32Array[],
@@ -828,15 +827,32 @@ async function buildPreviewStereoBuffer(
   totalFrames: number,
   sampleRate: number,
 ): Promise<AudioBuffer> {
-  const left = assembleChunks(leftChunks, totalFrames)
-  const right = assembleChunks(rightChunks, totalFrames)
+  const ds = buildDownsampledStereo(
+    leftChunks,
+    rightChunks,
+    totalFrames,
+    sampleRate,
+    STORAGE_SAMPLE_RATE,
+  )
+  const ctx = new OfflineAudioContext(2, ds.frames, ds.sampleRate)
+  const buffer = ctx.createBuffer(2, ds.frames, ds.sampleRate)
+  buffer.getChannelData(0).set(ds.left)
+  buffer.getChannelData(1).set(ds.right)
+  return buffer
+}
 
-  const tempCtx = new OfflineAudioContext(2, totalFrames, sampleRate)
-  const tempBuffer = tempCtx.createBuffer(2, totalFrames, sampleRate)
-  tempBuffer.getChannelData(0).set(left)
-  tempBuffer.getChannelData(1).set(right)
-
-  return downsampleBuffer(tempBuffer, STORAGE_SAMPLE_RATE)
+async function saveDecodedBin(mediaId: string, bin: DecodedAudioBinData): Promise<void> {
+  await saveDecodedPreviewAudio({
+    id: binKey(mediaId, bin.binIndex),
+    mediaId,
+    kind: 'bin',
+    binIndex: bin.binIndex,
+    left: bin.left.buffer as ArrayBuffer,
+    right: bin.right.buffer as ArrayBuffer,
+    frames: bin.frames,
+    sampleRate: bin.sampleRate,
+    createdAt: Date.now(),
+  })
 }
 
 /**
@@ -851,37 +867,81 @@ async function persistBin(
   rightChunks: Float32Array[],
   frames: number,
   sampleRate: number,
-): Promise<{
-  binIndex: number
-  frames: number
-  sampleRate: number
-  left: Int16Array
-  right: Int16Array
-}> {
-  const downsampled = await buildPreviewStereoBuffer(leftChunks, rightChunks, frames, sampleRate)
+): Promise<DecodedAudioBinData> {
+  const bin = produceDecodedBin(
+    binIdx,
+    leftChunks,
+    rightChunks,
+    frames,
+    sampleRate,
+    STORAGE_SAMPLE_RATE,
+  )
+  await saveDecodedBin(mediaId, bin)
+  return bin
+}
 
-  const leftInt16 = float32ToInt16(downsampled.getChannelData(0))
-  const rightInt16 = float32ToInt16(downsampled.getChannelData(1))
+/**
+ * Assemble persisted Int16 bins into a playback AudioBuffer, then fire-and-forget
+ * the WAV conform asset and the decode-complete meta marker. Shared by the
+ * main-thread and worker decode paths so their output stays identical.
+ */
+function finalizeDecodedAudio(
+  mediaId: string,
+  persistedBins: DecodedAudioBinData[],
+  totalBins: number,
+): AudioBuffer {
+  persistedBins.sort((a, b) => a.binIndex - b.binIndex)
 
-  await saveDecodedPreviewAudio({
-    id: binKey(mediaId, binIdx),
+  const storedTotalFrames = persistedBins.reduce((sum, b) => sum + b.frames, 0)
+  if (persistedBins.length === 0 || storedTotalFrames === 0) {
+    throw new Error(`Audio decode produced no output for media ${mediaId}`)
+  }
+
+  const storedSampleRate = persistedBins[0]?.sampleRate ?? STORAGE_SAMPLE_RATE
+  const outCtx = new OfflineAudioContext(2, storedTotalFrames, storedSampleRate)
+  const combined = outCtx.createBuffer(2, storedTotalFrames, storedSampleRate)
+  const outLeft = combined.getChannelData(0)
+  const outRight = combined.getChannelData(1)
+
+  let offset = 0
+  for (const bin of persistedBins) {
+    outLeft.set(int16ToFloat32(bin.left), offset)
+    outRight.set(int16ToFloat32(bin.right), offset)
+    offset += bin.frames
+  }
+  if (offset !== storedTotalFrames) {
+    throw new Error(`Decoded audio assembly mismatch: ${offset}/${storedTotalFrames} frames`)
+  }
+
+  log.info('Audio decoded for preview', {
     mediaId,
-    kind: 'bin',
-    binIndex: binIdx,
-    left: leftInt16.buffer as ArrayBuffer,
-    right: rightInt16.buffer as ArrayBuffer,
-    frames: downsampled.length,
-    sampleRate: downsampled.sampleRate,
-    createdAt: Date.now(),
+    sampleRate: storedSampleRate,
+    duration: combined.duration.toFixed(2),
+    bins: totalBins,
+    sizeMB: ((storedTotalFrames * 2 * 2) / (1024 * 1024)).toFixed(1),
   })
 
-  return {
-    binIndex: binIdx,
-    frames: downsampled.length,
-    sampleRate: downsampled.sampleRate,
-    left: leftInt16,
-    right: rightInt16,
-  }
+  void persistPreviewAudioConform(mediaId, combined)
+
+  // Save meta last as the decode-complete marker.
+  void saveDecodedPreviewAudio({
+    id: mediaId,
+    mediaId,
+    kind: 'meta',
+    sampleRate: storedSampleRate,
+    totalFrames: storedTotalFrames,
+    binCount: totalBins,
+    binDurationSec: BIN_DURATION_SEC,
+    createdAt: Date.now(),
+  })
+    .then(() => {
+      log.info('All bins persisted to workspace cache', { mediaId, binCount: totalBins })
+    })
+    .catch((err) => {
+      log.warn('Failed to persist bins to workspace cache', { mediaId, err })
+    })
+
+  return combined
 }
 
 // ---------------------------------------------------------------------------
@@ -940,15 +1000,7 @@ async function decodeFullAudio(
       let binRightChunks: Float32Array[] = []
       let binAccumFrames = 0
       let binIndex = 0
-      const binFlushPromises: Array<
-        Promise<{
-          binIndex: number
-          frames: number
-          sampleRate: number
-          left: Int16Array
-          right: Int16Array
-        }>
-      > = []
+      const binFlushPromises: Array<Promise<DecodedAudioBinData>> = []
 
       for await (const sample of sink.samples()) {
         try {
@@ -1018,58 +1070,7 @@ async function decodeFullAudio(
       // Wait for all bins and assemble playback buffer from downsampled bins.
       const totalBins = binIndex
       const persistedBins = await Promise.all(binFlushPromises)
-      persistedBins.sort((a, b) => a.binIndex - b.binIndex)
-
-      const storedTotalFrames = persistedBins.reduce((sum, b) => sum + b.frames, 0)
-      if (persistedBins.length === 0 || storedTotalFrames === 0) {
-        throw new Error(`Audio decode produced no output for media ${mediaId}`)
-      }
-
-      const storedSampleRate = persistedBins[0]?.sampleRate ?? STORAGE_SAMPLE_RATE
-      const outCtx = new OfflineAudioContext(2, storedTotalFrames, storedSampleRate)
-      const combined = outCtx.createBuffer(2, storedTotalFrames, storedSampleRate)
-      const outLeft = combined.getChannelData(0)
-      const outRight = combined.getChannelData(1)
-
-      let offset = 0
-      for (const bin of persistedBins) {
-        outLeft.set(int16ToFloat32(bin.left), offset)
-        outRight.set(int16ToFloat32(bin.right), offset)
-        offset += bin.frames
-      }
-      if (offset !== storedTotalFrames) {
-        throw new Error(`Decoded audio assembly mismatch: ${offset}/${storedTotalFrames} frames`)
-      }
-
-      log.info('Audio decoded for preview', {
-        mediaId,
-        sampleRate: storedSampleRate,
-        duration: combined.duration.toFixed(2),
-        bins: totalBins,
-        sizeMB: ((storedTotalFrames * 2 * 2) / (1024 * 1024)).toFixed(1),
-      })
-
-      void persistPreviewAudioConform(mediaId, combined)
-
-      // Save meta last as the decode-complete marker.
-      void saveDecodedPreviewAudio({
-        id: mediaId,
-        mediaId,
-        kind: 'meta',
-        sampleRate: storedSampleRate,
-        totalFrames: storedTotalFrames,
-        binCount: totalBins,
-        binDurationSec: BIN_DURATION_SEC,
-        createdAt: Date.now(),
-      })
-        .then(() => {
-          log.info('All bins persisted to workspace cache', { mediaId, binCount: totalBins })
-        })
-        .catch((err) => {
-          log.warn('Failed to persist bins to workspace cache', { mediaId, err })
-        })
-
-      return combined
+      return finalizeDecodedAudio(mediaId, persistedBins, totalBins)
     } finally {
       input.dispose()
     }
