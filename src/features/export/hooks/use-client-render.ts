@@ -30,6 +30,7 @@ import { renderComposition, renderAudioOnly } from '../utils/client-render-engin
 import { convertTimelineToComposition } from '../utils/timeline-to-composition'
 import { useTimelineStore } from '@/features/export/deps/timeline'
 import { useProjectStore } from '@/features/export/deps/projects'
+import { DEFAULT_PROJECT_HEIGHT, DEFAULT_PROJECT_WIDTH } from '@/shared/projects/defaults'
 import { resolveMediaUrls } from '@/features/export/deps/media-library'
 import { usePlaybackStore } from '@/shared/state/playback'
 import { createLogger, createOperationId } from '@/shared/logging/logger'
@@ -278,8 +279,8 @@ export function useClientRender(): UseClientRenderReturn {
         const masterBusDb = usePlaybackStore.getState().masterBusDb
         const backgroundColor = currentProject?.metadata?.backgroundColor
         // Use PROJECT resolution for composition (transform calculations match preview)
-        const projectWidth = currentProject?.metadata?.width ?? 1920
-        const projectHeight = currentProject?.metadata?.height ?? 1080
+        const projectWidth = currentProject?.metadata?.width ?? DEFAULT_PROJECT_WIDTH
+        const projectHeight = currentProject?.metadata?.height ?? DEFAULT_PROJECT_HEIGHT
 
         // Determine export mode and container from extended settings
         const exportMode = isExtendedSettings(settings) ? settings.mode : 'video'
@@ -578,8 +579,10 @@ export function useClientRender(): UseClientRenderReturn {
       bitrate?: number
     }) => {
       const currentProject = useProjectStore.getState().currentProject
-      const width = options?.resolution?.width ?? currentProject?.metadata?.width ?? 1920
-      const height = options?.resolution?.height ?? currentProject?.metadata?.height ?? 1080
+      const width =
+        options?.resolution?.width ?? currentProject?.metadata?.width ?? DEFAULT_PROJECT_WIDTH
+      const height =
+        options?.resolution?.height ?? currentProject?.metadata?.height ?? DEFAULT_PROJECT_HEIGHT
       const bitrate =
         options?.bitrate ??
         (options?.quality ? getVideoBitrateForQuality(options.quality) : undefined)

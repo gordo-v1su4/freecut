@@ -7,6 +7,7 @@ import {
 import { usePlaybackStore } from '@/shared/state/playback'
 import { useSelectionStore } from '@/shared/state/selection'
 import { createLogger } from '@/shared/logging/logger'
+import { DEFAULT_PROJECT_HEIGHT, DEFAULT_PROJECT_WIDTH } from '@/shared/projects/defaults'
 import type { MediaTranscript, MediaTranscriptModel, MediaTranscriptSegment } from '@/types/storage'
 import type {
   AudioItem,
@@ -23,6 +24,7 @@ import {
 import { mediaLibraryService } from './media-library-service'
 import {
   buildSubtitleSegmentForClip,
+  getCaptionStyleTemplateFromPreset,
   buildCaptionTrackAbove,
   findReplaceableCaptionItemsForClip,
   findCompatibleCaptionTrackForRanges,
@@ -494,8 +496,13 @@ class MediaTranscriptionService {
       throw new Error('Select a clip for this media, or place one on the timeline first')
     }
 
-    const canvasWidth = project?.metadata.width ?? 1920
-    const canvasHeight = project?.metadata.height ?? 1080
+    const canvasWidth = project?.metadata.width ?? DEFAULT_PROJECT_WIDTH
+    const canvasHeight = project?.metadata.height ?? DEFAULT_PROJECT_HEIGHT
+    const defaultCaptionTemplate = getCaptionStyleTemplateFromPreset(
+      useSettingsStore.getState().defaultCaptionStylePresetId,
+      canvasWidth,
+      canvasHeight,
+    )
     const newTracks: TimelineTrack[] = [...timeline.tracks]
     const generatedCaptionIdsToRemove = options.replaceExisting
       ? new Set(
@@ -560,7 +567,7 @@ class MediaTranscriptionService {
         },
         styleTemplate: existingGeneratedCaptions[0]
           ? getCaptionTextItemTemplate(existingGeneratedCaptions[0])
-          : undefined,
+          : defaultCaptionTemplate,
       })
 
       if (!clipCaptionItem) {

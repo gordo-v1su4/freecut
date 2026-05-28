@@ -22,6 +22,7 @@ import {
 } from '@/features/timeline/deps/media-transcription-service'
 import { useTimelineStore } from '../../stores/timeline-store'
 import { useItemsStore } from '../../stores/items-store'
+import { selectReplaceableCaptionClipIds } from '../../stores/items-store-indexes'
 import { useCompositionNavigationStore } from '../../stores/composition-navigation-store'
 import {
   insertFreezeFrame,
@@ -346,7 +347,7 @@ export function useTimelineItemActions({
 
     const mediaId = item.mediaId
     const clipId = item.id
-    const replaceExisting = useItemsStore.getState().replaceableCaptionClipIds.has(clipId)
+    const replaceExisting = selectReplaceableCaptionClipIds(useItemsStore.getState()).has(clipId)
     const store = useMediaLibraryStore.getState()
 
     const run = async () => {

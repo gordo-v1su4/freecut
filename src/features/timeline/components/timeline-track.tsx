@@ -1,6 +1,7 @@
 import { useState, useRef, memo, useCallback, useEffect, useLayoutEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createLogger } from '@/shared/logging/logger'
+import { perfMarkRender } from '@/shared/logging/perf-marks'
 
 const logger = createLogger('TimelineTrack')
 import type {
@@ -23,6 +24,7 @@ import { useCompositionsStore } from '../stores/compositions-store'
 import { useSelectionStore } from '@/shared/state/selection'
 import { useMediaLibraryStore } from '@/features/timeline/deps/media-library-store'
 import { useProjectStore } from '@/features/timeline/deps/projects'
+import { DEFAULT_PROJECT_HEIGHT, DEFAULT_PROJECT_WIDTH } from '@/shared/projects/defaults'
 import { mediaLibraryService } from '@/features/timeline/deps/media-library-service'
 import {
   resolveMediaUrl,
@@ -34,7 +36,6 @@ import {
   findNearestAvailableSpaceInTrackItems,
   type CollisionRect,
 } from '../utils/collision-utils'
-import { resolveEffectiveTrackStates } from '../utils/group-utils'
 import { mapWithConcurrency } from '@/shared/utils/async-utils'
 import { useExternalDragPreview } from '../hooks/use-external-drag-preview'
 import { useCompositionNavigationStore } from '../stores/composition-navigation-store'
@@ -251,6 +252,7 @@ const TimelineTrackItems = memo(function TimelineTrackItems({
  */
 
 export const TimelineTrack = memo(function TimelineTrack({ track }: TimelineTrackProps) {
+  perfMarkRender('TimelineTrack')
   const { t } = useTranslation()
   const previewOwnerId = `track:${track.id}`
   const [gapContextMenuRequest, setGapContextMenuRequest] =
@@ -289,10 +291,18 @@ export const TimelineTrack = memo(function TimelineTrack({ track }: TimelineTrac
   const dragOverFlagsRef = useRef({ isDragOver: false, isExternalDragOver: false })
 
   // Resolve whether this track is effectively disabled for rendering or drops.
-  // Uses the shared resolveEffectiveTrackStates helper so group-inherited
-  // locked/visible/muted flags stay consistent with the rest of the timeline.
+  // Direct parent-group lookup keeps this O(1); calling resolveEffectiveTrackStates
+  // here would scan the whole tracks array per row on every store mutation.
   const trackInteractionState = useTimelineStore((s) => {
-    const effective = resolveEffectiveTrackStates(s.tracks).find((t) => t.id === track.id) ?? track
+    const parentGroup = track.parentTrackId
+      ? s.tracks.find((t) => t.id === track.parentTrackId && t.isGroup)
+      : undefined
+    const effectiveLocked = track.locked || parentGroup?.locked || false
+    const effectiveMuted = track.muted || parentGroup?.muted || false
+    const effectiveVisible = track.visible !== false && parentGroup?.visible !== false
+    const effective: TimelineTrackType = parentGroup
+      ? { ...track, locked: effectiveLocked, muted: effectiveMuted, visible: effectiveVisible }
+      : track
     return (effective.locked ? 1 : 0) | (getIsTrackDisabled(effective) ? 2 : 0)
   })
   const isTrackLocked = (trackInteractionState & 1) !== 0
@@ -334,8 +344,8 @@ export const TimelineTrack = memo(function TimelineTrack({ track }: TimelineTrac
   const getCurrentCanvasSize = useCallback(() => {
     const liveProject = useProjectStore.getState().currentProject
     return {
-      width: liveProject?.metadata.width ?? 1920,
-      height: liveProject?.metadata.height ?? 1080,
+      width: liveProject?.metadata.width ?? DEFAULT_PROJECT_WIDTH,
+      height: liveProject?.metadata.height ?? DEFAULT_PROJECT_HEIGHT,
     }
   }, [])
 

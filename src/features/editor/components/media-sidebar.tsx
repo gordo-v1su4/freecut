@@ -28,6 +28,7 @@ import { useTimelineStore } from '@/features/editor/deps/timeline-store'
 import { usePlaybackStore } from '@/shared/state/playback'
 import { useSelectionStore } from '@/shared/state/selection'
 import { useProjectStore } from '@/features/editor/deps/projects'
+import { DEFAULT_PROJECT_HEIGHT, DEFAULT_PROJECT_WIDTH } from '@/shared/projects/defaults'
 import {
   clearMediaDragData,
   MediaLibrary,
@@ -390,8 +391,8 @@ export const MediaSidebar = memo(function MediaSidebar() {
         proposedPosition // Fallback to proposed if no space found
 
       // Get canvas dimensions for initial transform
-      const canvasWidth = currentProject?.metadata.width ?? 1920
-      const canvasHeight = currentProject?.metadata.height ?? 1080
+      const canvasWidth = currentProject?.metadata.width ?? DEFAULT_PROJECT_WIDTH
+      const canvasHeight = currentProject?.metadata.height ?? DEFAULT_PROJECT_HEIGHT
 
       const textStylePreset = presetId
         ? TEXT_STYLE_PRESETS.find((preset) => preset.id === presetId)
@@ -444,8 +445,8 @@ export const MediaSidebar = memo(function MediaSidebar() {
       findNearestAvailableSpace(proposedPosition, durationInFrames, targetTrack.id, items) ??
       proposedPosition
 
-    const canvasWidth = currentProject?.metadata.width ?? 1920
-    const canvasHeight = currentProject?.metadata.height ?? 1080
+    const canvasWidth = currentProject?.metadata.width ?? DEFAULT_PROJECT_WIDTH
+    const canvasHeight = currentProject?.metadata.height ?? DEFAULT_PROJECT_HEIGHT
 
     const shapeItem: ShapeItem = createDefaultShapeItem({
       trackId: targetTrack.id,

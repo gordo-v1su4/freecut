@@ -115,6 +115,19 @@ interface ProjectDebugAPI {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   overlaps: () => Promise<any>
 
+  // User Timing summary: aggregates `performance.measure` entries (default
+  // `tl.*` prefix from timeline perf-marks) into a per-name stat row.
+  perfSummary: (prefix?: string) => Array<{
+    name: string
+    count: number
+    minMs: number
+    maxMs: number
+    avgMs: number
+    p95Ms: number
+    totalMs: number
+  }>
+  perfClear: () => void
+
   // Render pipeline diagnostics — delegates to existing ad-hoc window globals
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   previewPerf: () => any
@@ -478,6 +491,58 @@ function createDebugAPI(): ProjectDebugAPI {
           trackId: o.trackId.substring(0, 8),
           overlapFrames: o.overlapFrames,
         })),
+      }
+    },
+
+    perfSummary: (prefix = 'tl.') => {
+      if (
+        typeof performance === 'undefined' ||
+        typeof performance.getEntriesByType !== 'function'
+      ) {
+        return []
+      }
+      const entries = performance.getEntriesByType('measure') as PerformanceMeasure[]
+      const byName = new Map<string, number[]>()
+      for (const entry of entries) {
+        if (!entry.name.startsWith(prefix)) continue
+        let durations = byName.get(entry.name)
+        if (!durations) {
+          durations = []
+          byName.set(entry.name, durations)
+        }
+        durations.push(entry.duration)
+      }
+      const rows: Array<{
+        name: string
+        count: number
+        minMs: number
+        maxMs: number
+        avgMs: number
+        p95Ms: number
+        totalMs: number
+      }> = []
+      for (const [name, durations] of byName) {
+        const sorted = [...durations].sort((a, b) => a - b)
+        const count = sorted.length
+        const total = durations.reduce((sum, value) => sum + value, 0)
+        const p95Index = Math.min(count - 1, Math.floor(count * 0.95))
+        rows.push({
+          name,
+          count,
+          minMs: Number((sorted[0] ?? 0).toFixed(3)),
+          maxMs: Number((sorted[count - 1] ?? 0).toFixed(3)),
+          avgMs: Number((total / count).toFixed(3)),
+          p95Ms: Number((sorted[p95Index] ?? 0).toFixed(3)),
+          totalMs: Number(total.toFixed(2)),
+        })
+      }
+      rows.sort((a, b) => b.totalMs - a.totalMs)
+      return rows
+    },
+
+    perfClear: () => {
+      if (typeof performance !== 'undefined' && typeof performance.clearMeasures === 'function') {
+        performance.clearMeasures()
       }
     },
 

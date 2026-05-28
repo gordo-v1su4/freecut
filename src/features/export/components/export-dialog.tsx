@@ -35,6 +35,7 @@ import {
 import type { ExportSettings, ExportMode } from '@/types/export'
 import { useClientRender } from '../hooks/use-client-render'
 import { useProjectStore } from '@/features/export/deps/projects'
+import { DEFAULT_PROJECT_HEIGHT, DEFAULT_PROJECT_WIDTH } from '@/shared/projects/defaults'
 import { useTimelineStore } from '@/features/export/deps/timeline'
 import { formatTimecode, framesToSeconds } from '@/shared/utils/time-utils'
 import {
@@ -96,6 +97,70 @@ function formatFileSize(bytes: number): string {
 }
 
 /**
+ * Scale a dimension and round to the nearest even number (encoders require
+ * even dimensions). Shared by the resolution dropdown and the quick presets so
+ * preset detection compares against identical values.
+ */
+function scaleDimension(value: number, scale: number): number {
+  const scaled = Math.round(value * scale)
+  return scaled % 2 === 0 ? scaled : scaled + 1
+}
+
+function scaledResolution(projectWidth: number, projectHeight: number, scale: number) {
+  return {
+    width: scaleDimension(projectWidth, scale),
+    height: scaleDimension(projectHeight, scale),
+  }
+}
+
+type ExportPreset = {
+  id: 'max' | 'recommended' | 'balanced' | 'small'
+  labelKey: string
+  container: ClientVideoContainer
+  codec: ExportSettings['codec']
+  quality: ExportSettings['quality']
+  scale: number
+}
+
+// One-click targets that bundle container/codec/quality/resolution. All keep the
+// project's aspect ratio (scale only) so output is never distorted; they vary the
+// quality/size tradeoff, which is the part users shouldn't need codec knowledge for.
+const EXPORT_PRESETS: ExportPreset[] = [
+  {
+    id: 'max',
+    labelKey: 'export.settings.presetMax',
+    container: 'mp4',
+    codec: 'h264',
+    quality: 'ultra',
+    scale: 1,
+  },
+  {
+    id: 'recommended',
+    labelKey: 'export.settings.presetRecommended',
+    container: 'mp4',
+    codec: 'h264',
+    quality: 'high',
+    scale: 1,
+  },
+  {
+    id: 'balanced',
+    labelKey: 'export.settings.presetBalanced',
+    container: 'mp4',
+    codec: 'h264',
+    quality: 'medium',
+    scale: 0.666,
+  },
+  {
+    id: 'small',
+    labelKey: 'export.settings.presetSmall',
+    container: 'mp4',
+    codec: 'h264',
+    quality: 'low',
+    scale: 0.5,
+  },
+]
+
+/**
  * Generate resolution options based on project dimensions.
  */
 function getResolutionOptions(
@@ -106,10 +171,7 @@ function getResolutionOptions(
   const scales = [1, 0.666, 0.5]
 
   return scales.map((scale) => {
-    const w = Math.round(projectWidth * scale)
-    const h = Math.round(projectHeight * scale)
-    const width = w % 2 === 0 ? w : w + 1
-    const height = h % 2 === 0 ? h : h + 1
+    const { width, height } = scaledResolution(projectWidth, projectHeight, scale)
 
     const label =
       scale === 1
@@ -126,8 +188,12 @@ function getDefaultCodecForFormat(format: 'mp4' | 'webm'): ExportSettings['codec
 
 export function ExportDialog({ open, onClose }: ExportDialogProps) {
   const { t } = useTranslation()
-  const projectWidth = useProjectStore((s) => s.currentProject?.metadata.width ?? 1920)
-  const projectHeight = useProjectStore((s) => s.currentProject?.metadata.height ?? 1080)
+  const projectWidth = useProjectStore(
+    (s) => s.currentProject?.metadata.width ?? DEFAULT_PROJECT_WIDTH,
+  )
+  const projectHeight = useProjectStore(
+    (s) => s.currentProject?.metadata.height ?? DEFAULT_PROJECT_HEIGHT,
+  )
   // Timeline state for in/out points and duration calculation
   const fps = useTimelineStore((s) => s.fps)
   const items = useTimelineStore((s) => s.items)
@@ -179,6 +245,39 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
     () => getResolutionOptions(projectWidth, projectHeight, t),
     [projectWidth, projectHeight, t],
   )
+
+  // Which preset (if any) the current settings exactly match. null = "Custom".
+  const activePresetId = useMemo(() => {
+    const match = EXPORT_PRESETS.find((preset) => {
+      const res = scaledResolution(projectWidth, projectHeight, preset.scale)
+      return (
+        videoContainer === preset.container &&
+        settings.codec === preset.codec &&
+        settings.quality === preset.quality &&
+        settings.resolution.width === res.width &&
+        settings.resolution.height === res.height
+      )
+    })
+    return match?.id ?? null
+  }, [
+    videoContainer,
+    settings.codec,
+    settings.quality,
+    settings.resolution.width,
+    settings.resolution.height,
+    projectWidth,
+    projectHeight,
+  ])
+
+  const applyPreset = (preset: ExportPreset) => {
+    setVideoContainer(preset.container)
+    setSettings((prev) => ({
+      ...prev,
+      codec: preset.codec,
+      quality: preset.quality,
+      resolution: scaledResolution(projectWidth, projectHeight, preset.scale),
+    }))
+  }
 
   // Sync resolution when project dimensions change
   useEffect(() => {
@@ -257,7 +356,10 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
       mode: exportMode,
       videoContainer: exportMode === 'video' ? videoContainer : undefined,
       audioContainer: exportMode === 'audio' ? audioContainer : undefined,
-      embedSubtitles: exportMode === 'video' && hasTranscriptSubtitles ? embedSubtitles : false,
+      embedSubtitles:
+        exportMode === 'video' && hasTranscriptSubtitles && containerSupportsEmbeddedSubtitles
+          ? embedSubtitles
+          : false,
       renderWholeProject,
     }
     await startExport(extendedSettings)
@@ -363,12 +465,6 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
 
   const hasCapabilityData = supportedVideoCodecs !== null && !videoSupportError
   const hasSupportedVideoPath = videoContainerOptions.some((option) => option.supported)
-  const hasSubtitleExportConflict =
-    exportMode === 'video' &&
-    embedSubtitles &&
-    hasTranscriptSubtitles &&
-    !containerSupportsEmbeddedSubtitles
-
   useEffect(() => {
     if (exportMode !== 'video' || !hasCapabilityData) return
 
@@ -566,6 +662,37 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
             {/* Video Export Settings */}
             {exportMode === 'video' && (
               <>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>{t('export.settings.presetLabel')}</Label>
+                    {activePresetId === null && (
+                      <span className="text-xs text-muted-foreground">
+                        {t('export.settings.presetCustom')}
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {EXPORT_PRESETS.map((preset) => {
+                      const isActive = activePresetId === preset.id
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => applyPreset(preset)}
+                          aria-pressed={isActive}
+                          className={`rounded-md border px-3 py-2 text-left text-sm font-medium transition-colors ${
+                            isActive
+                              ? 'border-primary bg-primary/10 text-foreground'
+                              : 'border-border bg-muted/20 text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                          }`}
+                        >
+                          {t(preset.labelKey)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   {!isCheckingVideoSupport && videoSupportError && (
                     <Alert>
@@ -691,20 +818,21 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
                       <p className="text-xs text-muted-foreground">
                         {t('export.settings.embedSubtitlesDescription')}
                       </p>
-                      {embedSubtitles &&
-                        hasTranscriptSubtitles &&
-                        !containerSupportsEmbeddedSubtitles && (
-                          <p className="text-xs text-destructive">
-                            {t('export.settings.embedSubtitlesUnsupported', {
-                              container: videoContainer.toUpperCase(),
-                            })}
-                          </p>
-                        )}
-                      {embedSubtitles && hasTranscriptSubtitles && videoContainer === 'mp4' && (
+                      {hasTranscriptSubtitles && !containerSupportsEmbeddedSubtitles && (
                         <p className="text-xs text-muted-foreground">
-                          {t('export.settings.embedSubtitlesMp4Note')}
+                          {t('export.settings.embedSubtitlesUnsupported', {
+                            container: videoContainer.toUpperCase(),
+                          })}
                         </p>
                       )}
+                      {embedSubtitles &&
+                        hasTranscriptSubtitles &&
+                        containerSupportsEmbeddedSubtitles &&
+                        videoContainer === 'mp4' && (
+                          <p className="text-xs text-muted-foreground">
+                            {t('export.settings.embedSubtitlesMp4Note')}
+                          </p>
+                        )}
                       {!hasTranscriptSubtitles && (
                         <p className="text-xs text-muted-foreground">
                           {t('export.settings.noTranscriptSegments')}
@@ -713,8 +841,8 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
                     </div>
                     <Switch
                       id="embed-subtitles"
-                      checked={embedSubtitles}
-                      disabled={!hasTranscriptSubtitles}
+                      checked={embedSubtitles && containerSupportsEmbeddedSubtitles}
+                      disabled={!hasTranscriptSubtitles || !containerSupportsEmbeddedSubtitles}
                       onCheckedChange={setEmbedSubtitles}
                     />
                   </div>
@@ -785,8 +913,7 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
               <Button
                 onClick={handleStartExport}
                 disabled={
-                  exportMode === 'video' &&
-                  (!hasSupportedVideoPath || isCheckingVideoSupport || hasSubtitleExportConflict)
+                  exportMode === 'video' && (!hasSupportedVideoPath || isCheckingVideoSupport)
                 }
               >
                 {exportMode === 'audio'

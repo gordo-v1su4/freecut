@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo } from 'react'
 import { useGizmoStore, useTimelineStore } from '@/runtime/composition-runtime/deps/stores'
+import { DEFAULT_PROJECT_HEIGHT, DEFAULT_PROJECT_WIDTH } from '@/shared/projects/defaults'
 import type { TextItem } from '@/types/timeline'
 import { loadFont, FONT_WEIGHT_MAP } from '../utils/fonts'
 import { useCompositionSpace } from '../contexts/composition-space-context'
@@ -30,8 +31,8 @@ export const TextContent: React.FC<{ item: TextItem & { _sequenceFrameOffset?: n
   const scale = compositionSpace?.scale ?? 1
   const logicalCanvas = useMemo(
     () => ({
-      width: compositionSpace?.projectWidth ?? 1920,
-      height: compositionSpace?.projectHeight ?? 1080,
+      width: compositionSpace?.projectWidth ?? DEFAULT_PROJECT_WIDTH,
+      height: compositionSpace?.projectHeight ?? DEFAULT_PROJECT_HEIGHT,
       fps,
     }),
     [compositionSpace?.projectHeight, compositionSpace?.projectWidth, fps],

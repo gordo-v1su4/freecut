@@ -10,6 +10,7 @@
  */
 
 import { createLogger, createOperationId } from '@/shared/logging/logger'
+import { DEFAULT_PROJECT_HEIGHT, DEFAULT_PROJECT_WIDTH } from '@/shared/projects/defaults'
 
 const logger = createLogger('MediaProcessorWorker')
 const KEYFRAME_EXTRACTION_TIMEOUT_MS = 8_000
@@ -444,8 +445,8 @@ async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
     return {
       type: 'video',
       duration: duration || 0,
-      width: videoTrack.displayWidth || 1920,
-      height: videoTrack.displayHeight || 1080,
+      width: videoTrack.displayWidth || DEFAULT_PROJECT_WIDTH,
+      height: videoTrack.displayHeight || DEFAULT_PROJECT_HEIGHT,
       fps,
       codec: videoTrack.codec || 'unknown',
       bitrate: 0,

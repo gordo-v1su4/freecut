@@ -13,6 +13,7 @@ import { reverseConformFilePath } from '@/infrastructure/storage/workspace-fs/pa
 import { opfsService } from '../deps/media-library-service'
 import { resolveMediaUrls } from '../deps/media-library-resolver'
 import { useMediaLibraryStore } from '../deps/media-library-store'
+import { DEFAULT_PROJECT_HEIGHT, DEFAULT_PROJECT_WIDTH } from '@/shared/projects/defaults'
 
 export interface ReverseConformResult {
   itemId: string
@@ -167,8 +168,8 @@ function getConformDimensions(
   item: VideoItem,
   quality: ReverseConformQuality,
 ): { width: number; height: number } {
-  const sourceWidth = Math.max(2, item.sourceWidth ?? 1920)
-  const sourceHeight = Math.max(2, item.sourceHeight ?? 1080)
+  const sourceWidth = Math.max(2, item.sourceWidth ?? DEFAULT_PROJECT_WIDTH)
+  const sourceHeight = Math.max(2, item.sourceHeight ?? DEFAULT_PROJECT_HEIGHT)
   if (quality === 'full') {
     return { width: sourceWidth, height: sourceHeight }
   }

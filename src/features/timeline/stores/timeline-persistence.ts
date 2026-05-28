@@ -8,6 +8,7 @@ import { createLogger, createOperationId } from '@/shared/logging/logger'
 import { usePreviewBridgeStore } from '@/shared/state/preview-bridge'
 import { usePlaybackStore } from '@/shared/state/playback'
 import { DEFAULT_TRACK_HEIGHT } from '../constants'
+import { DEFAULT_PROJECT_HEIGHT, DEFAULT_PROJECT_WIDTH } from '@/shared/projects/defaults'
 import {
   createClassicTrack,
   createDefaultClassicTracks,
@@ -734,8 +735,8 @@ export async function saveTimeline(projectId: string): Promise<void> {
     let thumbnailId: string | undefined
     if (itemsState.items.length > 0) {
       try {
-        const width = project.metadata?.width || 1920
-        const height = project.metadata?.height || 1080
+        const width = project.metadata?.width || DEFAULT_PROJECT_WIDTH
+        const height = project.metadata?.height || DEFAULT_PROJECT_HEIGHT
 
         // Calculate thumbnail dimensions preserving project aspect ratio
         const maxThumbWidth = 320

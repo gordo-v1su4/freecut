@@ -8,6 +8,11 @@ import { useEditorStore } from '@/shared/state/editor'
 import { useSelectionStore } from '@/shared/state/selection'
 import { useItemsStore, useTimelineStore } from '@/features/editor/deps/timeline-store'
 import { useProjectStore } from '@/features/editor/deps/projects'
+import {
+  DEFAULT_PROJECT_FPS,
+  DEFAULT_PROJECT_HEIGHT,
+  DEFAULT_PROJECT_WIDTH,
+} from '@/shared/projects/defaults'
 import type { ClipInspectorTab } from '@/shared/state/editor'
 import type { SelectionState, SelectionActions } from '@/shared/state/selection'
 import type { TimelineState, TimelineActions } from '@/features/editor/deps/timeline-store'
@@ -77,9 +82,13 @@ export const ClipPanel = memo(function ClipPanel() {
   const updateItemsTransform = useTimelineStore(
     (s: TimelineState & TimelineActions) => s.updateItemsTransform,
   )
-  const projectWidth = useProjectStore((s) => s.currentProject?.metadata.width ?? 1920)
-  const projectHeight = useProjectStore((s) => s.currentProject?.metadata.height ?? 1080)
-  const projectFps = useProjectStore((s) => s.currentProject?.metadata.fps ?? 30)
+  const projectWidth = useProjectStore(
+    (s) => s.currentProject?.metadata.width ?? DEFAULT_PROJECT_WIDTH,
+  )
+  const projectHeight = useProjectStore(
+    (s) => s.currentProject?.metadata.height ?? DEFAULT_PROJECT_HEIGHT,
+  )
+  const projectFps = useProjectStore((s) => s.currentProject?.metadata.fps ?? DEFAULT_PROJECT_FPS)
   const selectedItems = useItemsStore(
     useShallow(
       useCallback(

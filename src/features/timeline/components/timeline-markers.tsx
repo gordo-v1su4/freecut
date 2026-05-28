@@ -6,6 +6,7 @@ import { useTimelineStore } from '../stores/timeline-store'
 import { setInOutPointsWithoutHistory } from '../stores/actions/marker-actions'
 import { usePlaybackStore } from '@/shared/state/playback'
 import { useSelectionStore } from '@/shared/state/selection'
+import { perfMarkRender } from '@/shared/logging/perf-marks'
 
 // Components
 import { TimelineInOutMarkers } from './timeline-in-out-markers'
@@ -301,6 +302,7 @@ export const TimelineMarkers = memo(function TimelineMarkers({
   duration,
   width,
 }: TimelineMarkersProps) {
+  perfMarkRender('TimelineMarkers')
   const editorDensity = useSettingsStore((s) => s.editorDensity)
   const editorLayout = getEditorLayout(editorDensity)
   const { timeToPixels, pixelsPerSecond, pixelsToFrame } = useTimelineZoomContext()

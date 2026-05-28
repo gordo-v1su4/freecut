@@ -157,14 +157,23 @@ export function useFilmstrip({
   // and parallel, so prefetching off-viewport clips lets them paint instantly
   // when scrolled into view. The extraction effect below still no-ops when it
   // finds a complete cache.
+  const hasInMemoryFrames = (filmstrip?.frames?.length ?? 0) > 0
   useEffect(() => {
     if (!enabled || !duration || duration <= 0) return
     if (filmstrip?.isComplete) return
+    // Frames already live in the (singleton) in-memory cache, so re-reading
+    // every tile from disk on remount would only re-mint identical object URLs
+    // and thrash OPFS — which is exactly what happens while scrolling an
+    // incomplete (long-video) filmstrip in and out of view. The live extraction
+    // path keeps the in-memory cache current via notifyUpdate, and a fully
+    // evicted entry resets this to 0 (so a genuine reload still runs), so
+    // skipping here is safe.
+    if (hasInMemoryFrames) return
 
     void filmstripCache.loadFromDisk(mediaId, duration).catch(() => {
       // Swallow: extraction path below is the fallback once blobUrl arrives.
     })
-  }, [mediaId, enabled, duration, filmstrip?.isComplete])
+  }, [mediaId, enabled, duration, filmstrip?.isComplete, hasInMemoryFrames])
 
   // Once a clip leaves the active workset, stop spending background decode time on it.
   useEffect(() => {
