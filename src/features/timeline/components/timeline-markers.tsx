@@ -460,8 +460,10 @@ export const TimelineMarkers = memo(function TimelineMarkers({
   // This dramatically reduces redraws during continuous zoom
   const quantizedPPS = quantizePPSForCache(pixelsPerSecond)
 
-  // Cache key uses quantized PPS for better hit rate during zoom
-  const cacheKey = `${quantizedPPS.toFixed(4)}-${fps}`
+  // Cache key uses quantized PPS for better hit rate during zoom. canvasHeight is
+  // included because tile tick geometry is drawn relative to it — without it, a
+  // ruler-height change (e.g. a new editor-density preset) would reuse stale tiles.
+  const cacheKey = `${quantizedPPS.toFixed(4)}-${fps}-${canvasHeight}`
 
   // Store config in refs so the imperative scroll handler can access them
   const displayWidthRef = useRef(displayWidth)
