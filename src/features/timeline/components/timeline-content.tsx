@@ -830,15 +830,24 @@ export const TimelineContent = memo(function TimelineContent({
   const queuedZoomScrollLeftRef = useRef<number | null>(null)
   const zoomApplyRafRef = useRef<number | null>(null)
 
+  // Cached viewport box dimensions. clientWidth/clientHeight are invariant under
+  // scroll and horizontal zoom (only the *content* width changes), so reading
+  // them every scroll/zoom frame forces a needless layout flush. A ResizeObserver
+  // refreshes this cache; we fall back to a live read until it has measured once.
+  const viewportDimsRef = useRef<{ width: number; height: number } | null>(null)
+
   const syncViewportFromContainer = useCallback(() => {
     const container = containerRef.current
     if (!container) return
-    const tracksViewportHeight = tracksContainerRef.current?.clientHeight ?? container.clientHeight
+    const dims = viewportDimsRef.current
+    const viewportWidth = dims?.width ?? container.clientWidth
+    const viewportHeight =
+      dims?.height ?? tracksContainerRef.current?.clientHeight ?? container.clientHeight
     useTimelineViewportStore.getState().setViewport({
       scrollLeft: container.scrollLeft,
       scrollTop: container.scrollTop,
-      viewportWidth: container.clientWidth,
-      viewportHeight: tracksViewportHeight,
+      viewportWidth,
+      viewportHeight,
     })
   }, [])
 
@@ -873,10 +882,16 @@ export const TimelineContent = memo(function TimelineContent({
   // Measure container width - run after render and on resize
   useEffect(() => {
     const updateWidth = () => {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.clientWidth)
-        syncViewportFromContainer()
+      const container = containerRef.current
+      if (!container) return
+      // Refresh the cached box dims (read here, on actual resizes only, instead
+      // of every scroll/zoom frame).
+      viewportDimsRef.current = {
+        width: container.clientWidth,
+        height: tracksContainerRef.current?.clientHeight ?? container.clientHeight,
       }
+      setContainerWidth(container.clientWidth)
+      syncViewportFromContainer()
     }
 
     // Measure immediately
@@ -885,8 +900,12 @@ export const TimelineContent = memo(function TimelineContent({
     // Re-measure during idle in case DOM wasn't fully laid out on mount
     const idleId = requestIdleCallback(updateWidth)
 
-    // Measure on resize
+    // Measure on resize. A ResizeObserver catches panel/track-height changes that
+    // the window 'resize' event misses, and keeps the cached dims fresh.
     window.addEventListener('resize', updateWidth)
+    const ro = new ResizeObserver(updateWidth)
+    if (containerRef.current) ro.observe(containerRef.current)
+    if (tracksContainerRef.current) ro.observe(tracksContainerRef.current)
 
     return () => {
       cancelIdleCallback(idleId)
@@ -895,6 +914,7 @@ export const TimelineContent = memo(function TimelineContent({
         viewportSyncRafRef.current = null
       }
       window.removeEventListener('resize', updateWidth)
+      ro.disconnect()
     }
   }, [syncViewportFromContainer])
 

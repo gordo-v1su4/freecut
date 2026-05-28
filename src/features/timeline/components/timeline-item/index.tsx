@@ -1719,6 +1719,7 @@ export const TimelineItem = memo(
                         className="absolute left-0 right-0 pointer-events-none"
                         style={{
                           height: '1px',
+                          top: `var(--timeline-audio-volume-line-y, ${audioVolumeLineYPercent}%)`,
                           backgroundColor: audioVolumeLineStroke,
                         }}
                       />

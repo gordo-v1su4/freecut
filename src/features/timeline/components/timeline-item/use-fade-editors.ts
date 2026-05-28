@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -241,7 +240,12 @@ export function useFadeEditors({
     applyAudioVolumeVisualPreview(itemVolume ?? 0)
   }, [applyAudioVolumeVisualPreview, audioVolumeEdit, itemType, itemVolume])
 
-  useLayoutEffect(() => {
+  // Runs post-paint (not useLayoutEffect): the line is already correctly placed
+  // by its `top: var(--timeline-audio-volume-line-y)` CSS, so this only refines
+  // it to a crisp whole pixel. Keeping the getBoundingClientRect read out of the
+  // commit phase avoids a forced reflow per audio clip when many mount at once
+  // (e.g. zooming out brings a batch into view).
+  useEffect(() => {
     if (itemType !== 'audio') return
     const container = audioControlsRef.current
     if (!container) return
