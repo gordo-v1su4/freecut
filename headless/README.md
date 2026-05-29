@@ -180,7 +180,7 @@ curl -X POST localhost:8787/edit -H 'content-type: application/json' \
 
 | Route | Body | Returns |
 |-------|------|---------|
-| `GET /health` | — | `{ ok, harnessUrl }` |
+| `GET /health` | — | `{ ok, gpu: { available, vendor, architecture }, software, harnessUrl }` |
 | `GET /projects` | — | `[{ id, name, updatedAt }]` |
 | `POST /render` | `{ project\|projectObject, codec?, container?, resolution?, fps?, quality?, in?, outSec?, duration?, audioOnly? }` | the rendered file (attachment) |
 | `POST /edit` | `{ project\|projectObject, ops, ... }` | `{ ok, project, applied, results }` |
@@ -188,55 +188,52 @@ curl -X POST localhost:8787/edit -H 'content-type: application/json' \
 `project` is a workspace project id; `projectObject` is an inline Project JSON.
 Media is resolved from the service's workspace by id.
 
-## Docker
+## Docker (Linux GPU server deployment)
 
-Run the render service in a container (Google Chrome for H.264/AAC + Mesa
-lavapipe for software WebGPU):
+**Docker here is for deploying the render service on a Linux host with an NVIDIA
+GPU** — not for desktop use. On Windows/macOS, **render natively**
+(`npm run headless:serve`); Docker Desktop on Windows runs containers in a WSL2
+VM that exposes CUDA/NVENC but **no Vulkan**, so WebGPU there is software-only
+and GPU effects can't run. Use the container on a real Linux GPU box (or render
+natively).
 
 ```bash
 # Build (context = repo root)
 docker build -f headless/Dockerfile -t freecut-headless .
 
-# Run, mounting your workspace read-only
-docker run --rm -p 8787:8787 -v /path/to/FreeCutProjects:/workspace:ro freecut-headless
+# Run on a Linux host WITH a GPU (NVIDIA Container Toolkit installed):
+docker run --rm -p 8787:8787 --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all \
+  -v /path/to/FreeCutProjects:/workspace:ro freecut-headless
 
-# Verify — gpu:true means WebGPU (effects) works in the container
+# Confirm it's using the real GPU (not software):
 curl localhost:8787/health
+#  good:  {"ok":true,"gpu":{"available":true,"vendor":"nvidia",...},"software":false}
+#  bad:   {... "vendor":"mesa","architecture":"llvmpipe", "software":true}  -> effects will fail
 curl -X POST localhost:8787/render -H 'content-type: application/json' \
   -d '{"project":"<id>","duration":5}' -o out.mp4
 ```
 
-### Docker: what works, and GPU effects
+Without `--gpus all` (or on Windows), the container falls back to software
+WebGPU: cuts/text/transitions and audio still render, but GPU effects fail with
+a clear error and the service logs a warning at startup.
 
-Verified in-container against a real workspace:
+### What's verified
 
-- **Builds and serves**; `/health` reports `"gpu":true`.
-- **Renders work** for video, **text, and transitions** (WebGPU via Mesa lavapipe).
-- **Audio works** — including **AAC** (the `@mediabunny/aac-encoder` WASM polyfill
-  is registered automatically because Linux Chrome has no native AAC encoder), plus
-  Opus (webm) and MP3.
-- **Heavy GPU effects need a real GPU.** Software WebGPU (both lavapipe and
-  SwiftShader) hits a Dawn device-loss on the effects pipeline. The render returns
-  a clear error (never a silent bad output).
+In-container against a real workspace:
 
-**Using a real GPU:**
+- Builds and serves; renders **video, text, and transitions**.
+- **Audio works, including AAC** — the `@mediabunny/aac-encoder` WASM polyfill is
+  registered automatically when there's no native AAC encoder (Linux Chrome); Opus
+  (webm) and MP3 also work.
+- **GPU effects** need a real GPU. Software WebGPU (lavapipe and SwiftShader) hits a
+  Dawn device-loss on the effects pipeline, surfaced as a clear render error.
 
-- **On Windows/macOS, run the service natively** (`npm run headless:serve`) — Chrome
-  uses your GPU directly and effects render at full speed. **Docker Desktop on
-  Windows (WSL2) cannot pass the GPU's Vulkan through** to a container (it exposes
-  CUDA/NVENC and `/dev/dxg`, but no Vulkan ICD — `vulkaninfo` finds no GPU driver),
-  so containerized rendering there is software-only.
-- **On a Linux host with an NVIDIA GPU**, the NVIDIA Container Toolkit mounts the
-  GPU's Vulkan ICD, so the container uses the real GPU:
+### Why Windows Docker can't use the GPU
 
-  ```bash
-  docker run --rm -p 8787:8787 --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all \
-    -v /path/to/FreeCutProjects:/workspace:ro freecut-headless
-  ```
-
-So: **for GPU effects, render natively (Windows/macOS) or on a Linux GPU host.**
-Docker on Windows is great for cuts/text/transitions with full audio, but not
-heavy effects.
+Docker Desktop on Windows runs containers in a WSL2 VM that exposes CUDA/NVENC and
+`/dev/dxg` but **no Vulkan ICD** (`vulkaninfo` finds no driver in-container), and
+WebGPU needs Vulkan. So GPU effects in Docker require a **native Linux GPU host**;
+on Windows/macOS, render natively instead.
 
 ## Dev/regression scripts
 

@@ -76,6 +76,31 @@ function sendJson(res, status, obj) {
   res.end(body)
 }
 
+/** Inspect the WebGPU adapter so operators can confirm a real GPU vs software. */
+async function probeGpu(page) {
+  return page
+    .evaluate(async () => {
+      if (!globalThis.navigator?.gpu) return { available: false }
+      const adapter = await navigator.gpu.requestAdapter()
+      if (!adapter) return { available: false }
+      const info = adapter.info ?? {}
+      return {
+        available: true,
+        vendor: info.vendor ?? '',
+        architecture: info.architecture ?? '',
+        description: info.description ?? '',
+      }
+    })
+    .catch(() => ({ available: false }))
+}
+
+/** Heuristic: is this a software (CPU) WebGPU adapter rather than a real GPU? */
+function isSoftwareGpu(gpu) {
+  if (!gpu?.available) return true
+  const s = `${gpu.vendor} ${gpu.architecture} ${gpu.description}`.toLowerCase()
+  return /llvmpipe|lavapipe|swiftshader|software|mesa/.test(s)
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   const workspace = args.workspace
@@ -100,6 +125,19 @@ async function main() {
   await page.exposeBinding('__freecutProgress', () => {})
   await page.goto(harnessUrl, { waitUntil: 'load', timeout: 60_000 })
   await page.waitForFunction(() => Boolean(window.freecut?.ready), { timeout: 30_000 })
+
+  // Report the WebGPU adapter so it's obvious whether this is a real GPU.
+  const gpu = await probeGpu(page)
+  if (gpu.available) {
+    console.log(`WebGPU adapter: ${gpu.vendor || '?'} / ${gpu.architecture || gpu.description || '?'}`)
+  }
+  if (isSoftwareGpu(gpu)) {
+    console.warn(
+      'WARNING: WebGPU is software (no real GPU) — GPU effects will fail. ' +
+        'Run on a Linux host with an NVIDIA GPU + Container Toolkit (--gpus all ' +
+        '-e NVIDIA_DRIVER_CAPABILITIES=all), or render natively on Windows/macOS.',
+    )
+  }
 
   // Serialize page operations: one render/edit at a time.
   let queue = Promise.resolve()
@@ -168,12 +206,8 @@ async function main() {
     const handler =
       route === 'GET /health'
         ? async () => {
-            const gpu = await page
-              .evaluate(async () =>
-                Boolean(globalThis.navigator?.gpu && (await navigator.gpu.requestAdapter())),
-              )
-              .catch(() => false)
-            sendJson(res, 200, { ok: true, gpu, harnessUrl })
+            const gpu = await probeGpu(page)
+            sendJson(res, 200, { ok: true, gpu, software: isSoftwareGpu(gpu), harnessUrl })
           }
         : route === 'GET /projects'
           ? async () => sendJson(res, 200, listProjects(workspace))
