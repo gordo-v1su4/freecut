@@ -121,7 +121,7 @@ describe('ClipFilmstrip', () => {
         sourceDuration={10}
         trimStart={0}
         speed={1}
-        fps={30}
+        fps={31}
         isVisible
         pixelsPerSecond={120}
       />,
@@ -146,7 +146,7 @@ describe('ClipFilmstrip', () => {
         sourceDuration={10}
         trimStart={0}
         speed={1}
-        fps={30}
+        fps={32}
         isVisible
         pixelsPerSecond={120}
       />,
@@ -176,7 +176,7 @@ describe('ClipFilmstrip', () => {
         sourceDuration={120}
         trimStart={0}
         speed={1}
-        fps={30}
+        fps={31}
         isVisible
         visibleStartRatio={0.5}
         visibleEndRatio={0.75}
@@ -207,7 +207,7 @@ describe('ClipFilmstrip', () => {
         sourceDuration={10}
         trimStart={0}
         speed={1}
-        fps={30}
+        fps={31}
         isVisible
         pixelsPerSecond={120}
       />,
@@ -237,7 +237,7 @@ describe('ClipFilmstrip', () => {
         sourceDuration={10}
         trimStart={0}
         speed={1}
-        fps={30}
+        fps={32}
         isVisible
         pixelsPerSecond={120}
       />,
@@ -249,6 +249,88 @@ describe('ClipFilmstrip', () => {
 
     await waitFor(() => {
       expect(filmstripCacheMocks.refreshFrames).toHaveBeenCalledWith('media-1', [0])
+    })
+  })
+
+  it('keeps the visible filmstrip stable while extraction is still streaming updates', async () => {
+    useFilmstripMock.mockReturnValue({
+      frames: [{ index: 0, timestamp: 0, url: 'blob:initial' }],
+      isLoading: true,
+      isComplete: false,
+      progress: 20,
+      error: null,
+    })
+
+    const { container, rerender } = render(
+      <ClipFilmstrip
+        mediaId="media-1"
+        clipWidth={320}
+        sourceStart={0}
+        sourceDuration={10}
+        trimStart={0}
+        speed={1}
+        fps={32}
+        isVisible
+        pixelsPerSecond={120}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(container.querySelector('img[src="blob:initial"]')).not.toBeNull()
+    })
+
+    useFilmstripMock.mockReturnValue({
+      frames: [
+        { index: 0, timestamp: 0, url: 'blob:initial' },
+        { index: 4, timestamp: 4, url: 'blob:streamed' },
+      ],
+      isLoading: true,
+      isComplete: false,
+      progress: 60,
+      error: null,
+    })
+    rerender(
+      <ClipFilmstrip
+        mediaId="media-1"
+        clipWidth={320}
+        sourceStart={0}
+        sourceDuration={10}
+        trimStart={0}
+        speed={1}
+        fps={31}
+        isVisible
+        pixelsPerSecond={120}
+      />,
+    )
+
+    expect(container.querySelector('img[src="blob:streamed"]')).toBeNull()
+
+    useFilmstripMock.mockReturnValue({
+      frames: [
+        { index: 0, timestamp: 0, url: 'blob:initial' },
+        { index: 4, timestamp: 4, url: 'blob:streamed' },
+      ],
+      isLoading: false,
+      isComplete: true,
+      progress: 100,
+      error: null,
+    })
+    rerender(
+      <ClipFilmstrip
+        mediaId="media-1"
+        clipWidth={320}
+        sourceStart={0}
+        sourceDuration={10}
+        trimStart={0}
+        speed={1}
+        fps={32}
+        isVisible
+        pixelsPerSecond={120}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(container.querySelector('img[src="blob:streamed"]')).not.toBeNull()
     })
   })
 })

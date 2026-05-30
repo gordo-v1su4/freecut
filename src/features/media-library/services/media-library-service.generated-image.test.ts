@@ -97,6 +97,7 @@ vi.mock('./media-processor-service', () => ({
 vi.mock('@/features/media-library/deps/timeline-services', () => ({
   gifFrameCache: gifFrameCacheMocks,
   filmstripCache: filmstripCacheMocks,
+  MAX_FILMSTRIP_TARGET_FRAMES: 72,
   waveformCache: waveformCacheMocks,
 }))
 

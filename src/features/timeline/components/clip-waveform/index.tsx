@@ -366,8 +366,6 @@ export const ClipWaveform = memo(function ClipWaveform({
 
   return (
     <div ref={containerRef} className="absolute inset-0">
-      {/* Show shimmer skeleton behind canvas while loading progressively */}
-      {isLoading && <WaveformSkeleton clipWidth={clipWidth} height={height} />}
       <TiledCanvas
         width={renderClipWidth}
         height={height}

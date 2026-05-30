@@ -38,9 +38,9 @@ import {
 const logger = createLogger('WaveformCache')
 
 // Memory cache budget — the working-set ceiling for resident waveforms.
-// Full-resolution peaks are ~28.8MB/hour (1000 samples/sec, stereo), so the
-// old 20MB held under an hour total and a single long clip evicted everything
-// else. 128MB keeps several hours of waveform resident so the clips around the
+// Full-resolution peaks are ~14.4MB/hour (500 samples/sec, stereo), so the old
+// 20MB held only a small working set and a single long clip could evict
+// everything else. 128MB keeps several hours of waveform resident so the clips around the
 // viewport stay cached and remounts (e.g. dragging a clip to another track) hit
 // the sync cache instead of reloading with a skeleton flash.
 // Note: SizedAccessedMemoryCache retains entries larger than this budget rather
@@ -58,7 +58,7 @@ const WAVEFORM_PROGRESS_NOTIFY_STEP = 2
 const WAVEFORM_NOTIFY_INTERVAL_MS = 180
 
 // Samples per second for waveform generation (highest resolution)
-const SAMPLES_PER_SECOND = WAVEFORM_LEVELS[0] // 1000 samples/sec
+const SAMPLES_PER_SECOND = WAVEFORM_LEVELS[0] // 500 samples/sec
 const WAVEFORM_BIN_DURATION_SEC = 30
 const WAVEFORM_BIN_SAMPLES = SAMPLES_PER_SECOND * WAVEFORM_BIN_DURATION_SEC
 
@@ -270,6 +270,10 @@ class WaveformCacheService {
     return this.getFromMemoryCache(mediaId)
   }
 
+  hasPendingGeneration(mediaId: string): boolean {
+    return this.pendingRequests.has(mediaId)
+  }
+
   /**
    * Add waveform to memory cache with LRU eviction
    */
@@ -300,7 +304,7 @@ class WaveformCacheService {
    *
    * This is what the timeline should render from: it keeps only a
    * zoom-appropriate level resident (tiny when zoomed out) instead of the full
-   * 1000-samples/sec peaks, so display memory is bounded regardless of clip
+   * 500-samples/sec peaks, so display memory is bounded regardless of clip
    * length. Max-pooling during downsampling preserves the global peak, so
    * normalization is consistent across levels.
    */
@@ -460,6 +464,16 @@ class WaveformCacheService {
     try {
       const meta = await getWaveformMetaFromIndexedDB(mediaId)
       if (meta) {
+        if (meta.sampleRate !== SAMPLES_PER_SECOND) {
+          logger.debug(
+            `Stale waveform sample rate for ${mediaId}; clearing ${meta.sampleRate}Hz cache`,
+          )
+          await deleteWaveformFromIndexedDB(mediaId).catch((e) => {
+            logger.debug('Failed to clear stale-rate waveform:', mediaId, e)
+          })
+          return null
+        }
+
         // Reject old mono data for multi-channel sources — force regeneration as stereo
         if (meta.channels >= 2 && !meta.stereo) {
           logger.debug(
@@ -571,6 +585,16 @@ class WaveformCacheService {
       const stored = await getLegacyWaveformFromIndexedDB(mediaId)
 
       if (stored && stored.peaks) {
+        if (stored.sampleRate !== SAMPLES_PER_SECOND) {
+          logger.debug(
+            `Stale legacy waveform sample rate for ${mediaId}; clearing ${stored.sampleRate}Hz cache`,
+          )
+          await deleteWaveformFromIndexedDB(mediaId).catch((e) => {
+            logger.debug('Failed to clear stale legacy waveform:', mediaId, e)
+          })
+          return null
+        }
+
         const peaks = new Float32Array(stored.peaks)
 
         const cached: CachedWaveform = {

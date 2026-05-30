@@ -118,6 +118,7 @@ vi.mock('@/runtime/composition-runtime/utils/preview-audio-conform', () => ({
 vi.mock('@/features/media-library/deps/timeline-services', () => ({
   gifFrameCache: gifFrameCacheMocks,
   filmstripCache: filmstripCacheMocks,
+  MAX_FILMSTRIP_TARGET_FRAMES: 72,
   waveformCache: waveformCacheMocks,
 }))
 

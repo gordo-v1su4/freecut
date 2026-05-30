@@ -332,7 +332,6 @@ export const CompoundClipWaveform = memo(function CompoundClipWaveform({
 
   return (
     <div ref={containerRef} className="absolute inset-0">
-      {isLoading && <WaveformSkeleton clipWidth={visibleClipWidth} height={height} />}
       <TiledCanvas
         width={renderClipWidth}
         height={height}

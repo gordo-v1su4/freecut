@@ -113,6 +113,7 @@ import {
 import {
   filmstripCache,
   gifFrameCache,
+  MAX_FILMSTRIP_TARGET_FRAMES,
   waveformCache,
 } from '@/features/media-library/deps/timeline-services'
 import { registerObjectUrl, unregisterObjectUrl } from '@/infrastructure/browser/object-url-registry'
@@ -141,7 +142,6 @@ export { FileAccessError } from './file-access'
 
 const IMPORT_FILMSTRIP_COVER_PREWARM_SECONDS = 1
 const IMPORT_FILMSTRIP_PREWARM_SECONDS = 4
-const IMPORT_FILMSTRIP_OVERVIEW_TARGET_FRAMES = 96
 const IMPORT_BACKGROUND_COVER_WARM_DELAY_MS = 0
 const IMPORT_BACKGROUND_WARM_DELAY_MS = 600
 const IMPORT_BACKGROUND_HEAVY_DELAY_MS = 2200
@@ -512,7 +512,7 @@ class MediaLibraryService {
                 mediaMetadata.duration,
                 (progress) => updateMediaPreparationTask(mediaMetadata.id, 'filmstrip', progress),
                 { startIndex: 0, endIndex: Math.min(Math.ceil(mediaMetadata.duration), 4) },
-                { targetFrameCount: IMPORT_FILMSTRIP_OVERVIEW_TARGET_FRAMES },
+                { targetFrameCount: MAX_FILMSTRIP_TARGET_FRAMES },
               )
               completeMediaPreparationTask(mediaMetadata.id, 'filmstrip')
             } catch (error) {

@@ -106,6 +106,7 @@ export function useWaveform({
 
   // Refs to avoid duplicate starts when visibility/layout churns.
   const isGeneratingRef = useRef(false)
+  const ownsGenerationRef = useRef(false)
   const hasPendingStartRef = useRef(false)
   const lastMediaIdRef = useRef<string>(mediaId)
 
@@ -114,6 +115,7 @@ export function useWaveform({
     if (lastMediaIdRef.current !== mediaId) {
       lastMediaIdRef.current = mediaId
       isGeneratingRef.current = false
+      ownsGenerationRef.current = false
       hasPendingStartRef.current = false
       setWaveform(waveformCache.getFromMemoryCacheSync(mediaId))
       setIsLoading(false)
@@ -227,6 +229,7 @@ export function useWaveform({
 
         hasPendingStartRef.current = false
         isGeneratingRef.current = true
+        ownsGenerationRef.current = false
 
         waveformCache
           .getCachedWaveform(mediaId)
@@ -250,6 +253,7 @@ export function useWaveform({
             }
 
             setProgress(0)
+            ownsGenerationRef.current = !waveformCache.hasPendingGeneration(mediaId)
             return waveformCache.getWaveform(mediaId, blobUrl, onProgress)
           })
           .then((result) => {
@@ -273,6 +277,7 @@ export function useWaveform({
           .finally(() => {
             if (lastMediaIdRef.current === requestMediaId) {
               isGeneratingRef.current = false
+              ownsGenerationRef.current = false
               hasPendingStartRef.current = false
             }
           })
@@ -296,7 +301,9 @@ export function useWaveform({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      waveformCache.abort(mediaId)
+      if (ownsGenerationRef.current) {
+        waveformCache.abort(mediaId)
+      }
     }
   }, [mediaId])
 

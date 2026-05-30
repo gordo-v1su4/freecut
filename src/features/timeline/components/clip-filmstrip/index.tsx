@@ -314,6 +314,29 @@ export const ClipFilmstrip = memo(function ClipFilmstrip({
     targetFrameCount,
     targetFrameIndices,
   })
+  const [stableFrames, setStableFrames] = useState<FilmstripFrame[] | null>(null)
+
+  useEffect(() => {
+    setStableFrames(null)
+  }, [mediaId])
+
+  useEffect(() => {
+    if (!frames || frames.length === 0) {
+      if (!isLoading) {
+        setStableFrames(null)
+      }
+      return
+    }
+
+    setStableFrames((current) => {
+      if (isLoading && current && current.length > 0) {
+        return current
+      }
+      return frames
+    })
+  }, [frames, isLoading])
+
+  const renderFrames = stableFrames ?? frames
 
   const handleFrameSourceError = useCallback(
     (frameIndex: number) => {
@@ -354,7 +377,7 @@ export const ClipFilmstrip = memo(function ClipFilmstrip({
   //   dominant cost when scrubbing the navigator at high zoom. Off-window areas
   //   keep showing the repeating cover-frame background, so windowing is seamless.
   const tiles = useMemo(() => {
-    if (!frames || frames.length === 0 || renderPixelsPerSecond <= 0) return []
+    if (!renderFrames || renderFrames.length === 0 || renderPixelsPerSecond <= 0) return []
     if (effectiveEnd <= effectiveStart) return []
 
     const pixelsPerSourceSecond = renderPixelsPerSecond / Math.max(0.0001, speed)
@@ -372,14 +395,14 @@ export const ClipFilmstrip = memo(function ClipFilmstrip({
     if (endTile <= startTile) return []
 
     const findClosestFrame = (targetTime: number): FilmstripFrame | null => {
-      if (frames.length === 0) return null
+      if (renderFrames.length === 0) return null
       let lo = 0
-      let hi = frames.length - 1
-      let best = frames[0]!
+      let hi = renderFrames.length - 1
+      let best = renderFrames[0]!
       let bestDiff = Math.abs(best.index - targetTime)
       while (lo <= hi) {
         const mid = (lo + hi) >> 1
-        const f = frames[mid]!
+        const f = renderFrames[mid]!
         const diff = Math.abs(f.index - targetTime)
         if (diff < bestDiff) {
           best = f
@@ -406,7 +429,7 @@ export const ClipFilmstrip = memo(function ClipFilmstrip({
 
     return result
   }, [
-    frames,
+    renderFrames,
     renderPixelsPerSecond,
     renderClipWidth,
     visibleClipWidth,
@@ -429,18 +452,18 @@ export const ClipFilmstrip = memo(function ClipFilmstrip({
   }, [mediaId])
   useEffect(() => {
     if (coverFrameIndex !== null) return
-    if (!frames || frames.length === 0) return
-    const mid = frames[Math.floor(frames.length / 2)] ?? frames[0] ?? null
+    if (!renderFrames || renderFrames.length === 0) return
+    const mid = renderFrames[Math.floor(renderFrames.length / 2)] ?? renderFrames[0] ?? null
     if (mid) setCoverFrameIndex(mid.index)
-  }, [coverFrameIndex, frames])
+  }, [coverFrameIndex, renderFrames])
   const coverFrame = useMemo(() => {
-    if (!frames || frames.length === 0) return null
+    if (!renderFrames || renderFrames.length === 0) return null
     if (coverFrameIndex !== null) {
-      const exact = frames.find((frame) => frame.index === coverFrameIndex)
+      const exact = renderFrames.find((frame) => frame.index === coverFrameIndex)
       if (exact) return exact
     }
-    return frames[Math.floor(frames.length / 2)] ?? frames[0] ?? null
-  }, [coverFrameIndex, frames])
+    return renderFrames[Math.floor(renderFrames.length / 2)] ?? renderFrames[0] ?? null
+  }, [coverFrameIndex, renderFrames])
   const coverFrameUrl = coverFrame?.url ?? null
 
   if (error) {
@@ -448,7 +471,7 @@ export const ClipFilmstrip = memo(function ClipFilmstrip({
   }
 
   // Show skeleton while actively loading.
-  if (!frames || frames.length === 0 || height === 0) {
+  if (!renderFrames || renderFrames.length === 0 || height === 0) {
     if (!isLoading && height > 0) {
       return <div ref={containerRef} className="absolute inset-0" />
     }

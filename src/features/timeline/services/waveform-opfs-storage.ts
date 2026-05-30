@@ -21,9 +21,9 @@
  *   - Float32 peak values for each level, concatenated
  *
  * Resolution levels (for efficient zoom rendering):
- *   - Level 0: 1000 samples/sec (highest detail, zoomed in)
- *   - Level 1: 200 samples/sec (medium detail)
- *   - Level 2: 50 samples/sec (low detail, zoomed out)
+ *   - Level 0: 500 samples/sec (highest detail, zoomed in)
+ *   - Level 1: 100 samples/sec (medium detail)
+ *   - Level 2: 25 samples/sec (low detail, zoomed out)
  *   - Level 3: 10 samples/sec (overview)
  */
 
@@ -45,7 +45,7 @@ const LEVEL_INDEX_SIZE = 12
 const WAVEFORM_DIR = 'waveforms'
 
 // Multi-resolution levels (samples per second)
-export const WAVEFORM_LEVELS = [1000, 200, 50, 10] as const
+export const WAVEFORM_LEVELS = [500, 100, 25, 10] as const
 
 function getFloatsPerSample(channels: number): number {
   return channels >= 2 ? 2 : 1
