@@ -1,12 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { createLogger } from '@/shared/logging/logger'
-import { useProjectStore } from '@/features/projects/stores/project-store'
 
 const logger = createLogger('NewProjectRoute')
 
 export const Route = createFileRoute('/projects/new')({
   beforeLoad: async () => {
     try {
+      const { useProjectStore } = await import('@/features/projects/stores/project-store')
       const { loadProjects } = useProjectStore.getState()
       await loadProjects()
     } catch (err) {

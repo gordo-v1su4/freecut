@@ -265,7 +265,9 @@ vi.mock('../utils/media-resolver', () => ({
 }))
 
 vi.mock('@/features/preview/deps/export', () => ({
-  createCompositionRenderer: rendererMockState.create,
+  importCompositionRenderer: vi.fn(async () => ({
+    createCompositionRenderer: rendererMockState.create,
+  })),
 }))
 
 vi.mock('@/features/preview/deps/player-core', async () => {

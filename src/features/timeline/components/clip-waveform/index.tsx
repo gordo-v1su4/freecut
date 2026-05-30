@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { TiledCanvas } from '../clip-filmstrip/tiled-canvas'
 import { WaveformSkeleton } from './waveform-skeleton'
 import { useWaveform } from '../../hooks/use-waveform'
-import { mediaLibraryService } from '@/features/timeline/deps/media-library-service'
+import { importMediaLibraryService } from '@/features/timeline/deps/media-library-service'
 import { resolveMediaUrl } from '@/features/timeline/deps/media-library-resolver'
 import { useMediaBlobUrl } from '../../hooks/use-media-blob-url'
 import {
@@ -175,6 +175,7 @@ export const ClipWaveform = memo(function ClipWaveform({
     const loadBlobUrl = async () => {
       try {
         // First check if audio codec is supported
+        const { mediaLibraryService } = await importMediaLibraryService()
         const media = await mediaLibraryService.getMedia(mediaId)
         if (!mounted) return
 

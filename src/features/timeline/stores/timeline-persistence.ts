@@ -28,11 +28,11 @@ import { useCompositionsStore } from './compositions-store'
 import { useCompositionNavigationStore } from './composition-navigation-store'
 import { getProject, updateProject, saveProjectThumbnail } from '@/infrastructure/storage'
 import {
-  renderSingleFrame,
+  importCanvasRenderOrchestrator,
   convertTimelineToComposition,
 } from '@/features/timeline/deps/export-contract'
 import { resolveMediaUrls } from '@/features/timeline/deps/media-library-resolver'
-import { mediaLibraryService } from '@/features/timeline/deps/media-library-service'
+import { importMediaLibraryService } from '@/features/timeline/deps/media-library-service'
 import { validateProjectMediaReferences } from '@/features/timeline/utils/media-validation'
 import { useMediaLibraryStore } from '@/features/timeline/deps/media-library-store'
 import { useSettingsStore } from '@/features/timeline/deps/settings-contract'
@@ -181,6 +181,9 @@ async function buildVideoHasAudioMap(
   mediaIds: string[],
 ): Promise<Record<string, boolean | undefined>> {
   const mediaById = useMediaLibraryStore.getState().mediaById
+  const missingMediaIds = mediaIds.filter((mediaId) => !mediaById[mediaId])
+  const mediaLibraryModule =
+    missingMediaIds.length > 0 ? await importMediaLibraryService() : null
   const entries = await Promise.all(
     mediaIds.map(async (mediaId) => {
       const cachedMedia = mediaById[mediaId]
@@ -188,7 +191,7 @@ async function buildVideoHasAudioMap(
         return [mediaId, !!cachedMedia.audioCodec] as const
       }
 
-      const media = await mediaLibraryService.getMedia(mediaId)
+      const media = await mediaLibraryModule?.mediaLibraryService.getMedia(mediaId)
       return [mediaId, !!media?.audioCodec] as const
     }),
   )
@@ -869,6 +872,7 @@ export async function saveTimeline(projectId: string): Promise<void> {
           )
           const resolvedTracks = await resolveMediaUrls(composition.tracks)
           const resolvedComposition = { ...composition, tracks: resolvedTracks }
+          const { renderSingleFrame } = await importCanvasRenderOrchestrator()
           thumbnailBlob = await renderSingleFrame({
             composition: resolvedComposition,
             frame: currentFrame,

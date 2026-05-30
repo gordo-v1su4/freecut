@@ -1,4 +1,14 @@
-import { useEffect, useLayoutEffect, useRef, useState, useMemo, memo, useCallback } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useMemo,
+  memo,
+  useCallback,
+  lazy,
+  Suspense,
+} from 'react'
 import {
   Search,
   Filter,
@@ -28,10 +38,13 @@ import {
   ScanSearch,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { SceneBrowserPanel, useSceneBrowserStore } from '../deps/scene-browser'
+import { importSceneBrowserPanel, useSceneBrowserStore } from '../deps/scene-browser'
 import { createLogger } from '@/shared/logging/logger'
 
 const logger = createLogger('MediaLibrary')
+const LazySceneBrowserPanel = lazy(() =>
+  importSceneBrowserPanel().then((module) => ({ default: module.SceneBrowserPanel })),
+)
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
@@ -83,9 +96,9 @@ import {
 } from '@/features/media-library/deps/timeline-stores'
 import { useProjectStore } from '@/features/media-library/deps/projects'
 import { proxyService } from '../services/proxy-service'
-import { mediaLibraryService } from '../services/media-library-service'
+import { importMediaLibraryService } from '../services/media-library-service-loader'
 import { mediaTranscriptionService } from '../services/media-transcription-service'
-import { mediaAnalysisService } from '../services/media-analysis-service'
+import { importMediaAnalysisService } from '../services/media-analysis-service-loader'
 import { extractValidMediaFileEntriesFromDataTransfer } from '../utils/file-drop'
 import { getSharedProxyKey } from '../utils/proxy-key'
 import { getMediaType } from '../utils/validation'
@@ -811,7 +824,10 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
         item.id,
         item.storageType === 'opfs' && item.opfsPath
           ? { kind: 'opfs', path: item.opfsPath, mimeType: item.mimeType }
-          : () => mediaLibraryService.getMediaFile(item.id),
+          : async () => {
+              const { mediaLibraryService } = await importMediaLibraryService()
+              return mediaLibraryService.getMediaFile(item.id)
+            },
         item.width,
         item.height,
         proxyKey,
@@ -1489,7 +1505,11 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
 
       {/* Scrollable content: wrapper provides relative context for the drag overlay */}
       <div className="flex-1 relative min-h-0">
-        {sceneBrowserOpen && <SceneBrowserPanel className="absolute inset-0 bg-background" />}
+        {sceneBrowserOpen && (
+          <Suspense fallback={null}>
+            <LazySceneBrowserPanel className="absolute inset-0 bg-background" />
+          </Suspense>
+        )}
         <div
           ref={scrollContainerRef}
           className={cn(
@@ -1601,7 +1621,11 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
               {!analysisProgress.cancelRequested ? (
                 <button
                   type="button"
-                  onClick={() => mediaAnalysisService.requestCancel()}
+                  onClick={() => {
+                    void importMediaAnalysisService().then(({ mediaAnalysisService }) =>
+                      mediaAnalysisService.requestCancel(),
+                    )
+                  }}
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {analysisProgress.total > 1 ? t('media.library.cancelAll') : t('common.cancel')}

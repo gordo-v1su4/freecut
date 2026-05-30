@@ -3,7 +3,6 @@
  * Editor modules should import media-library stores/components/utils/services from here.
  */
 
-export { MediaLibrary } from '@/features/media-library/components/media-library'
 export { useMediaLibraryStore } from '@/features/media-library/stores/media-library-store'
 export { useEmbeddedSubtitlePickerStore } from '@/features/media-library/stores/embedded-subtitle-picker-store'
 export { useSubtitleScanProgressStore } from '@/features/media-library/stores/subtitle-scan-progress-store'

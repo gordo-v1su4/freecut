@@ -1,6 +1,6 @@
 export {
-  gifFrameCache,
-  filmstripCache,
+  importGifFrameCache,
+  importFilmstripCache,
   IMPORT_FILMSTRIP_HUGE_FILE_BYTES,
   IMPORT_FILMSTRIP_LARGE_FILE_BYTES,
   IMPORT_FILMSTRIP_LARGE_TARGET_FRAMES,
@@ -13,6 +13,6 @@ export {
   IMPORT_FILMSTRIP_TINY_TARGET_FRAMES,
   IMPORT_FILMSTRIP_VERY_LONG_DURATION_SEC,
   MAX_FILMSTRIP_TARGET_FRAMES,
-  waveformCache,
+  importWaveformCache,
   schedulePreviewWork,
 } from './timeline-contract'

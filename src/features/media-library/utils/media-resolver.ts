@@ -1,7 +1,3 @@
-import {
-  mediaLibraryService,
-  FileAccessError,
-} from '@/features/media-library/services/media-library-service'
 import { useMediaLibraryStore } from '@/features/media-library/stores/media-library-store'
 import { proxyService } from '@/features/media-library/services/proxy-service'
 import { getSharedProxyKey } from '@/features/media-library/utils/proxy-key'
@@ -38,6 +34,10 @@ export async function resolveMediaUrl(mediaId: string): Promise<string> {
 
   // Create the request promise
   const requestPromise = (async () => {
+    const { mediaLibraryService, FileAccessError } = await import(
+      '@/features/media-library/services/media-library-service'
+    )
+
     try {
       // Get media metadata from library
       const media = await mediaLibraryService.getMedia(mediaId)

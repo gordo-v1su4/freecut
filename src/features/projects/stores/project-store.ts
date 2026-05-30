@@ -17,8 +17,8 @@ import {
   getTrashedProjectMediaIds,
 } from '@/infrastructure/storage'
 import { createProjectObject, duplicateProject } from '../utils/project-helpers'
-// v3: Import media service for cascade operations
-import { mediaLibraryService } from '@/features/projects/deps/media-library-contract'
+// v3: Lazy-load media service for cascade operations
+import { importMediaLibraryService } from '@/features/projects/deps/media-library-contract'
 import { createLogger } from '@/shared/logging/logger'
 
 const logger = createLogger('ProjectStore')
@@ -369,6 +369,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
             // `getProjectMediaIds`, which works for trashed projects too
             // because media-links.json lives alongside the marker.)
             const mediaIds = await getTrashedProjectMediaIds(id)
+            const { mediaLibraryService } = await importMediaLibraryService()
             for (const mediaId of mediaIds) {
               try {
                 await mediaLibraryService.deleteMediaFromProject(id, mediaId)

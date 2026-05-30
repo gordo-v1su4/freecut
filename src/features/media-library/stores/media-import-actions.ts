@@ -1,6 +1,6 @@
 import type { MediaLibraryState, MediaLibraryActions, UnsupportedCodecFile } from '../types'
 import type { MediaMetadata } from '@/types/storage'
-import { mediaLibraryService } from '../services/media-library-service'
+import { importMediaLibraryService } from '../services/media-library-service-loader'
 import { proxyService } from '../services/proxy-service'
 import { getMimeType } from '../utils/validation'
 import { getSharedProxyKey } from '../utils/proxy-key'
@@ -258,9 +258,11 @@ export function createImportActions(
   const runImportTasks = async (
     importTasks: ImportTask[],
     projectId: string,
+    serviceModulePromise: ReturnType<typeof importMediaLibraryService>,
   ): Promise<PromiseSettledResult<CompletedImportTask>[]> => {
     const results: PromiseSettledResult<CompletedImportTask>[] = new Array(importTasks.length)
     let nextIndex = 0
+    const { mediaLibraryService } = await serviceModulePromise
 
     const runNext = async (): Promise<void> => {
       while (nextIndex < importTasks.length) {
@@ -307,8 +309,9 @@ export function createImportActions(
       fileCount: handles.length,
     })
 
+    const serviceModulePromise = importMediaLibraryService()
     const importTasks = await createOptimisticImportTasks(handles)
-    const importResults = await runImportTasks(importTasks, currentProjectId)
+    const importResults = await runImportTasks(importTasks, currentProjectId, serviceModulePromise)
 
     const { results, importedCount, duplicateNames, unsupportedCodecFiles, failedCount } =
       processImportResults(importResults, importTasks, set, options)
@@ -316,6 +319,7 @@ export function createImportActions(
     showImportNotifications(duplicateNames, unsupportedCodecFiles, get)
 
     if (options?.waitForPreparation && results.length > 0) {
+      const { mediaLibraryService } = await serviceModulePromise
       await mediaLibraryService.waitForMediaPreparation(results.map((media) => media.id))
     }
 
@@ -362,8 +366,13 @@ export function createImportActions(
         event.set('fileCount', handles.length)
 
         // Create optimistic placeholders for all files immediately
+        const serviceModulePromise = importMediaLibraryService()
         const importTasks = await createOptimisticImportTasks(handles)
-        const importResults = await runImportTasks(importTasks, currentProjectId)
+        const importResults = await runImportTasks(
+          importTasks,
+          currentProjectId,
+          serviceModulePromise,
+        )
 
         const { results, importedCount, duplicateNames, unsupportedCodecFiles, failedCount } =
           processImportResults(importResults, importTasks, set)
@@ -425,6 +434,7 @@ export function createImportActions(
       }
 
       try {
+        const { mediaLibraryService } = await importMediaLibraryService()
         const metadata = await mediaLibraryService.importMediaFromUrl(trimmedUrl, currentProjectId)
 
         if (metadata.isDuplicate) {

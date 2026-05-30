@@ -67,9 +67,9 @@ import {
   writeMediaSource,
 } from '@/features/media-library/deps/storage'
 import {
-  filmstripCache,
-  gifFrameCache,
-  waveformCache,
+  importFilmstripCache,
+  importGifFrameCache,
+  importWaveformCache,
 } from '@/features/media-library/deps/timeline-services'
 import { opfsService } from './opfs-service'
 import { proxyService } from './proxy-service'
@@ -266,6 +266,7 @@ class MediaLibraryService {
 
   private async clearGifFrameCacheSafely(mediaId: string): Promise<void> {
     try {
+      const { gifFrameCache } = await importGifFrameCache()
       await gifFrameCache.clearMedia(mediaId)
     } catch (error) {
       logger.warn('Failed to delete GIF frame cache:', error)
@@ -279,6 +280,7 @@ class MediaLibraryService {
    */
   private async clearFilmstripCacheSafely(mediaId: string): Promise<void> {
     try {
+      const { filmstripCache } = await importFilmstripCache()
       await filmstripCache.clearMedia(mediaId)
     } catch (error) {
       logger.warn('Failed to delete filmstrip cache:', error)
@@ -292,6 +294,7 @@ class MediaLibraryService {
    */
   private async clearWaveformCacheSafely(mediaId: string): Promise<void> {
     try {
+      const { waveformCache } = await importWaveformCache()
       await waveformCache.clearMedia(mediaId)
     } catch (error) {
       logger.warn('Failed to delete waveform cache:', error)
@@ -406,6 +409,7 @@ class MediaLibraryService {
         async () => {
           const blobUrl = URL.createObjectURL(file)
           try {
+            const { gifFrameCache } = await importGifFrameCache()
             await gifFrameCache.getGifFrames(mediaMetadata.id, blobUrl)
           } finally {
             URL.revokeObjectURL(blobUrl)

@@ -32,7 +32,7 @@ import { BUNDLE_EXTENSION } from '@/features/project-bundle/types/bundle'
 import { LegacyMigrationBanner } from '@/features/projects/components/legacy-migration-banner'
 import { LegacyMigrationErrors } from '@/features/projects/components/legacy-migration-errors'
 import { TrashSection } from '@/features/projects/components/trash-section'
-import { WorkspaceIndicator } from '@/features/workspace-gate'
+import { WorkspaceIndicator } from '@/features/workspace-gate/workspace-indicator'
 import { LanguageSwitcher } from '@/shared/ui/language-switcher'
 
 export const Route = createLazyFileRoute('/projects/')({

@@ -3,11 +3,17 @@
  * Editor modules should import timeline feature UI components from here.
  */
 
-export {
-  Timeline,
-  BentoLayoutDialog,
-  KeyframeGraphPanel,
-  ReverseConformDialog,
-  SilenceRemovalDialog,
-  FillerRemovalDialog,
-} from './timeline-contract'
+export { Timeline } from '@/features/timeline/components/timeline'
+export { useBentoLayoutDialogStore } from '@/features/timeline/components/bento-layout-dialog-store'
+export { useReverseConformDialogStore } from '@/features/timeline/stores/reverse-conform-dialog-store'
+export { useSilenceRemovalDialogStore } from '@/features/timeline/stores/silence-removal-dialog-store'
+export { useFillerRemovalDialogStore } from '@/features/timeline/stores/filler-removal-dialog-store'
+
+export const importBentoLayoutDialog = () =>
+  import('@/features/timeline/components/bento-layout-dialog')
+export const importReverseConformDialog = () =>
+  import('@/features/timeline/components/reverse-conform-dialog')
+export const importSilenceRemovalDialog = () =>
+  import('@/features/timeline/components/silence-removal-dialog')
+export const importFillerRemovalDialog = () =>
+  import('@/features/timeline/components/filler-removal-dialog')

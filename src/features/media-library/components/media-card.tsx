@@ -33,8 +33,9 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import type { MediaMetadata } from '@/types/storage'
-import { FileAccessError, mediaLibraryService } from '../services/media-library-service'
-import { mediaAnalysisService } from '../services/media-analysis-service'
+import { FileAccessError } from '../services/file-access'
+import { importMediaLibraryService } from '../services/media-library-service-loader'
+import { importMediaAnalysisService } from '../services/media-analysis-service-loader'
 import { getMediaType, formatDuration } from '../utils/validation'
 import { MediaInfoPopover } from './media-info-popover'
 import { getSharedProxyKey } from '../utils/proxy-key'
@@ -140,6 +141,7 @@ async function getSubtitleSourceBlob(media: MediaMetadata): Promise<Blob> {
     return media.fileHandle.getFile()
   }
 
+  const { mediaLibraryService } = await importMediaLibraryService()
   const blob = await mediaLibraryService.getMediaFile(media.id)
   if (!blob) {
     throw new FileAccessError(`Media file "${media.fileName}" is unavailable.`, 'file_missing')
@@ -417,6 +419,7 @@ export const MediaCard = memo(function MediaCard({
     let mounted = true
 
     const loadThumbnail = async () => {
+      const { mediaLibraryService } = await importMediaLibraryService()
       const url = await mediaLibraryService.getThumbnailBlobUrl(media.id)
       if (mounted) {
         setThumbnailUrl(url)
@@ -475,7 +478,10 @@ export const MediaCard = memo(function MediaCard({
           item.id,
           item.storageType === 'opfs' && item.opfsPath
             ? { kind: 'opfs', path: item.opfsPath, mimeType: item.mimeType }
-            : () => mediaLibraryService.getMediaFile(item.id),
+            : async () => {
+                const { mediaLibraryService } = await importMediaLibraryService()
+                return mediaLibraryService.getMediaFile(item.id)
+              },
           item.width,
           item.height,
           proxyKey,
@@ -794,12 +800,15 @@ export const MediaCard = memo(function MediaCard({
         return true
       })
       if (analyzable.length > 1) {
+        const { mediaAnalysisService } = await importMediaAnalysisService()
         await mediaAnalysisService.analyzeBatch({ mediaIds: analyzable.map((m) => m.id) })
       } else if (analyzable.length === 1) {
+        const { mediaAnalysisService } = await importMediaAnalysisService()
         await mediaAnalysisService.analyzeMedia(analyzable[0]!)
       } else {
         const type = getMediaType(media.mimeType)
         if (type === 'video' || type === 'image') {
+          const { mediaAnalysisService } = await importMediaAnalysisService()
           await mediaAnalysisService.analyzeMedia(media)
         }
       }
@@ -1060,6 +1069,7 @@ export const MediaCard = memo(function MediaCard({
       audioLoadingRef.current = true
 
       try {
+        const { mediaLibraryService } = await importMediaLibraryService()
         const blobUrl = await mediaLibraryService.getMediaBlobUrl(media.id)
         if (!blobUrl) return
 

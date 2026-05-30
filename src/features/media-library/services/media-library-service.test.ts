@@ -120,7 +120,9 @@ vi.mock('@/runtime/composition-runtime/utils/preview-audio-conform', () => ({
 
 vi.mock('@/features/media-library/deps/timeline-services', () => ({
   gifFrameCache: gifFrameCacheMocks,
+  importGifFrameCache: vi.fn(async () => ({ gifFrameCache: gifFrameCacheMocks })),
   filmstripCache: filmstripCacheMocks,
+  importFilmstripCache: vi.fn(async () => ({ filmstripCache: filmstripCacheMocks })),
   MAX_FILMSTRIP_TARGET_FRAMES: 72,
   IMPORT_FILMSTRIP_HUGE_FILE_BYTES: 1000 * 1024 * 1024,
   IMPORT_FILMSTRIP_LARGE_FILE_BYTES: 500 * 1024 * 1024,
@@ -138,6 +140,7 @@ vi.mock('@/features/media-library/deps/timeline-services', () => ({
   IMPORT_FILMSTRIP_TINY_TARGET_FRAMES: 8,
   IMPORT_FILMSTRIP_VERY_LONG_DURATION_SEC: 1800,
   waveformCache: waveformCacheMocks,
+  importWaveformCache: vi.fn(async () => ({ waveformCache: waveformCacheMocks })),
 }))
 
 vi.mock('../utils/validation', () => ({

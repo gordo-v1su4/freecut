@@ -53,6 +53,7 @@ import {
 import type { TransitionPreviewSessionTrace } from './use-preview-transition-session-controller'
 import { createLogger } from '@/shared/logging/logger'
 import { isPreviewTraceEnabled, recordPumpTrace } from '@/shared/logging/preview-trace'
+import type { CompositionRendererInstance } from '@/features/preview/deps/export'
 
 const logger = createLogger('VideoPreview')
 
@@ -60,9 +61,7 @@ type TransitionWindow = ResolvedTransitionWindow<TimelineItem>
 type PlaybackTransitionOverlayWindows = Parameters<typeof resolvePlaybackTransitionOverlayState>[0]
 type PlaybackStoreSnapshot = ReturnType<typeof usePlaybackStore.getState>
 
-type FastScrubRenderer = Awaited<
-  ReturnType<(typeof import('@/features/preview/deps/export'))['createCompositionRenderer']>
->
+type FastScrubRenderer = CompositionRendererInstance
 
 type PreviewPerfState = {
   fastScrubPrewarmSourceEvictions: number

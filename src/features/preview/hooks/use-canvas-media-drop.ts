@@ -16,7 +16,7 @@ import {
   getMediaDragData,
   getMediaType,
   getMimeType,
-  mediaLibraryService,
+  importMediaLibraryService,
   mediaProcessorService,
   resolveMediaUrl,
   useMediaLibraryStore,
@@ -248,6 +248,7 @@ export function useCanvasMediaDrop({ coordParams, projectSize }: UseCanvasMediaD
         return
       }
 
+      const { mediaLibraryService } = await importMediaLibraryService()
       const thumbnailUrl = await mediaLibraryService.getThumbnailBlobUrl(media.id)
       const baseItem = buildDroppedMediaTimelineItem({
         media,
