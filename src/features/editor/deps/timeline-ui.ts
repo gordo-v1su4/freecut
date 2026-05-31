@@ -8,6 +8,7 @@ export {
   importFillerRemovalDialog,
   importReverseConformDialog,
   importSilenceRemovalDialog,
+  KeyframeGraphPanel,
   Timeline,
   useBentoLayoutDialogStore,
   useFillerRemovalDialogStore,

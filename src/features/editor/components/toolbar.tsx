@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
@@ -25,6 +25,9 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
 import { LocalInferenceStatusPill } from './local-inference-status-pill'
+import { ProjectDebugPanel } from './project-debug-panel'
+import { SettingsDialog } from './settings-dialog'
+import { ShortcutsDialog } from './shortcuts-dialog'
 import { UnsavedChangesDialog } from './unsaved-changes-dialog'
 import { WhatsNewDialog } from './whats-new-dialog'
 import { hasUnseenChangelog } from './whats-new-seen'
@@ -34,15 +37,6 @@ import { LanguageSwitcher } from '@/shared/ui/language-switcher'
 import { useDebugStore } from '@/features/editor/stores/debug-store'
 
 const SAVE_ANIMATION_MIN_MS = 1800
-const LazyProjectDebugPanel = lazy(() =>
-  import('./project-debug-panel').then((module) => ({ default: module.ProjectDebugPanel })),
-)
-const LazySettingsDialog = lazy(() =>
-  import('./settings-dialog').then((module) => ({ default: module.SettingsDialog })),
-)
-const LazyShortcutsDialog = lazy(() =>
-  import('./shortcuts-dialog').then((module) => ({ default: module.ShortcutsDialog })),
-)
 
 interface ToolbarProps {
   projectId: string
@@ -184,17 +178,9 @@ export const Toolbar = memo(function Toolbar({
 
       <LocalInferenceStatusPill />
 
-      {showShortcutsDialog && (
-        <Suspense fallback={null}>
-          <LazyShortcutsDialog open={showShortcutsDialog} onOpenChange={setShowShortcutsDialog} />
-        </Suspense>
-      )}
+      <ShortcutsDialog open={showShortcutsDialog} onOpenChange={setShowShortcutsDialog} />
 
-      {showSettingsDialog && (
-        <Suspense fallback={null}>
-          <LazySettingsDialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog} />
-        </Suspense>
-      )}
+      <SettingsDialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog} />
 
       <WhatsNewDialog open={showWhatsNewDialog} onOpenChange={setShowWhatsNewDialog} />
 
@@ -386,11 +372,7 @@ function DebugPopover({ projectId }: { projectId: string }) {
         sideOffset={8}
         className="w-64 p-0 bg-zinc-900 border-zinc-700 text-zinc-100"
       >
-        {debugPanelOpen && (
-          <Suspense fallback={null}>
-            <LazyProjectDebugPanel projectId={projectId} />
-          </Suspense>
-        )}
+        <ProjectDebugPanel projectId={projectId} />
       </PopoverContent>
     </Popover>
   )

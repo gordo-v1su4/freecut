@@ -15,6 +15,7 @@ export { useSilenceRemovalDialogStore } from '../stores/silence-removal-dialog-s
 export { useFillerRemovalDialogStore } from '../stores/filler-removal-dialog-store'
 export { captureSnapshot } from '../stores/commands/snapshot'
 export { Timeline } from '../components/timeline'
+export { KeyframeGraphPanel } from '../components/keyframe-graph-panel'
 export { useTimelineShortcuts } from '../hooks/use-timeline-shortcuts'
 export { useTransitionBreakageNotifications } from '../hooks/use-transition-breakage-notifications'
 export { findNearestAvailableSpace } from '../utils/collision-utils'
