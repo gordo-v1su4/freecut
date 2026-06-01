@@ -8,7 +8,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/shared/ui/cn'
 import {
   HOTKEYS,
-  HOTKEY_DESCRIPTIONS,
   createHotkeyExportDocument,
   findHotkeyConflicts,
   formatHotkeyBinding,
@@ -385,6 +384,7 @@ export function HotkeyEditor() {
   const hotkeys = useResolvedHotkeys()
   const hotkeyOverrides = useSettingsStore((state) => state.hotkeyOverrides)
   const setHotkeyBinding = useSettingsStore((state) => state.setHotkeyBinding)
+  const unbindHotkeyBinding = useSettingsStore((state) => state.unbindHotkeyBinding)
   const replaceHotkeyOverrides = useSettingsStore((state) => state.replaceHotkeyOverrides)
   const resetHotkeyBinding = useSettingsStore((state) => state.resetHotkeyBinding)
   const resetHotkeys = useSettingsStore((state) => state.resetHotkeys)
@@ -400,7 +400,7 @@ export function HotkeyEditor() {
 
   const selectedItem = HOTKEY_ITEM_BY_KEY[selectedKey]
   const selectedSlotLabel = t(getSlotLabelKey(selectedItem, selectedKey))
-  const isSelectedCustom = Boolean(hotkeyOverrides[selectedKey])
+  const isSelectedCustom = selectedKey in hotkeyOverrides
   const customCount = Object.keys(hotkeyOverrides).length
   const isCapturingSelectedKey = captureKey === selectedKey
   const activePreviewBinding = isCapturingSelectedKey
@@ -536,6 +536,23 @@ export function HotkeyEditor() {
     }
 
     setHotkeyBinding(captureKey, normalizeHotkeyBinding(draftBinding))
+    stopCapture()
+  }
+
+  const overwriteConflictingHotkeys = () => {
+    if (!captureKey || !draftBinding || !hasHotkeyPrimaryToken(draftBinding)) {
+      return
+    }
+
+    for (const conflictKey of captureConflicts) {
+      unbindHotkeyBinding(conflictKey)
+    }
+    setHotkeyBinding(captureKey, normalizeHotkeyBinding(draftBinding))
+    stopCapture()
+  }
+
+  const unbindSelectedHotkey = () => {
+    unbindHotkeyBinding(selectedKey)
     stopCapture()
   }
 
@@ -785,7 +802,9 @@ export function HotkeyEditor() {
               </div>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-1.5">
+            <div
+              className={cn('grid gap-1.5', isCapturingSelectedKey ? 'grid-cols-2' : 'grid-cols-3')}
+            >
               {isCapturingSelectedKey ? (
                 <>
                   <Button
@@ -804,6 +823,15 @@ export function HotkeyEditor() {
                 <>
                   <Button size="sm" className="w-full" onClick={() => startCapture(selectedKey)}>
                     {t('projects.settings.hotkeys.record')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    onClick={unbindSelectedHotkey}
+                    disabled={!hotkeys[selectedKey]}
+                  >
+                    {t('projects.settings.hotkeys.unbind')}
                   </Button>
                   <Button
                     size="sm"
@@ -848,9 +876,30 @@ export function HotkeyEditor() {
                   {t('projects.settings.hotkeys.listeningHint')}
                 </p>
                 {captureConflicts.length > 0 ? (
-                  <div className="mt-2 flex items-center gap-1.5 text-xs text-destructive">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    {captureConflicts.map((key) => HOTKEY_DESCRIPTIONS[key]).join(', ')}
+                  <div className="mt-3 space-y-2 rounded-md border border-destructive/25 bg-destructive/8 p-2">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-destructive">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {t('projects.settings.hotkeys.conflictDetected')}
+                    </div>
+                    {captureConflicts.map((key) => {
+                      const hotkeyItem = HOTKEY_ITEM_BY_KEY[key]
+
+                      return (
+                        <div key={key} className="text-xs text-foreground/88">
+                          {t('projects.settings.hotkeys.conflictsWith', {
+                            action: t(hotkeyItem.labelKey),
+                          })}
+                        </div>
+                      )
+                    })}
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-7 w-full px-2 text-[11px]"
+                      onClick={overwriteConflictingHotkeys}
+                    >
+                      {t('projects.settings.hotkeys.overwriteAll')}
+                    </Button>
                   </div>
                 ) : null}
                 {pendingBrowserHotkey ? (
@@ -938,7 +987,7 @@ export function HotkeyEditor() {
                           }
                           isActive={selectedKey === key}
                           isListening={captureKey === key}
-                          isCustom={Boolean(hotkeyOverrides[key])}
+                          isCustom={key in hotkeyOverrides}
                           onClick={() => startCapture(key)}
                         />
                       ))}

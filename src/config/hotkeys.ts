@@ -384,6 +384,10 @@ export function resolveHotkeys(overrides: HotkeyOverrideMap = {}): HotkeyBinding
   }
 }
 
+function isExplicitlyUnassignedHotkey(rawBinding: string): boolean {
+  return rawBinding.trim() === ''
+}
+
 export function isHotkeyKey(value: string): value is HotkeyKey {
   return value in HOTKEYS
 }
@@ -507,6 +511,11 @@ export function sanitizeHotkeyOverrides(overrides: unknown): HotkeyOverrideMap {
 
   for (const [rawKey, rawBinding] of Object.entries(overrides)) {
     if (!isHotkeyKey(rawKey) || typeof rawBinding !== 'string') {
+      continue
+    }
+
+    if (isExplicitlyUnassignedHotkey(rawBinding)) {
+      normalizedOverrides[rawKey] = ''
       continue
     }
 
@@ -723,6 +732,15 @@ function collectImportedOverrides(source: unknown): HotkeyImportResult {
     }
 
     const normalizedBinding = normalizeHotkeyBinding(rawBinding)
+    if (isExplicitlyUnassignedHotkey(rawBinding)) {
+      normalizedOverrides[resolvedKey] = ''
+      importedCommandCount += 1
+      if (resolvedKey !== rawKey) {
+        remappedCommandCount += 1
+      }
+      continue
+    }
+
     if (!normalizedBinding || !hasHotkeyPrimaryToken(normalizedBinding)) {
       ignoredCommandCount += 1
       continue
@@ -783,12 +801,21 @@ export function parseHotkeyImportDocument(source: unknown): HotkeyImportResult {
       const rawBinding = getImportBinding(importCommand)
       const resolvedCommand = resolveHotkeyImportCommand(importCommand)
 
-      if (!resolvedCommand.key || !rawBinding) {
+      if (!resolvedCommand.key || rawBinding === null) {
         ignoredCommandCount += 1
         continue
       }
 
       const normalizedBinding = normalizeHotkeyBinding(rawBinding)
+      if (isExplicitlyUnassignedHotkey(rawBinding)) {
+        importedCommandCount += 1
+        if (resolvedCommand.wasRemapped) {
+          remappedCommandCount += 1
+        }
+        importedOverrides[resolvedCommand.key] = ''
+        continue
+      }
+
       if (!normalizedBinding || !hasHotkeyPrimaryToken(normalizedBinding)) {
         ignoredCommandCount += 1
         continue

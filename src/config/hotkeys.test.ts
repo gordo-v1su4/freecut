@@ -121,6 +121,7 @@ describe('sanitizeHotkeyOverrides', () => {
     ).toEqual({
       PLAY_PAUSE: 'shift+space',
       EXPORT: 'mod+e',
+      DELETE_SELECTED: '',
     })
   })
 })
@@ -228,19 +229,43 @@ describe('parseHotkeyImportDocument', () => {
     })
   })
 
+  it('imports explicitly unassigned shortcuts', () => {
+    expect(
+      parseHotkeyImportDocument({
+        schema: HOTKEY_EXPORT_SCHEMA,
+        version: 1,
+        commands: [
+          { id: 'PLAY_PAUSE', binding: '' },
+          { id: 'EXPORT', binding: 'Ctrl+E' },
+        ],
+      }),
+    ).toEqual({
+      overrides: {
+        PLAY_PAUSE: '',
+        EXPORT: 'mod+e',
+      },
+      importedCommandCount: 2,
+      ignoredCommandCount: 0,
+      remappedCommandCount: 0,
+      sourceVersion: 1,
+    })
+  })
+
   it('supports plain legacy key-binding maps', () => {
     expect(
       parseHotkeyImportDocument({
         PLAY_PAUSE: 'Shift+Space',
         EXPORT: 'Ctrl+E',
+        DELETE_SELECTED: '',
         UNKNOWN_COMMAND: 'q',
       }),
     ).toEqual({
       overrides: {
         PLAY_PAUSE: 'shift+space',
         EXPORT: 'mod+e',
+        DELETE_SELECTED: '',
       },
-      importedCommandCount: 2,
+      importedCommandCount: 3,
       ignoredCommandCount: 1,
       remappedCommandCount: 0,
       sourceVersion: null,

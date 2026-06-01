@@ -55,6 +55,7 @@ import { ProjectUpgradeDialog } from './project-upgrade-dialog'
 import { useClearKeyframesDialogStore } from '@/shared/state/clear-keyframes-dialog'
 import { useTtsGenerateDialogStore } from '@/shared/state/tts-generate-dialog'
 import { useProjectMediaMatchDialogStore } from '@/shared/state/project-media-match-dialog'
+import { rememberLastEditorProjectId } from '@/shared/projects/last-editor-project'
 import {
   importEmbeddedSubtitleTrackPickerHost,
   importSubtitleScanProgressDialog,
@@ -316,6 +317,10 @@ export const LoadedEditor = memo(function LoadedEditor({
 
   useEffect(() => {
     hasRefreshedMigrationStateRef.current = false
+  }, [projectId])
+
+  useEffect(() => {
+    rememberLastEditorProjectId(projectId)
   }, [projectId])
 
   // Initialize transition chain subscription (pre-computes chains from timeline data)

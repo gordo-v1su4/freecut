@@ -97,17 +97,27 @@ describe('settings-store', () => {
   })
 
   describe('replaceHotkeyOverrides', () => {
+    it('unassigns hotkeys with explicit blank overrides', () => {
+      useSettingsStore.getState().unbindHotkeyBinding('DELETE_SELECTED')
+
+      expect(useSettingsStore.getState().hotkeyOverrides).toEqual({
+        DELETE_SELECTED: '',
+      })
+    })
+
     it('replaces hotkey overrides with a sanitized imported preset', () => {
       useSettingsStore.getState().setHotkeyBinding('PLAY_PAUSE', 'shift+space')
 
       useSettingsStore.getState().replaceHotkeyOverrides({
         EXPORT: 'Ctrl+E',
         PLAY_PAUSE: 'space',
+        DELETE_SELECTED: '',
         UNKNOWN_COMMAND: 'q',
       } as never)
 
       expect(useSettingsStore.getState().hotkeyOverrides).toEqual({
         EXPORT: 'mod+e',
+        DELETE_SELECTED: '',
       })
     })
 

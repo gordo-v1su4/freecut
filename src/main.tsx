@@ -3,6 +3,11 @@ import { createRoot } from 'react-dom/client'
 import { i18n } from './i18n'
 import { App } from './app'
 import { createLogger } from '@/shared/logging/logger'
+import {
+  getEditorProjectIdFromPathname,
+  getEditorProjectReloadPathWithCacheBust,
+  rememberLastEditorProjectId,
+} from '@/shared/projects/last-editor-project'
 import './index.css'
 
 const log = createLogger('App')
@@ -17,8 +22,13 @@ if (import.meta.env.DEV) {
   void import('@/app/debug').then(({ initializeDebugUtils }) => initializeDebugUtils())
 }
 
+const initialProjectId = getEditorProjectIdFromPathname(window.location.pathname)
+if (initialProjectId) {
+  rememberLastEditorProjectId(initialProjectId)
+}
+
 function getCurrentProjectId(): string | undefined {
-  return window.location.pathname.match(/\/editor\/([^/]+)/)?.[1]
+  return getEditorProjectIdFromPathname(window.location.pathname)
 }
 
 async function saveCurrentProjectBeforeReload() {
@@ -43,9 +53,7 @@ function rememberAcceptedAppUpdate(signature?: string) {
 }
 
 function reloadCurrentLocationWithUpdateCacheBust() {
-  const nextUrl = new URL(window.location.href)
-  nextUrl.searchParams.set('__freecut_updated', Date.now().toString())
-  window.location.assign(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`)
+  window.location.assign(getEditorProjectReloadPathWithCacheBust())
 }
 
 async function showUpdateAvailableToast(

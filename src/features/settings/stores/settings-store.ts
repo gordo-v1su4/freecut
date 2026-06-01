@@ -112,6 +112,7 @@ export function resolveCaptioningIntervalSec(
 interface SettingsActions {
   setSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void
   setHotkeyBinding: (key: HotkeyKey, binding: string) => void
+  unbindHotkeyBinding: (key: HotkeyKey) => void
   replaceHotkeyOverrides: (overrides: HotkeyOverrideMap) => void
   resetHotkeyBinding: (key: HotkeyKey) => void
   resetHotkeys: () => void
@@ -231,6 +232,20 @@ export const useSettingsStore = create<SettingsStore>()(
             hotkeyOverrides: {
               ...state.hotkeyOverrides,
               [key]: normalizedBinding,
+            },
+          }
+        }),
+
+      unbindHotkeyBinding: (key) =>
+        set((state) => {
+          if (state.hotkeyOverrides[key] === '') {
+            return state
+          }
+
+          return {
+            hotkeyOverrides: {
+              ...state.hotkeyOverrides,
+              [key]: '',
             },
           }
         }),
