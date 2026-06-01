@@ -416,6 +416,7 @@ export function HotkeyEditor() {
   const selectedItem = HOTKEY_ITEM_BY_KEY[selectedKey]
   const selectedSlotLabel = t(getSlotLabelKey(selectedItem, selectedKey))
   const isSelectedCustom = selectedKey in hotkeyOverrides
+  const isSelectedUnassigned = hotkeys[selectedKey] === ''
   const customCount = Object.keys(hotkeyOverrides).length
   const isCapturingSelectedKey = captureKey === selectedKey
   const activePreviewBinding = isCapturingSelectedKey
@@ -565,7 +566,21 @@ export function HotkeyEditor() {
     stopCapture()
   }
 
-  const overwriteConflictingHotkeys = () => {
+  const overwriteConflictingHotkey = (conflictKey: HotkeyKey) => {
+    if (!captureKey || !draftBinding || !hasHotkeyPrimaryToken(draftBinding)) {
+      return
+    }
+
+    const remainingConflicts = captureConflicts.filter((key) => key !== conflictKey)
+    unbindHotkeyBinding(conflictKey)
+
+    if (remainingConflicts.length === 0) {
+      setHotkeyBinding(captureKey, normalizeHotkeyBinding(draftBinding))
+      stopCapture()
+    }
+  }
+
+  const overwriteAllConflictingHotkeys = () => {
     if (!captureKey || !draftBinding || !hasHotkeyPrimaryToken(draftBinding)) {
       return
     }
@@ -734,51 +749,54 @@ export function HotkeyEditor() {
               />
             </div>
             {hasSearchQuery ? (
-              <div
-                role="list"
-                aria-label={t('projects.settings.hotkeys.searchResults')}
-                className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1"
-              >
-                {searchResults.length > 0 ? (
-                  searchResults.map(({ section, item }) => {
-                    const resultKey = item.keys.join('|')
-                    const isSelectedResult = item.keys.includes(selectedKey)
+              <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+                <div className="px-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  {t('projects.settings.hotkeys.searchResultCount', {
+                    count: searchResults.length,
+                  })}
+                </div>
+                <div role="list" aria-label={t('projects.settings.hotkeys.searchResults')}>
+                  {searchResults.length > 0 ? (
+                    searchResults.map(({ section, item }) => {
+                      const resultKey = item.keys.join('|')
+                      const isSelectedResult = item.keys.includes(selectedKey)
 
-                    return (
-                      <div key={resultKey} role="listitem">
-                        <button
-                          type="button"
-                          onClick={() => selectSearchResult(item)}
-                          className={cn(
-                            'w-full rounded-lg px-2.5 py-2 text-left transition-colors duration-150 ease-out motion-reduce:transition-none',
-                            isSelectedResult
-                              ? 'bg-primary/15 text-primary'
-                              : 'text-muted-foreground hover:bg-white/5 hover:text-foreground/80',
-                          )}
-                        >
-                          <div className="text-[11px] font-medium leading-4 text-foreground">
-                            {t(item.labelKey)}
-                          </div>
-                          <div className="mt-0.5 truncate text-[10px] uppercase tracking-[0.14em]">
-                            {t(section.titleKey)} ·{' '}
-                            {item.keys
-                              .map((key) =>
-                                getHotkeyBindingDisplayLabel(
-                                  hotkeys[key],
-                                  t('projects.settings.hotkeys.unassigned'),
-                                ),
-                              )
-                              .join(' / ')}
-                          </div>
-                        </button>
-                      </div>
-                    )
-                  })
-                ) : (
-                  <div className="rounded-lg border border-white/8 bg-white/4 px-2.5 py-2 text-xs leading-4 text-muted-foreground">
-                    {t('projects.settings.hotkeys.noSearchResults')}
-                  </div>
-                )}
+                      return (
+                        <div key={resultKey} role="listitem">
+                          <button
+                            type="button"
+                            onClick={() => selectSearchResult(item)}
+                            className={cn(
+                              'w-full rounded-lg px-2.5 py-2 text-left transition-colors duration-150 ease-out motion-reduce:transition-none',
+                              isSelectedResult
+                                ? 'bg-primary/15 text-primary'
+                                : 'text-muted-foreground hover:bg-white/5 hover:text-foreground/80',
+                            )}
+                          >
+                            <div className="text-[11px] font-medium leading-4 text-foreground">
+                              {t(item.labelKey)}
+                            </div>
+                            <div className="mt-0.5 truncate text-[10px] uppercase tracking-[0.14em]">
+                              {t(section.titleKey)} ·{' '}
+                              {item.keys
+                                .map((key) =>
+                                  getHotkeyBindingDisplayLabel(
+                                    hotkeys[key],
+                                    t('projects.settings.hotkeys.unassigned'),
+                                  ),
+                                )
+                                .join(' / ')}
+                            </div>
+                          </button>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="rounded-lg border border-white/8 bg-white/4 px-2.5 py-2 text-xs leading-4 text-muted-foreground">
+                      {t('projects.settings.hotkeys.noSearchResults')}
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <>
@@ -929,7 +947,7 @@ export function HotkeyEditor() {
                     variant="outline"
                     className="w-full"
                     onClick={unbindSelectedHotkey}
-                    disabled={!hotkeys[selectedKey]}
+                    disabled={isSelectedUnassigned}
                   >
                     {t('projects.settings.hotkeys.unbind')}
                   </Button>
@@ -985,21 +1003,36 @@ export function HotkeyEditor() {
                       const hotkeyItem = HOTKEY_ITEM_BY_KEY[key]
 
                       return (
-                        <div key={key} className="text-xs text-foreground/88">
-                          {t('projects.settings.hotkeys.conflictsWith', {
-                            action: t(hotkeyItem.labelKey),
-                          })}
+                        <div
+                          key={key}
+                          className="flex items-center justify-between gap-2 text-xs text-foreground/88"
+                        >
+                          <span className="min-w-0 flex-1">
+                            {t('projects.settings.hotkeys.conflictsWith', {
+                              action: t(hotkeyItem.labelKey),
+                            })}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-6 shrink-0 px-2 text-[10px]"
+                            onClick={() => overwriteConflictingHotkey(key)}
+                          >
+                            {t('projects.settings.hotkeys.overwrite')}
+                          </Button>
                         </div>
                       )
                     })}
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="h-7 w-full px-2 text-[11px]"
-                      onClick={overwriteConflictingHotkeys}
-                    >
-                      {t('projects.settings.hotkeys.overwriteAll')}
-                    </Button>
+                    {captureConflicts.length > 1 ? (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 w-full px-2 text-[11px]"
+                        onClick={overwriteAllConflictingHotkeys}
+                      >
+                        {t('projects.settings.hotkeys.overwriteAll')}
+                      </Button>
+                    ) : null}
                   </div>
                 ) : null}
                 {pendingBrowserHotkey ? (
