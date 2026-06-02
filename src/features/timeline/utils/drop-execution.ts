@@ -2,6 +2,7 @@ import type { TimelineItem } from '@/types/timeline'
 import type { MediaMetadata } from '@/types/storage'
 import {
   extractValidMediaFileEntriesFromDataTransfer,
+  formatMediaDropRejectionMessage,
   getMediaType,
 } from '@/features/timeline/deps/media-library-resolver'
 import type { DroppableMediaType } from './dropped-media'
@@ -153,7 +154,7 @@ export async function resolveDroppedMediaEntriesFromExternalFiles({
   }
 
   if (errors.length > 0) {
-    notify.error(`Some files were rejected: ${errors.join(', ')}`)
+    notify.error(formatMediaDropRejectionMessage(errors))
   }
 
   if (entries.length === 0) {
@@ -192,6 +193,20 @@ export async function resolveDroppedMediaEntriesFromExternalFiles({
   return droppedEntries
 }
 
+export function buildTimelinePlacementFailureMessage(params: {
+  emptyMessage?: string
+  placedCount: number
+  requestedCount: number
+  label: string
+}): string {
+  const failedCount = Math.max(0, params.requestedCount - params.placedCount)
+  if (params.placedCount === 0) {
+    return `${params.emptyMessage ?? 'Unable to add dropped items'}. No compatible track or open space was available for ${params.requestedCount} ${params.label}.`
+  }
+
+  return `Added ${params.placedCount} of ${params.requestedCount} ${params.label}. ${failedCount} could not be placed because no compatible track or open space was available.`
+}
+
 export function applyResolvedTimelineDrop<TTracks>({
   addItem,
   addItems,
@@ -204,7 +219,14 @@ export function applyResolvedTimelineDrop<TTracks>({
   setTracks,
 }: ApplyResolvedTimelineDropOptions<TTracks>): boolean {
   if (dropResult.items.length === 0) {
-    notify.error(emptyMessage)
+    notify.error(
+      buildTimelinePlacementFailureMessage({
+        emptyMessage,
+        placedCount: 0,
+        requestedCount,
+        label: partialFailureLabel,
+      }),
+    )
     return false
   }
 
@@ -214,7 +236,11 @@ export function applyResolvedTimelineDrop<TTracks>({
 
   if (dropResult.items.length < requestedCount) {
     notify.warning(
-      `Some ${partialFailureLabel} could not be added: ${requestedCount - dropResult.items.length} failed`,
+      buildTimelinePlacementFailureMessage({
+        placedCount: dropResult.items.length,
+        requestedCount,
+        label: partialFailureLabel,
+      }),
     )
   }
 
