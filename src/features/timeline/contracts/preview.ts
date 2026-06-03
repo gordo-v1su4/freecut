@@ -37,3 +37,4 @@ export {
   shouldCommitScrubFrame,
   type ScrubThrottleState,
 } from '../utils/scrub-throttle'
+export { useWaveform } from '../hooks/use-waveform'

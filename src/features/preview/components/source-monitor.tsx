@@ -337,13 +337,14 @@ function SourceMonitorInner({
     const sh = snappedSize.height
     const scaleX = sw / mediaWidth
     const scaleY = sh / mediaHeight
+    const layoutScale = mediaType === 'audio' ? 1 : scaleX
 
     const previousLayout = lastLayoutRef.current
     if (
       previousLayout &&
       previousLayout.scaledWidth === sw &&
       previousLayout.scaledHeight === sh &&
-      previousLayout.scale === scaleX
+      previousLayout.scale === layoutScale
     ) {
       return
     }
@@ -351,7 +352,7 @@ function SourceMonitorInner({
     lastLayoutRef.current = {
       scaledWidth: sw,
       scaledHeight: sh,
-      scale: scaleX,
+      scale: layoutScale,
     }
 
     host.style.width = `${sw}px`
@@ -359,10 +360,16 @@ function SourceMonitorInner({
     host.style.marginLeft = `${-sw / 2}px`
     host.style.marginTop = `${-sh / 2}px`
 
-    scaleDiv.style.width = `${mediaWidth}px`
-    scaleDiv.style.height = `${mediaHeight}px`
-    scaleDiv.style.transform = `scale(${scaleX}, ${scaleY})`
-  }, [editorLayout.previewPadding, mediaWidth, mediaHeight])
+    if (mediaType === 'audio') {
+      scaleDiv.style.width = `${sw}px`
+      scaleDiv.style.height = `${sh}px`
+      scaleDiv.style.transform = 'none'
+    } else {
+      scaleDiv.style.width = `${mediaWidth}px`
+      scaleDiv.style.height = `${mediaHeight}px`
+      scaleDiv.style.transform = `scale(${scaleX}, ${scaleY})`
+    }
+  }, [editorLayout.previewPadding, mediaHeight, mediaType, mediaWidth])
 
   useEffect(() => {
     const el = containerRef.current
@@ -507,12 +514,7 @@ function SourceMonitorInner({
             }}
           >
             <div ref={contentScaleRef} style={{ transformOrigin: 'top left' }}>
-              <SourceComposition
-                mediaId={mediaId}
-                src={src}
-                mediaType={mediaType}
-                fileName={fileName}
-              />
+              <SourceComposition mediaId={mediaId} src={src} mediaType={mediaType} />
             </div>
           </div>
         ) : (
