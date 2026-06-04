@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef } from 'react'
 import { audioScrubPreview } from '@/features/timeline/deps/media-library-contract'
 import { importMediaLibraryService } from '@/features/timeline/deps/media-library-service'
 import { useMediaLibraryStore } from '@/features/timeline/deps/media-library-store'
+import {
+  clearAudioSkimMeterLevel,
+  publishAudioSkimMeterLevel,
+} from '@/shared/state/audio-skim-meter'
 import { usePlaybackStore } from '@/shared/state/playback'
 import {
   getOrDecodeAudioSliceForPlayback,
@@ -11,6 +15,7 @@ import { useCompositionsStore } from '../stores/compositions-store'
 import { useItemsStore } from '../stores/items-store'
 import { useTimelineStore } from '../stores/timeline-store'
 import {
+  getTimelineAudioBufferPeak,
   selectTimelineSkimSourceAtFrame,
   timelineAudioBufferSkimPreview,
   timelineMediaElementAudioSkimPreview,
@@ -35,6 +40,7 @@ export function useTimelineAudioSkimPreview(): void {
     audioScrubPreview.stop()
     timelineAudioBufferSkimPreview.stop()
     timelineMediaElementAudioSkimPreview.stop()
+    clearAudioSkimMeterLevel()
   }, [])
 
   const resolveSkimUrl = useCallback(
@@ -130,6 +136,12 @@ export function useTimelineAudioSkimPreview(): void {
         stopAudioSkim()
         return
       }
+      const masterGain = Math.pow(10, (playback.masterBusDb ?? 0) / 20)
+      const outputGain = source.gain * masterGain * playback.volume
+      if (outputGain <= 0.0001) {
+        stopAudioSkim()
+        return
+      }
 
       const requestId = ++requestIdRef.current
       try {
@@ -140,6 +152,12 @@ export function useTimelineAudioSkimPreview(): void {
           mediaKind: resolved.mediaKind,
           mediaUrl: resolved.mediaUrl,
           timeSeconds,
+          gain: outputGain,
+        })
+        publishAudioSkimMeterLevel({
+          left: 0.28 * outputGain,
+          right: 0.28 * outputGain,
+          trackId: item.trackId,
         })
         timelineAudioBufferSkimPreview.stop()
         audioScrubPreview.stop()
@@ -160,6 +178,17 @@ export function useTimelineAudioSkimPreview(): void {
             buffer: slice.buffer,
             sliceStartTimeSeconds: slice.startTime,
             timeSeconds,
+            gain: outputGain,
+          })
+          const peak = getTimelineAudioBufferPeak({
+            buffer: slice.buffer,
+            sliceStartTimeSeconds: slice.startTime,
+            timeSeconds,
+          })
+          publishAudioSkimMeterLevel({
+            left: peak.left * outputGain,
+            right: peak.right * outputGain,
+            trackId: item.trackId,
           })
         } catch {
           try {
@@ -171,6 +200,12 @@ export function useTimelineAudioSkimPreview(): void {
               mediaId,
               mediaUrl: resolved.mediaUrl,
               timeSeconds,
+              gain: outputGain,
+            })
+            publishAudioSkimMeterLevel({
+              left: 0.28 * outputGain,
+              right: 0.28 * outputGain,
+              trackId: item.trackId,
             })
           } catch {
             // Preview audio skim is best-effort; timeline hover/editing should continue normally.

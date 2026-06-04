@@ -1,4 +1,6 @@
 import type { TimelineItem, TimelineTrack } from '@/types/timeline'
+import { getMixerLiveGain } from '@/shared/state/mixer-live-gain'
+import { getAudioFadeMultiplier } from '@/shared/utils/audio-fade-curve'
 import { timelineToSourceFrames } from './source-calculations'
 import { resolveEffectiveTrackStates } from './group-utils'
 
@@ -10,6 +12,7 @@ interface TimelineMediaElementSkimRequest {
   mediaUrl: string
   mediaKind: 'audio' | 'video'
   timeSeconds: number
+  gain?: number
 }
 
 function normalizeFps(fps: number | undefined, fallback: number): number {
@@ -66,6 +69,7 @@ type AudioOrVideoItem = Extract<TimelineItem, { type: 'audio' | 'video' }>
 export interface TimelineSkimSource {
   item: AudioOrVideoItem
   timeSeconds: number
+  gain: number
 }
 
 /** A sub-composition's playable contents, supplied by the caller. */
@@ -97,6 +101,40 @@ function mapToInnerCompositionFrame(
     : sourceStart + sourceDeltaFrames
 }
 
+function dbToLinear(db: number | undefined): number {
+  if (db === undefined || !Number.isFinite(db)) return 1
+  return Math.pow(10, db / 20)
+}
+
+function getTimelineSkimItemGain(
+  item: TimelineItem,
+  frame: number,
+  timelineFps: number,
+  trackVolumeDb: number | undefined,
+): number {
+  const localFrame = Math.max(0, Math.min(item.durationInFrames - 1, frame - item.from))
+  const fadeGain =
+    item.type === 'audio' || item.type === 'video'
+      ? getAudioFadeMultiplier({
+          frame: localFrame,
+          durationInFrames: item.durationInFrames,
+          fadeInFrames: (item.audioFadeIn ?? 0) * timelineFps,
+          fadeOutFrames: (item.audioFadeOut ?? 0) * timelineFps,
+          fadeInCurve: item.audioFadeInCurve ?? 0,
+          fadeOutCurve: item.audioFadeOutCurve ?? 0,
+          fadeInCurveX: item.audioFadeInCurveX ?? 0.52,
+          fadeOutCurveX: item.audioFadeOutCurveX ?? 0.52,
+        })
+      : 1
+
+  return (
+    dbToLinear(item.volume) *
+    dbToLinear(trackVolumeDb) *
+    fadeGain *
+    getMixerLiveGain(item.id)
+  )
+}
+
 /**
  * Pick the audio source that should be heard when the playhead sits on a given
  * frame (ruler scrubbing). Considers every audio clip and every video clip with
@@ -119,6 +157,7 @@ export function selectTimelineSkimSourceAtFrame(
   getMediaDurationSeconds: (item: TimelineItem, timelineFps: number) => number,
   resolveComposition?: (compositionId: string) => CompositionLookup | undefined,
   depth = 0,
+  gainMultiplier = 1,
 ): TimelineSkimSource | null {
   const effectiveTracks = resolveEffectiveTrackStates(tracks)
   const trackById = new Map(effectiveTracks.map((track) => [track.id, track] as const))
@@ -127,9 +166,9 @@ export function selectTimelineSkimSourceAtFrame(
   // Audio wins over video (-1000 bias); within a kind, the topmost track (lowest
   // order) wins. Leaf sources (real media) are preferred over recursing into a
   // composition at the same rank.
-  let bestLeaf: AudioOrVideoItem | null = null
+  let bestLeaf: { item: AudioOrVideoItem; gain: number } | null = null
   let bestLeafRank = Number.POSITIVE_INFINITY
-  let bestNested: TimelineItem | null = null
+  let bestNested: { item: TimelineItem; gain: number } | null = null
   let bestNestedRank = Number.POSITIVE_INFINITY
 
   for (const item of items) {
@@ -142,32 +181,34 @@ export function selectTimelineSkimSourceAtFrame(
     const order = track.order ?? 0
     const compositionId = (item as { compositionId?: string }).compositionId
     const isLeaf = (item.type === 'audio' || item.type === 'video') && !!item.mediaId
+    const itemGain =
+      gainMultiplier * getTimelineSkimItemGain(item, frame, timelineFps, track.volume)
 
     if (isLeaf) {
       if (item.type === 'video' && item.embeddedAudioMuted) continue
       const rank = order + (item.type === 'audio' ? -1000 : 0)
       if (rank < bestLeafRank) {
         bestLeafRank = rank
-        bestLeaf = item as AudioOrVideoItem
+        bestLeaf = { item: item as AudioOrVideoItem, gain: itemGain }
       }
     } else if (compositionId && resolveComposition && depth < MAX_SKIM_COMPOSITION_DEPTH) {
       // Audio members rank like audio; the composition (video) item ranks like video.
       const rank = order + (item.type === 'audio' ? -1000 : 0)
       if (rank < bestNestedRank) {
         bestNestedRank = rank
-        bestNested = item
+        bestNested = { item, gain: itemGain }
       }
     }
   }
 
-  const resolveLeaf = (item: AudioOrVideoItem): TimelineSkimSource | null => {
+  const resolveLeaf = (entry: { item: AudioOrVideoItem; gain: number }): TimelineSkimSource | null => {
     const timeSeconds = getTimelineAudioSkimTimeSeconds(
-      item,
+      entry.item,
       frame,
       timelineFps,
-      getMediaDurationSeconds(item, timelineFps),
+      getMediaDurationSeconds(entry.item, timelineFps),
     )
-    return timeSeconds === null ? null : { item, timeSeconds }
+    return timeSeconds === null ? null : { item: entry.item, timeSeconds, gain: entry.gain }
   }
 
   // A direct leaf beats recursion when it ranks at least as well.
@@ -177,11 +218,11 @@ export function selectTimelineSkimSourceAtFrame(
   }
 
   if (bestNested && resolveComposition) {
-    const compositionId = (bestNested as { compositionId?: string }).compositionId
+    const compositionId = (bestNested.item as { compositionId?: string }).compositionId
     const composition = compositionId ? resolveComposition(compositionId) : undefined
     if (composition) {
       const innerFrame = mapToInnerCompositionFrame(
-        bestNested,
+        bestNested.item,
         frame,
         timelineFps,
         composition.fps,
@@ -194,6 +235,7 @@ export function selectTimelineSkimSourceAtFrame(
         getMediaDurationSeconds,
         resolveComposition,
         depth + 1,
+        bestNested.gain,
       )
       if (nested) return nested
     }
@@ -277,7 +319,12 @@ export function createTimelineMediaElementAudioSkimPreview(
       element.addEventListener(eventName, finish, { once: true })
     })
 
-  const scrub = async ({ mediaUrl, mediaKind, timeSeconds }: TimelineMediaElementSkimRequest) => {
+  const scrub = async ({
+    mediaUrl,
+    mediaKind,
+    timeSeconds,
+    gain: requestGain = 1,
+  }: TimelineMediaElementSkimRequest) => {
     if (!mediaUrl || typeof document === 'undefined') return
 
     const currentRequest = ++requestId
@@ -306,7 +353,7 @@ export function createTimelineMediaElementAudioSkimPreview(
       if (currentRequest !== requestId) return
     }
 
-    element.volume = gain
+    element.volume = Math.max(0, Math.min(1, gain * requestGain))
     element.muted = false
     await element.play()
     if (currentRequest !== requestId) {
@@ -335,6 +382,35 @@ export function createTimelineMediaElementAudioSkimPreview(
 }
 
 export const timelineMediaElementAudioSkimPreview = createTimelineMediaElementAudioSkimPreview()
+
+export function getTimelineAudioBufferPeak({
+  buffer,
+  sliceStartTimeSeconds,
+  timeSeconds,
+  windowSeconds = DEFAULT_GRAIN_DURATION_SECONDS,
+}: {
+  buffer: AudioBuffer
+  sliceStartTimeSeconds: number
+  timeSeconds: number
+  windowSeconds?: number
+}): { left: number; right: number } {
+  const sampleRate = buffer.sampleRate
+  const startFrame = Math.max(0, Math.floor((timeSeconds - sliceStartTimeSeconds) * sampleRate))
+  const endFrame = Math.min(buffer.length, Math.max(startFrame + 1, startFrame + Math.ceil(windowSeconds * sampleRate)))
+  if (startFrame >= endFrame) return { left: 0, right: 0 }
+
+  const leftChannel = buffer.getChannelData(0)
+  const rightChannel = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : leftChannel
+  let leftPeak = 0
+  let rightPeak = 0
+
+  for (let i = startFrame; i < endFrame; i++) {
+    leftPeak = Math.max(leftPeak, Math.abs(leftChannel[i] ?? 0))
+    rightPeak = Math.max(rightPeak, Math.abs(rightChannel[i] ?? 0))
+  }
+
+  return { left: leftPeak, right: rightPeak }
+}
 
 export function createTimelineAudioBufferSkimPreview(
   options: {
@@ -379,10 +455,12 @@ export function createTimelineAudioBufferSkimPreview(
     buffer,
     sliceStartTimeSeconds,
     timeSeconds,
+    gain: requestGain = 1,
   }: {
     buffer: AudioBuffer
     sliceStartTimeSeconds: number
     timeSeconds: number
+    gain?: number
   }) => {
     const ctx = getContext()
     if (ctx.state === 'suspended') {
@@ -403,7 +481,7 @@ export function createTimelineAudioBufferSkimPreview(
     nextSource.connect(gainNode)
     gainNode.connect(ctx.destination)
     gainNode.gain.setValueAtTime(0, now)
-    gainNode.gain.linearRampToValueAtTime(gainValue, now + fadeSeconds)
+    gainNode.gain.linearRampToValueAtTime(gainValue * requestGain, now + fadeSeconds)
     gainNode.gain.linearRampToValueAtTime(0, now + grainDuration)
     nextSource.onended = () => {
       if (source === nextSource) {

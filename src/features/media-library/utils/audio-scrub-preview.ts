@@ -2,6 +2,7 @@ export interface AudioScrubPreviewRequest {
   mediaId: string
   mediaUrl: string
   timeSeconds: number
+  gain?: number
 }
 
 interface ActiveGrain {
@@ -87,7 +88,12 @@ export function createAudioScrubPreview(options: AudioScrubPreviewOptions = {}) 
     }
   }
 
-  const scrub = async ({ mediaId, mediaUrl, timeSeconds }: AudioScrubPreviewRequest) => {
+  const scrub = async ({
+    mediaId,
+    mediaUrl,
+    timeSeconds,
+    gain = 1,
+  }: AudioScrubPreviewRequest) => {
     if (!mediaUrl) return
 
     const ctx = getContext()
@@ -113,7 +119,7 @@ export function createAudioScrubPreview(options: AudioScrubPreviewOptions = {}) 
 
     gainNode.gain.cancelScheduledValues(now)
     gainNode.gain.setValueAtTime(0, now)
-    gainNode.gain.linearRampToValueAtTime(gainValue, now + fadeSeconds)
+    gainNode.gain.linearRampToValueAtTime(gainValue * gain, now + fadeSeconds)
     gainNode.gain.linearRampToValueAtTime(0, now + grainDuration)
 
     source.onended = () => {
