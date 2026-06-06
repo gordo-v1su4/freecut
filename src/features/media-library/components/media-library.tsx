@@ -99,10 +99,6 @@ import { proxyService } from '../services/proxy-service'
 import { importMediaLibraryService } from '../services/media-library-service-loader'
 import { mediaTranscriptionService } from '../services/media-transcription-service'
 import { importMediaAnalysisService } from '../services/media-analysis-service-loader'
-import {
-  extractValidMediaFileEntriesFromDataTransfer,
-  formatMediaDropRejectionMessage,
-} from '../utils/file-drop'
 import { getSupportedMediaFormatLabels } from '../utils/media-file-picker'
 import { getSharedProxyKey } from '../utils/proxy-key'
 import { getMediaType } from '../utils/validation'
@@ -114,6 +110,7 @@ import {
 import type { MediaMetadata } from '@/types/storage'
 import { isMarqueeJustFinished } from '@/shared/marquee/use-marquee-selection'
 import { useMediaLibraryMarquee } from './use-media-library-marquee'
+import { useMediaLibraryDragDrop } from './use-media-library-drag-drop'
 
 function CopyButton({ text }: { text: string }) {
   const { t } = useTranslation()
@@ -240,7 +237,6 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
   const [openGroups, setOpenGroups] = useState<Set<string>>(
     () => new Set(['video', 'audio', 'image', 'gif']),
   )
-  const [isDragging, setIsDragging] = useState(false)
   const [showImportUrlDialog, setShowImportUrlDialog] = useState(false)
   const [importUrlValue, setImportUrlValue] = useState('')
   const [isImportUrlSubmitting, setIsImportUrlSubmitting] = useState(false)
@@ -463,82 +459,9 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
     [importHandles],
   )
 
-  // Panel-level drag/drop handlers so the drop zone covers the full panel height.
-  // Uses an enter/leave counter to avoid flicker when dragging over child elements.
-  const dragCounterRef = useRef(0)
-
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragCounterRef.current++
-    if (dragCounterRef.current === 1 && !e.dataTransfer.types.includes('application/json')) {
-      setIsDragging(true)
-    }
-  }, [])
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    e.dataTransfer.dropEffect = 'copy'
-  }, [])
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragCounterRef.current--
-    if (dragCounterRef.current <= 0) {
-      dragCounterRef.current = 0
-      setIsDragging(false)
-    }
-  }, [])
-
-  const handleDrop = useCallback(
-    async (e: React.DragEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      dragCounterRef.current = 0
-      setIsDragging(false)
-
-      // Ignore media items being dragged from the grid itself
-      try {
-        const jsonData = e.dataTransfer.getData('application/json')
-        if (jsonData) {
-          const data = JSON.parse(jsonData)
-          if (
-            data.type === 'media-item' ||
-            data.type === 'media-items' ||
-            data.type === 'composition'
-          ) {
-            return
-          }
-        }
-      } catch {
-        // Not JSON data, continue with file handling
-      }
-
-      const { supported, entries, errors } = await extractValidMediaFileEntriesFromDataTransfer(
-        e.dataTransfer,
-      )
-      if (!supported) {
-        showNotification({
-          type: 'warning',
-          message: t('media.library.dragDropUnsupported'),
-        })
-        return
-      }
-
-      if (errors.length > 0) {
-        showNotification({
-          type: 'error',
-          message: formatMediaDropRejectionMessage(errors),
-        })
-      }
-      if (entries.length > 0) {
-        await handleImportHandles(entries.map((entry) => entry.handle))
-      }
-    },
-    [showNotification, handleImportHandles, t],
-  )
+  // Panel-level drag/drop handling so the drop zone covers the full panel height.
+  const { isDragging, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } =
+    useMediaLibraryDragDrop({ showNotification, importHandles: handleImportHandles })
 
   // Count of items currently generating proxies
   const generatingCount = useMemo(() => {
