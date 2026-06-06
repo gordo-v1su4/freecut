@@ -47,6 +47,7 @@ let lastOutPointRef: unknown = null
 let lastFpsRef: unknown = null
 let lastScrollPositionRef: unknown = null
 let lastSnapEnabledRef: unknown = null
+let lastAudioSkimmingEnabledRef: unknown = null
 let lastIsDirtyRef: unknown = null
 
 /**
@@ -71,6 +72,7 @@ function getSnapshot(): TimelineState & TimelineActions {
     lastFpsRef !== settingsState.fps ||
     lastScrollPositionRef !== settingsState.scrollPosition ||
     lastSnapEnabledRef !== settingsState.snapEnabled ||
+    lastAudioSkimmingEnabledRef !== settingsState.audioSkimmingEnabled ||
     lastIsDirtyRef !== settingsState.isDirty
 
   if (!cachedSnapshot || stateChanged) {
@@ -85,6 +87,7 @@ function getSnapshot(): TimelineState & TimelineActions {
     lastFpsRef = settingsState.fps
     lastScrollPositionRef = settingsState.scrollPosition
     lastSnapEnabledRef = settingsState.snapEnabled
+    lastAudioSkimmingEnabledRef = settingsState.audioSkimmingEnabled
     lastIsDirtyRef = settingsState.isDirty
 
     // Rebuild cached snapshot
@@ -100,6 +103,7 @@ function getSnapshot(): TimelineState & TimelineActions {
       fps: settingsState.fps,
       scrollPosition: settingsState.scrollPosition,
       snapEnabled: settingsState.snapEnabled,
+      audioSkimmingEnabled: settingsState.audioSkimmingEnabled,
       isDirty: settingsState.isDirty,
 
       // Actions (static references, never change)
@@ -114,6 +118,7 @@ function getSnapshot(): TimelineState & TimelineActions {
       closeGapAtPosition: timelineActions.closeGapAtPosition,
       closeAllGapsOnTrack: timelineActions.closeAllGapsOnTrack,
       toggleSnap: timelineActions.toggleSnap,
+      toggleAudioSkimming: timelineActions.toggleAudioSkimming,
       setScrollPosition: timelineActions.setScrollPosition,
       moveItem: timelineActions.moveItem,
       moveItems: timelineActions.moveItems,
@@ -303,6 +308,9 @@ function createTimelineStoreFacade(): TimelineStoreFacade {
     }
     if ('snapEnabled' in partial && partial.snapEnabled !== undefined) {
       useTimelineSettingsStore.getState().setSnapEnabled(partial.snapEnabled)
+    }
+    if ('audioSkimmingEnabled' in partial && partial.audioSkimmingEnabled !== undefined) {
+      useTimelineSettingsStore.getState().setAudioSkimmingEnabled(partial.audioSkimmingEnabled)
     }
     if ('isDirty' in partial && partial.isDirty !== undefined) {
       useTimelineSettingsStore.getState().setIsDirty(partial.isDirty)

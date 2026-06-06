@@ -128,6 +128,23 @@ interface ValueGraphEditorProps {
   className?: string
 }
 
+type EmbeddedValueGraphEditorProps = Omit<
+  ValueGraphEditorProps,
+  'showToolbar' | 'showKeyboardHints' | 'borderless' | 'hideXLabels'
+>
+
+export function EmbeddedValueGraphEditor(props: EmbeddedValueGraphEditorProps) {
+  return (
+    <ValueGraphEditor
+      {...props}
+      showToolbar={false}
+      showKeyboardHints={false}
+      borderless
+      hideXLabels
+    />
+  )
+}
+
 /**
  * Full-featured value graph editor for keyframe animation.
  * Shows keyframes as draggable points with interpolation curves.
@@ -943,7 +960,11 @@ export const ValueGraphEditor = memo(function ValueGraphEditor({
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Previous keyframe</TooltipContent>
+              <TooltipContent side="bottom">
+                {t('timeline.keyframeEditor.previousKeyframe', {
+                  defaultValue: 'Previous keyframe',
+                })}
+              </TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -958,7 +979,11 @@ export const ValueGraphEditor = memo(function ValueGraphEditor({
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Next keyframe</TooltipContent>
+              <TooltipContent side="bottom">
+                {t('timeline.keyframeEditor.nextKeyframe', {
+                  defaultValue: 'Next keyframe',
+                })}
+              </TooltipContent>
             </Tooltip>
 
             {/* Separator */}
@@ -981,8 +1006,12 @@ export const ValueGraphEditor = memo(function ValueGraphEditor({
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 {hasKeyframeAtCurrentFrame
-                  ? 'Keyframe exists at current frame'
-                  : 'Add keyframe at current frame'}
+                  ? t('timeline.keyframeEditor.keyframeExistsAtCurrentFrame', {
+                      defaultValue: 'Keyframe exists at current frame',
+                    })
+                  : t('timeline.keyframeEditor.addKeyframeAtCurrentFrame', {
+                      defaultValue: 'Add keyframe at current frame',
+                    })}
               </TooltipContent>
             </Tooltip>
 
@@ -1000,8 +1029,16 @@ export const ValueGraphEditor = memo(function ValueGraphEditor({
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 {selectedKeyframeIds.size > 0
-                  ? `Remove ${selectedKeyframeIds.size} selected keyframe${selectedKeyframeIds.size !== 1 ? 's' : ''}`
-                  : 'Remove selected keyframes'}
+                  ? t('timeline.keyframeEditor.removeSelectedKeyframesCount', {
+                      count: selectedKeyframeIds.size,
+                      defaultValue:
+                        selectedKeyframeIds.size === 1
+                          ? 'Remove {{count}} selected keyframe'
+                          : 'Remove {{count}} selected keyframes',
+                    })
+                  : t('timeline.keyframeEditor.removeSelectedKeyframes', {
+                      defaultValue: 'Remove selected keyframes',
+                    })}
               </TooltipContent>
             </Tooltip>
 
@@ -1057,7 +1094,9 @@ export const ValueGraphEditor = memo(function ValueGraphEditor({
                   <ZoomOut className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Zoom out</TooltipContent>
+              <TooltipContent side="bottom">
+                {t('timeline.keyframeEditor.zoomOut', { defaultValue: 'Zoom out' })}
+              </TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -1072,7 +1111,9 @@ export const ValueGraphEditor = memo(function ValueGraphEditor({
                   <ZoomIn className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Zoom in</TooltipContent>
+              <TooltipContent side="bottom">
+                {t('timeline.keyframeEditor.zoomIn', { defaultValue: 'Zoom in' })}
+              </TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -1087,7 +1128,9 @@ export const ValueGraphEditor = memo(function ValueGraphEditor({
                   <Maximize2 className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Fit to content</TooltipContent>
+              <TooltipContent side="bottom">
+                {t('timeline.keyframeEditor.fitToContent', { defaultValue: 'Fit to content' })}
+              </TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -1102,7 +1145,9 @@ export const ValueGraphEditor = memo(function ValueGraphEditor({
                   <RotateCcw className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Reset view</TooltipContent>
+              <TooltipContent side="bottom">
+                {t('timeline.keyframeEditor.resetView', { defaultValue: 'Reset view' })}
+              </TooltipContent>
             </Tooltip>
           </div>
         </div>
@@ -1279,10 +1324,12 @@ export const ValueGraphEditor = memo(function ValueGraphEditor({
       {showKeyboardHints && isDragging && dragState?.type === 'keyframe' && (
         <div className="text-xs text-muted-foreground text-center space-x-3">
           <span>
-            <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Shift</kbd> constrain axis
+            <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Shift</kbd>{' '}
+            {t('timeline.keyframeEditor.constrainAxis', { defaultValue: 'constrain axis' })}
           </span>
           <span>
-            <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Alt</kbd> fine adjust
+            <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Alt</kbd>{' '}
+            {t('timeline.keyframeEditor.fineAdjust', { defaultValue: 'fine adjust' })}
           </span>
         </div>
       )}

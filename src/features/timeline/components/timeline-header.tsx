@@ -27,6 +27,7 @@ import {
   FlagOff,
   Activity,
   Link2,
+  Volume2,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { formatHotkeyBinding } from '@/config/hotkeys'
@@ -89,6 +90,8 @@ export const TimelineHeader = memo(function TimelineHeader({
   const { zoomLevel, zoomIn, zoomOut, setZoomImmediate } = useTimelineZoom()
   const snapEnabled = useTimelineStore((s) => s.snapEnabled)
   const toggleSnap = useTimelineStore((s) => s.toggleSnap)
+  const audioSkimmingEnabled = useTimelineStore((s) => s.audioSkimmingEnabled)
+  const toggleAudioSkimming = useTimelineStore((s) => s.toggleAudioSkimming)
   const inPoint = useTimelineStore((s) => s.inPoint)
   const outPoint = useTimelineStore((s) => s.outPoint)
   const setInPoint = useTimelineStore((s) => s.setInPoint)
@@ -526,6 +529,29 @@ export const TimelineHeader = memo(function TimelineHeader({
             }
           >
             <Magnet className="w-3.5 h-3.5" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            style={btnSize}
+            className={
+              audioSkimmingEnabled ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''
+            }
+            onClick={toggleAudioSkimming}
+            aria-label={
+              audioSkimmingEnabled
+                ? t('timeline.header.disableAudioSkimming')
+                : t('timeline.header.enableAudioSkimming')
+            }
+            aria-pressed={audioSkimmingEnabled}
+            data-tooltip={
+              audioSkimmingEnabled
+                ? t('timeline.header.audioSkimmingEnabled')
+                : t('timeline.header.audioSkimmingDisabled')
+            }
+          >
+            <Volume2 className="w-3.5 h-3.5" />
           </Button>
 
           <Separator orientation="vertical" className="h-5 mx-1.5" />

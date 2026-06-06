@@ -766,6 +766,30 @@ export const TimelineMarkers = memo(function TimelineMarkers({
     return clientX - containerRect.left
   }, [])
 
+  const getFrameFromClientX = useCallback(
+    (clientX: number): number => {
+      const x = getTimelineXFromClientX(clientX)
+      const maxFrame = Math.floor(durationRef.current * fpsRef.current)
+      return Math.min(maxFrame, Math.max(0, Math.round(pixelsToFrameRef.current(x))))
+    },
+    [getTimelineXFromClientX],
+  )
+
+  const handleRulerMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (isDragging || isRangeDragging) return
+
+      const frame = getFrameFromClientX(e.clientX)
+      setPreviewFrameRef.current(frame)
+    },
+    [getFrameFromClientX, isDragging, isRangeDragging],
+  )
+
+  const handleRulerMouseLeave = useCallback(() => {
+    if (isDragging || isRangeDragging) return
+    setPreviewFrameRef.current(null)
+  }, [isDragging, isRangeDragging])
+
   const handleRangeMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (inPointRef.current === null || outPointRef.current === null) return
@@ -930,6 +954,8 @@ export const TimelineMarkers = memo(function TimelineMarkers({
       ref={containerRef}
       className="border-b border-border/80 relative"
       onMouseDown={handleMouseDown}
+      onMouseMove={handleRulerMouseMove}
+      onMouseLeave={handleRulerMouseLeave}
       style={{
         background: 'oklch(0.22 0 0 / 0.22)',
         userSelect: 'none',

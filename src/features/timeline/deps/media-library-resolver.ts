@@ -13,6 +13,7 @@ export {
 } from './media-library-contract'
 export {
   extractValidMediaFileEntriesFromDataTransfer,
+  formatMediaDropRejectionMessage,
   supportsFileSystemDragDrop,
   type ExtractedMediaFileEntry,
 } from './media-library-contract'

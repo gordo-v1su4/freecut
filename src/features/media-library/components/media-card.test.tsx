@@ -50,6 +50,11 @@ const subtitleScanProgressStoreMocks = vi.hoisted(() => ({
   abort: null as null | (() => void),
 }))
 
+const audioScrubPreviewMocks = vi.hoisted(() => ({
+  scrub: vi.fn(),
+  stop: vi.fn(),
+}))
+
 const mediaStoreState = vi.hoisted(() => ({
   selectedMediaIds: [] as string[],
   mediaItems: [] as MediaMetadata[],
@@ -262,6 +267,12 @@ vi.mock('../utils/drag-data-cache', () => ({
   clearMediaDragData: vi.fn(),
 }))
 
+vi.mock('../utils/audio-scrub-preview', () => ({
+  getAudioScrubTime: (durationSeconds: number, progress: number) =>
+    durationSeconds > 0 ? durationSeconds * Math.max(0, Math.min(1, progress)) : 0,
+  audioScrubPreview: audioScrubPreviewMocks,
+}))
+
 vi.mock('@/shared/state/local-inference', () => ({
   isLocalInferenceCancellationError: vi.fn(() => false),
 }))
@@ -296,7 +307,7 @@ vi.mock('../deps/scene-browser', () => ({
   invalidateMediaCaptionThumbnails: vi.fn(),
 }))
 
-import { MediaCard } from './media-card'
+import { GridMediaCard, ListMediaCard } from './media-card'
 
 function makeMedia(overrides: Partial<MediaMetadata> = {}): MediaMetadata {
   return {
@@ -341,6 +352,8 @@ describe('MediaCard', () => {
     subtitleScanProgressStoreMocks.markEntryStatus.mockReset()
     subtitleScanProgressStoreMocks.finish.mockReset()
     subtitleScanProgressStoreMocks.close.mockReset()
+    audioScrubPreviewMocks.scrub.mockReset()
+    audioScrubPreviewMocks.stop.mockReset()
     editorStoreState.mediaSkimPreviewMediaId = null
     playbackStoreState.pause.mockReset()
 
@@ -377,7 +390,7 @@ describe('MediaCard', () => {
 
   it('uses the shared action menu to generate a proxy', async () => {
     const media = makeMedia()
-    render(<MediaCard media={media} viewMode="list" />)
+    render(<ListMediaCard media={media} />)
 
     fireEvent.click(screen.getByText('Generate Proxy'))
 
@@ -397,7 +410,7 @@ describe('MediaCard', () => {
     const media = makeMedia()
     mediaTranscriptionServiceMocks.transcribeMedia.mockResolvedValue(undefined)
 
-    render(<MediaCard media={media} viewMode="list" />)
+    render(<ListMediaCard media={media} />)
 
     fireEvent.click(screen.getByText('Generate Transcript'))
 
@@ -420,11 +433,11 @@ describe('MediaCard', () => {
   })
 
   it('uses transcript wording in the media action menu', () => {
-    const { rerender } = render(<MediaCard media={makeMedia()} viewMode="list" />)
+    const { rerender } = render(<ListMediaCard media={makeMedia()} />)
     expect(screen.getByText('Generate Transcript')).toBeInTheDocument()
 
     mediaStoreState.transcriptStatus = new Map([['media-1', 'ready']])
-    rerender(<MediaCard media={makeMedia()} viewMode="list" />)
+    rerender(<ListMediaCard media={makeMedia()} />)
     expect(screen.getByText('Refresh Transcript')).toBeInTheDocument()
     expect(screen.getByText('Delete Transcript')).toBeInTheDocument()
   })
@@ -433,7 +446,7 @@ describe('MediaCard', () => {
     mediaStoreState.transcriptStatus = new Map([['media-1', 'queued']])
     mediaStoreState.transcriptProgress = new Map([['media-1', { stage: 'queued', progress: 0 }]])
 
-    render(<MediaCard media={makeMedia()} viewMode="list" />)
+    render(<ListMediaCard media={makeMedia()} />)
 
     expect(screen.getByRole('progressbar', { name: 'Transcript progress' })).toHaveAttribute(
       'aria-valuenow',
@@ -445,7 +458,7 @@ describe('MediaCard', () => {
     mediaStoreState.transcriptStatus = new Map([['media-1', 'ready']])
     mediaTranscriptionServiceMocks.deleteTranscript.mockResolvedValue(undefined)
 
-    render(<MediaCard media={makeMedia()} viewMode="list" />)
+    render(<ListMediaCard media={makeMedia()} />)
 
     fireEvent.click(screen.getByText('Delete Transcript'))
 
@@ -466,7 +479,7 @@ describe('MediaCard', () => {
       mimeType: 'video/x-matroska',
     })
 
-    render(<MediaCard media={media} viewMode="list" />)
+    render(<ListMediaCard media={media} />)
 
     fireEvent.click(screen.getByText('Extract Embedded Subtitles'))
 
@@ -496,7 +509,7 @@ describe('MediaCard', () => {
       } as unknown as FileSystemFileHandle,
     })
 
-    render(<MediaCard media={media} viewMode="list" />)
+    render(<ListMediaCard media={media} />)
 
     fireEvent.click(screen.getByText('Extract Embedded Subtitles'))
 
@@ -524,7 +537,7 @@ describe('MediaCard', () => {
       } as unknown as FileSystemFileHandle,
     })
 
-    render(<MediaCard media={media} viewMode="list" />)
+    render(<ListMediaCard media={media} />)
 
     fireEvent.click(screen.getByText('Extract Embedded Subtitles'))
 
@@ -560,7 +573,7 @@ describe('MediaCard', () => {
       } as unknown as FileSystemFileHandle,
     })
 
-    render(<MediaCard media={media} viewMode="list" />)
+    render(<ListMediaCard media={media} />)
 
     fireEvent.click(screen.getByText('Extract Embedded Subtitles'))
 
@@ -578,7 +591,7 @@ describe('MediaCard', () => {
 
   it('uses the shared action menu to relink broken media in grid view', () => {
     const onRelink = vi.fn()
-    render(<MediaCard media={makeMedia()} isBroken onRelink={onRelink} viewMode="grid" />)
+    render(<GridMediaCard media={makeMedia()} isBroken onRelink={onRelink} />)
 
     fireEvent.click(screen.getByText('Relink File...'))
 
@@ -588,7 +601,7 @@ describe('MediaCard', () => {
   it('shows an active AI analysis badge in list view while analysis is running', () => {
     mediaStoreState.taggingMediaIds = new Set(['media-1'])
 
-    const { container } = render(<MediaCard media={makeMedia()} viewMode="list" />)
+    const { container } = render(<ListMediaCard media={makeMedia()} />)
 
     expect(container.querySelector('[title="Analyzing with AI"]')).toBeTruthy()
   })
@@ -596,13 +609,13 @@ describe('MediaCard', () => {
   it('shows an active AI analysis badge in grid view while analysis is running', () => {
     mediaStoreState.taggingMediaIds = new Set(['media-1'])
 
-    const { container } = render(<MediaCard media={makeMedia()} viewMode="grid" />)
+    const { container } = render(<GridMediaCard media={makeMedia()} />)
 
     expect(container.querySelector('[title="Analyzing with AI"]')).toBeTruthy()
   })
 
   it('opens a caption in the source monitor with a default three-second I/O range', () => {
-    render(<MediaCard media={makeMedia()} viewMode="list" />)
+    render(<ListMediaCard media={makeMedia()} />)
 
     fireEvent.click(screen.getByTestId('media-info-popover'))
 
@@ -615,7 +628,7 @@ describe('MediaCard', () => {
   })
 
   it('pauses timeline playback and updates skim preview while hovering a video thumbnail', () => {
-    const { container } = render(<MediaCard media={makeMedia()} viewMode="list" />)
+    const { container } = render(<ListMediaCard media={makeMedia()} />)
 
     const thumbnail = container.querySelector('.w-12.h-9') as HTMLDivElement
     expect(thumbnail).toBeTruthy()
@@ -649,8 +662,53 @@ describe('MediaCard', () => {
     expect(editorStoreState.clearMediaSkimPreview).toHaveBeenCalledTimes(1)
   })
 
+  it('scrubs audio media-library items from pointer position', async () => {
+    const media = makeMedia({
+      fileName: 'song.wav',
+      mimeType: 'audio/wav',
+      duration: 10,
+      width: 0,
+      height: 0,
+      fps: 0,
+      codec: 'pcm',
+    })
+    const { container } = render(<ListMediaCard media={media} />)
+
+    const thumbnail = container.querySelector('.w-12.h-9') as HTMLDivElement
+    expect(thumbnail).toBeTruthy()
+    vi.spyOn(thumbnail, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      bottom: 36,
+      right: 100,
+      width: 100,
+      height: 36,
+      toJSON: () => ({}),
+    })
+
+    fireEvent.pointerEnter(thumbnail, {
+      clientX: 50,
+      pointerType: 'mouse',
+    })
+
+    await waitFor(() => {
+      expect(mediaLibraryServiceMocks.getMediaBlobUrl).toHaveBeenCalledWith('media-1')
+      expect(audioScrubPreviewMocks.scrub).toHaveBeenCalledWith({
+        mediaId: 'media-1',
+        mediaUrl: 'blob:media-1',
+        timeSeconds: 5,
+      })
+    })
+    expect(editorStoreState.setMediaSkimPreview).toHaveBeenCalledWith('media-1', 0)
+
+    fireEvent.pointerLeave(thumbnail)
+    expect(audioScrubPreviewMocks.stop).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps the skim indicator inside the right edge', () => {
-    const { container } = render(<MediaCard media={makeMedia()} viewMode="list" />)
+    const { container } = render(<ListMediaCard media={makeMedia()} />)
 
     const thumbnail = container.querySelector('.w-12.h-9') as HTMLDivElement
     expect(thumbnail).toBeTruthy()
@@ -703,7 +761,7 @@ describe('MediaCard', () => {
       { timeSec: 2.5, text: 'Second line' },
     ])
 
-    render(<MediaCard media={media} viewMode="list" />)
+    render(<ListMediaCard media={media} />)
 
     fireEvent.click(screen.getByText('Analyze with AI'))
 

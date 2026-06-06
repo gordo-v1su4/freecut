@@ -9,6 +9,7 @@ interface TimelineSettingsState {
   fps: number
   scrollPosition: number
   snapEnabled: boolean
+  audioSkimmingEnabled: boolean
   isDirty: boolean
   /** True while loadTimeline() is in progress - used to coordinate initial player sync */
   isTimelineLoading: boolean
@@ -19,6 +20,8 @@ interface TimelineSettingsActions {
   setScrollPosition: (position: number) => void
   setSnapEnabled: (enabled: boolean) => void
   toggleSnap: () => void
+  setAudioSkimmingEnabled: (enabled: boolean) => void
+  toggleAudioSkimming: () => void
   setIsDirty: (dirty: boolean) => void
   markDirty: () => void
   markClean: () => void
@@ -31,6 +34,7 @@ export const useTimelineSettingsStore = create<TimelineSettingsState & TimelineS
     fps: 30,
     scrollPosition: 0,
     snapEnabled: true,
+    audioSkimmingEnabled: true,
     isDirty: false,
     isTimelineLoading: true, // Start true - set false after loadTimeline completes
 
@@ -39,6 +43,9 @@ export const useTimelineSettingsStore = create<TimelineSettingsState & TimelineS
     setScrollPosition: (position) => set({ scrollPosition: position }),
     setSnapEnabled: (enabled) => set({ snapEnabled: enabled }),
     toggleSnap: () => set((state) => ({ snapEnabled: !state.snapEnabled })),
+    setAudioSkimmingEnabled: (enabled) => set({ audioSkimmingEnabled: enabled }),
+    toggleAudioSkimming: () =>
+      set((state) => ({ audioSkimmingEnabled: !state.audioSkimmingEnabled })),
     setIsDirty: (dirty) => set({ isDirty: dirty }),
     markDirty: () => {
       if (!get().isDirty) set({ isDirty: true })

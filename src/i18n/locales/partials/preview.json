@@ -2,6 +2,14 @@
   "en": {
     "preview": {
       "align": {
+        "left": "Align Left",
+        "centerH": "Align Center Horizontally",
+        "right": "Align Right",
+        "top": "Align Top",
+        "centerV": "Align Center Vertically",
+        "bottom": "Align Bottom",
+        "distributeH": "Distribute Horizontally",
+        "distributeV": "Distribute Vertically",
         "disableCanvasSnap": "Disable Canvas Snap",
         "enableCanvasSnap": "Enable Canvas Snap",
         "toggleCanvasSnap": "Toggle Canvas Snap"
@@ -54,7 +62,9 @@
       },
       "stage": {
         "loadingMedia": "Loading Media",
-        "videoPreview": "Video Preview"
+        "videoPreview": "Video Preview",
+        "emptyTitle": "Nothing on the timeline yet",
+        "emptyDescription": "Import media, drag a clip to the timeline, then press Space to preview."
       },
       "zoom": {
         "ariaLabel": "ARIA Label",
@@ -90,6 +100,14 @@
   "es": {
     "preview": {
       "align": {
+        "left": "Alinear a la izquierda",
+        "centerH": "Centrar horizontalmente",
+        "right": "Alinear a la derecha",
+        "top": "Alinear arriba",
+        "centerV": "Centrar verticalmente",
+        "bottom": "Alinear abajo",
+        "distributeH": "Distribuir horizontalmente",
+        "distributeV": "Distribuir verticalmente",
         "disableCanvasSnap": "Desactivar ajuste al lienzo",
         "enableCanvasSnap": "Activar ajuste al lienzo",
         "toggleCanvasSnap": "Alternar ajuste al lienzo"
@@ -142,7 +160,9 @@
       },
       "stage": {
         "loadingMedia": "Cargando medios…",
-        "videoPreview": "Previsualización de vídeo"
+        "videoPreview": "Previsualización de vídeo",
+        "emptyTitle": "Aún no hay nada en la línea de tiempo",
+        "emptyDescription": "Importa medios, arrastra un clip a la línea de tiempo y pulsa Espacio para previsualizar."
       },
       "zoom": {
         "ariaLabel": "Nivel de zoom: {{label}}",
@@ -178,6 +198,14 @@
   "fr": {
     "preview": {
       "align": {
+        "left": "Aligner à gauche",
+        "centerH": "Centrer horizontalement",
+        "right": "Aligner à droite",
+        "top": "Aligner en haut",
+        "centerV": "Centrer verticalement",
+        "bottom": "Aligner en bas",
+        "distributeH": "Répartir horizontalement",
+        "distributeV": "Répartir verticalement",
         "disableCanvasSnap": "Désactiver l'aimantation",
         "enableCanvasSnap": "Activer l'aimantation",
         "toggleCanvasSnap": "Basculer l'aimantation"
@@ -230,7 +258,9 @@
       },
       "stage": {
         "loadingMedia": "Chargement des médias…",
-        "videoPreview": "Prévisualisation vidéo"
+        "videoPreview": "Prévisualisation vidéo",
+        "emptyTitle": "Rien sur la timeline pour l’instant",
+        "emptyDescription": "Importez des médias, faites glisser un clip sur la timeline, puis appuyez sur Espace pour prévisualiser."
       },
       "zoom": {
         "ariaLabel": "Niveau de zoom : {{label}}",
@@ -266,6 +296,14 @@
   "de": {
     "preview": {
       "align": {
+        "left": "Links ausrichten",
+        "centerH": "Horizontal zentrieren",
+        "right": "Rechts ausrichten",
+        "top": "Oben ausrichten",
+        "centerV": "Vertikal zentrieren",
+        "bottom": "Unten ausrichten",
+        "distributeH": "Horizontal verteilen",
+        "distributeV": "Vertikal verteilen",
         "disableCanvasSnap": "Canvas-Einrasten deaktivieren",
         "enableCanvasSnap": "Canvas-Einrasten aktivieren",
         "toggleCanvasSnap": "Canvas-Einrasten umschalten"
@@ -318,7 +356,9 @@
       },
       "stage": {
         "loadingMedia": "Medien werden geladen…",
-        "videoPreview": "Videovorschau"
+        "videoPreview": "Videovorschau",
+        "emptyTitle": "Noch nichts in der Timeline",
+        "emptyDescription": "Importiere Medien, ziehe einen Clip in die Timeline und drücke die Leertaste für die Vorschau."
       },
       "zoom": {
         "ariaLabel": "Zoomstufe: {{label}}",
@@ -354,6 +394,14 @@
   "pt-BR": {
     "preview": {
       "align": {
+        "left": "Alinhar à esquerda",
+        "centerH": "Centralizar horizontalmente",
+        "right": "Alinhar à direita",
+        "top": "Alinhar ao topo",
+        "centerV": "Centralizar verticalmente",
+        "bottom": "Alinhar à base",
+        "distributeH": "Distribuir horizontalmente",
+        "distributeV": "Distribuir verticalmente",
         "disableCanvasSnap": "Desativar encaixe no canvas",
         "enableCanvasSnap": "Ativar encaixe no canvas",
         "toggleCanvasSnap": "Alternar encaixe no canvas"
@@ -406,7 +454,9 @@
       },
       "stage": {
         "loadingMedia": "Carregando midia",
-        "videoPreview": "Pre-visualizacao de video"
+        "videoPreview": "Pre-visualizacao de video",
+        "emptyTitle": "Ainda não há nada na linha do tempo",
+        "emptyDescription": "Importe mídia, arraste um clipe para a linha do tempo e pressione Espaço para visualizar."
       },
       "zoom": {
         "ariaLabel": "Rotulo ARIA",
@@ -442,6 +492,14 @@
   "tr": {
     "preview": {
       "align": {
+        "left": "Sola hizala",
+        "centerH": "Yatay ortala",
+        "right": "Sağa hizala",
+        "top": "Üste hizala",
+        "centerV": "Dikey ortala",
+        "bottom": "Alta hizala",
+        "distributeH": "Yatay dağıt",
+        "distributeV": "Dikey dağıt",
         "disableCanvasSnap": "Tuval yakalamayı kapat",
         "enableCanvasSnap": "Tuval yakalamayı aç",
         "toggleCanvasSnap": "Tuval yakalamayı aç/kapat"
@@ -494,7 +552,9 @@
       },
       "stage": {
         "loadingMedia": "Medya yükleniyor",
-        "videoPreview": "Video önizlemesi"
+        "videoPreview": "Video önizlemesi",
+        "emptyTitle": "Zaman çizelgesinde henüz bir şey yok",
+        "emptyDescription": "Medya içe aktarın, bir klibi zaman çizelgesine sürükleyin, ardından önizlemek için Boşluk tuşuna basın."
       },
       "zoom": {
         "ariaLabel": "Önizleme yakınlaştırması",
@@ -530,6 +590,14 @@
   "ja": {
     "preview": {
       "align": {
+        "left": "左揃え",
+        "centerH": "水平方向に中央揃え",
+        "right": "右揃え",
+        "top": "上揃え",
+        "centerV": "垂直方向に中央揃え",
+        "bottom": "下揃え",
+        "distributeH": "水平方向に均等配置",
+        "distributeV": "垂直方向に均等配置",
         "disableCanvasSnap": "キャンバスへのスナップを無効化",
         "enableCanvasSnap": "キャンバスへのスナップを有効化",
         "toggleCanvasSnap": "キャンバススナップを切り替え"
@@ -582,7 +650,9 @@
       },
       "stage": {
         "loadingMedia": "メディアを読み込み中…",
-        "videoPreview": "動画プレビュー"
+        "videoPreview": "動画プレビュー",
+        "emptyTitle": "タイムラインにはまだ何もありません",
+        "emptyDescription": "メディアをインポートし、クリップをタイムラインにドラッグしてから、Space キーでプレビューします。"
       },
       "zoom": {
         "ariaLabel": "ズーム倍率: {{label}}",
@@ -618,6 +688,14 @@
   "ko": {
     "preview": {
       "align": {
+        "left": "왼쪽 정렬",
+        "centerH": "가로 가운데 정렬",
+        "right": "오른쪽 정렬",
+        "top": "위쪽 정렬",
+        "centerV": "세로 가운데 정렬",
+        "bottom": "아래쪽 정렬",
+        "distributeH": "가로로 균등 배치",
+        "distributeV": "세로로 균등 배치",
         "disableCanvasSnap": "캔버스 스냅 비활성화",
         "enableCanvasSnap": "캔버스 스냅 활성화",
         "toggleCanvasSnap": "캔버스 스냅 전환"
@@ -670,7 +748,9 @@
       },
       "stage": {
         "loadingMedia": "미디어를 불러오는 중…",
-        "videoPreview": "동영상 미리보기"
+        "videoPreview": "동영상 미리보기",
+        "emptyTitle": "타임라인에 아직 항목이 없습니다",
+        "emptyDescription": "미디어를 가져오고 클립을 타임라인에 드래그한 다음 Space를 눌러 미리 봅니다."
       },
       "zoom": {
         "ariaLabel": "확대/축소: {{label}}",
@@ -706,6 +786,14 @@
   "zh": {
     "preview": {
       "align": {
+        "left": "左对齐",
+        "centerH": "水平居中",
+        "right": "右对齐",
+        "top": "顶部对齐",
+        "centerV": "垂直居中",
+        "bottom": "底部对齐",
+        "distributeH": "水平分布",
+        "distributeV": "垂直分布",
         "disableCanvasSnap": "禁用画布吸附",
         "enableCanvasSnap": "启用画布吸附",
         "toggleCanvasSnap": "切换画布吸附"
@@ -758,7 +846,9 @@
       },
       "stage": {
         "loadingMedia": "正在加载媒体…",
-        "videoPreview": "视频预览"
+        "videoPreview": "视频预览",
+        "emptyTitle": "时间线上还没有内容",
+        "emptyDescription": "导入媒体，将片段拖到时间线，然后按空格键预览。"
       },
       "zoom": {
         "ariaLabel": "缩放级别：{{label}}",

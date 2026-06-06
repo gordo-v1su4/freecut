@@ -16,6 +16,10 @@ export function toggleSnap(): void {
   })
 }
 
+export function toggleAudioSkimming(): void {
+  useTimelineSettingsStore.getState().toggleAudioSkimming()
+}
+
 export function setScrollPosition(position: number): void {
   // No undo for scroll position - it's UI state
   useTimelineSettingsStore.getState().setScrollPosition(position)

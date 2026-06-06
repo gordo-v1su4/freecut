@@ -15,4 +15,5 @@ export {
   startPreviewAudioConform,
   startPreviewAudioStartupWarm,
 } from '@/runtime/composition-runtime/utils/audio-decode-cache'
+export { resolvePreviewAudioConformUrl } from '@/runtime/composition-runtime/utils/preview-audio-conform'
 export { prewarmPreviewAudioElement } from '@/runtime/composition-runtime/utils/preview-audio-element-pool'

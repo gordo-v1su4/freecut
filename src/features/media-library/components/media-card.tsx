@@ -61,6 +61,7 @@ import {
 } from '@/shared/utils/transcription-cancellation'
 import { TranscribeDialog, type TranscribeDialogValues } from './transcribe-dialog'
 import { useSubtitleScanProgressStore } from '../stores/subtitle-scan-progress-store'
+import { audioScrubPreview, getAudioScrubTime } from '../utils/audio-scrub-preview'
 
 interface MediaCardProps {
   media: MediaMetadata
@@ -70,7 +71,10 @@ interface MediaCardProps {
   onDoubleClick?: () => void
   onDelete?: (mediaIds: string[]) => void
   onRelink?: () => void
-  viewMode?: 'grid' | 'list'
+}
+
+interface MediaCardInternalProps extends MediaCardProps {
+  viewMode: 'grid' | 'list'
 }
 
 interface MediaCardActionMenuProps {
@@ -92,6 +96,42 @@ interface MediaCardActionMenuProps {
   onDeleteTranscript: (event: React.MouseEvent) => Promise<void>
   onExtractEmbeddedSubtitles: (event: React.MouseEvent) => void | Promise<void>
   onAnalyzeWithAI: (event: React.MouseEvent) => void
+  onDelete: (event: React.MouseEvent) => void
+}
+
+type MediaCardMenuGroupProps = {
+  t: ReturnType<typeof useTranslation>['t']
+}
+
+type BrokenMediaActionsProps = MediaCardMenuGroupProps & {
+  onRelink: () => void
+}
+
+type ProxyActionsProps = MediaCardMenuGroupProps & {
+  canShowGenerateProxy: boolean
+  hasProxy: boolean
+  onGenerateProxy: (event: React.MouseEvent) => void | Promise<void>
+  onDeleteProxy: (event: React.MouseEvent) => Promise<void>
+}
+
+type TranscriptActionsProps = MediaCardMenuGroupProps & {
+  canShowGenerateTranscript: boolean
+  canShowDeleteTranscript: boolean
+  hasTranscript: boolean
+  onGenerateTranscript: (event: React.MouseEvent) => void | Promise<void>
+  onDeleteTranscript: (event: React.MouseEvent) => Promise<void>
+}
+
+type EmbeddedSubtitleActionsProps = MediaCardMenuGroupProps & {
+  isExtractingEmbeddedSubtitles: boolean
+  onExtractEmbeddedSubtitles: (event: React.MouseEvent) => void | Promise<void>
+}
+
+type AiActionsProps = MediaCardMenuGroupProps & {
+  onAnalyzeWithAI: (event: React.MouseEvent) => void
+}
+
+type DeleteMediaActionProps = MediaCardMenuGroupProps & {
   onDelete: (event: React.MouseEvent) => void
 }
 
@@ -223,7 +263,6 @@ function MediaCardActionMenuItems({
   onDelete,
 }: MediaCardActionMenuProps) {
   const { t } = useTranslation()
-  const hasBrokenGroup = isBroken && !!onRelink
   const canShowGenerateProxy = canGenerateProxy && !hasProxy && proxyStatus !== 'generating'
   const showProxyGroup = !isBroken && (canShowGenerateProxy || hasProxy)
   const canShowGenerateTranscript = isTranscribable && !isBroken && !isTranscribing
@@ -234,109 +273,53 @@ function MediaCardActionMenuItems({
 
   const groups: ReactNode[] = []
 
-  if (hasBrokenGroup) {
-    groups.push(
-      <Fragment key="broken">
-        <ContextMenuLabel>{t('media.card.menuFile')}</ContextMenuLabel>
-        <ContextMenuItem
-          onClick={(event) => {
-            event.stopPropagation()
-            onRelink!()
-          }}
-          className="text-primary focus:text-primary"
-        >
-          <RefreshCw className="w-3 h-3 mr-2" />
-          {t('media.card.relinkFile')}
-        </ContextMenuItem>
-      </Fragment>,
-    )
+  if (isBroken && onRelink) {
+    groups.push(<BrokenMediaActions key="broken" t={t} onRelink={onRelink} />)
   }
 
   if (showProxyGroup) {
     groups.push(
-      <Fragment key="proxy">
-        <ContextMenuLabel>{t('media.card.menuProxy')}</ContextMenuLabel>
-        {canShowGenerateProxy && (
-          <ContextMenuItem onClick={onGenerateProxy}>
-            <Zap className="w-3 h-3 mr-2" />
-            {t('media.card.generateProxy')}
-          </ContextMenuItem>
-        )}
-        {hasProxy && (
-          <ContextMenuItem
-            onClick={onDeleteProxy}
-            className="text-destructive focus:text-destructive"
-          >
-            <Trash2 className="w-3 h-3 mr-2" />
-            {t('media.card.deleteProxy')}
-          </ContextMenuItem>
-        )}
-      </Fragment>,
+      <ProxyActions
+        key="proxy"
+        t={t}
+        canShowGenerateProxy={canShowGenerateProxy}
+        hasProxy={hasProxy}
+        onGenerateProxy={onGenerateProxy}
+        onDeleteProxy={onDeleteProxy}
+      />,
     )
   }
 
   if (showTranscriptGroup) {
     groups.push(
-      <Fragment key="transcript">
-        <ContextMenuLabel>{t('media.card.menuTranscript')}</ContextMenuLabel>
-        {canShowGenerateTranscript && (
-          <ContextMenuItem onClick={onGenerateTranscript}>
-            <FileText className="w-3 h-3 mr-2" />
-            {hasTranscript ? t('media.card.refreshTranscript') : t('media.card.generateTranscript')}
-          </ContextMenuItem>
-        )}
-        {canShowDeleteTranscript && (
-          <ContextMenuItem
-            onClick={onDeleteTranscript}
-            className="text-destructive focus:text-destructive"
-          >
-            <Trash2 className="w-3 h-3 mr-2" />
-            {t('media.card.deleteTranscript')}
-          </ContextMenuItem>
-        )}
-      </Fragment>,
+      <TranscriptActions
+        key="transcript"
+        t={t}
+        canShowGenerateTranscript={canShowGenerateTranscript}
+        canShowDeleteTranscript={canShowDeleteTranscript}
+        hasTranscript={hasTranscript}
+        onGenerateTranscript={onGenerateTranscript}
+        onDeleteTranscript={onDeleteTranscript}
+      />,
     )
   }
 
   if (showEmbeddedSubtitleGroup) {
     groups.push(
-      <Fragment key="embedded-subtitles">
-        <ContextMenuLabel>{t('media.card.menuCaptions')}</ContextMenuLabel>
-        <ContextMenuItem
-          onClick={onExtractEmbeddedSubtitles}
-          disabled={isExtractingEmbeddedSubtitles}
-        >
-          {isExtractingEmbeddedSubtitles ? (
-            <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-          ) : (
-            <FileText className="w-3 h-3 mr-2" />
-          )}
-          {t('media.card.extractEmbeddedSubtitles')}
-        </ContextMenuItem>
-      </Fragment>,
+      <EmbeddedSubtitleActions
+        key="embedded-subtitles"
+        t={t}
+        isExtractingEmbeddedSubtitles={isExtractingEmbeddedSubtitles}
+        onExtractEmbeddedSubtitles={onExtractEmbeddedSubtitles}
+      />,
     )
   }
 
   if (showAiGroup) {
-    groups.push(
-      <Fragment key="ai">
-        <ContextMenuLabel>{t('media.card.menuAi')}</ContextMenuLabel>
-        <ContextMenuItem onClick={onAnalyzeWithAI}>
-          <Sparkles className="w-3 h-3 mr-2" />
-          {t('media.card.analyzeWithAI')}
-        </ContextMenuItem>
-      </Fragment>,
-    )
+    groups.push(<AiActions key="ai" t={t} onAnalyzeWithAI={onAnalyzeWithAI} />)
   }
 
-  groups.push(
-    <Fragment key="destructive">
-      <ContextMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
-        <Trash2 className="w-3 h-3 mr-2" />
-        {t('common.delete')}
-      </ContextMenuItem>
-    </Fragment>,
-  )
+  groups.push(<DeleteMediaAction key="destructive" t={t} onDelete={onDelete} />)
 
   return (
     <>
@@ -350,7 +333,136 @@ function MediaCardActionMenuItems({
   )
 }
 
-export const MediaCard = memo(function MediaCard({
+function BrokenMediaActions({ t, onRelink }: BrokenMediaActionsProps) {
+  return (
+    <>
+      <ContextMenuLabel>{t('media.card.menuFile')}</ContextMenuLabel>
+      <ContextMenuItem
+        onClick={(event) => {
+          event.stopPropagation()
+          onRelink()
+        }}
+        className="text-primary focus:text-primary"
+      >
+        <RefreshCw className="w-3 h-3 mr-2" />
+        {t('media.card.relinkFile')}
+      </ContextMenuItem>
+    </>
+  )
+}
+
+function ProxyActions({
+  t,
+  canShowGenerateProxy,
+  hasProxy,
+  onGenerateProxy,
+  onDeleteProxy,
+}: ProxyActionsProps) {
+  return (
+    <>
+      <ContextMenuLabel>{t('media.card.menuProxy')}</ContextMenuLabel>
+      {canShowGenerateProxy && (
+        <ContextMenuItem onClick={onGenerateProxy}>
+          <Zap className="w-3 h-3 mr-2" />
+          {t('media.card.generateProxy')}
+        </ContextMenuItem>
+      )}
+      {hasProxy && (
+        <ContextMenuItem
+          onClick={onDeleteProxy}
+          className="text-destructive focus:text-destructive"
+        >
+          <Trash2 className="w-3 h-3 mr-2" />
+          {t('media.card.deleteProxy')}
+        </ContextMenuItem>
+      )}
+    </>
+  )
+}
+
+function TranscriptActions({
+  t,
+  canShowGenerateTranscript,
+  canShowDeleteTranscript,
+  hasTranscript,
+  onGenerateTranscript,
+  onDeleteTranscript,
+}: TranscriptActionsProps) {
+  return (
+    <>
+      <ContextMenuLabel>{t('media.card.menuTranscript')}</ContextMenuLabel>
+      {canShowGenerateTranscript && (
+        <ContextMenuItem onClick={onGenerateTranscript}>
+          <FileText className="w-3 h-3 mr-2" />
+          {hasTranscript ? t('media.card.refreshTranscript') : t('media.card.generateTranscript')}
+        </ContextMenuItem>
+      )}
+      {canShowDeleteTranscript && (
+        <ContextMenuItem
+          onClick={onDeleteTranscript}
+          className="text-destructive focus:text-destructive"
+        >
+          <Trash2 className="w-3 h-3 mr-2" />
+          {t('media.card.deleteTranscript')}
+        </ContextMenuItem>
+      )}
+    </>
+  )
+}
+
+function EmbeddedSubtitleActions({
+  t,
+  isExtractingEmbeddedSubtitles,
+  onExtractEmbeddedSubtitles,
+}: EmbeddedSubtitleActionsProps) {
+  return (
+    <>
+      <ContextMenuLabel>{t('media.card.menuCaptions')}</ContextMenuLabel>
+      <ContextMenuItem
+        onClick={onExtractEmbeddedSubtitles}
+        disabled={isExtractingEmbeddedSubtitles}
+      >
+        {isExtractingEmbeddedSubtitles ? (
+          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+        ) : (
+          <FileText className="w-3 h-3 mr-2" />
+        )}
+        {t('media.card.extractEmbeddedSubtitles')}
+      </ContextMenuItem>
+    </>
+  )
+}
+
+function AiActions({ t, onAnalyzeWithAI }: AiActionsProps) {
+  return (
+    <>
+      <ContextMenuLabel>{t('media.card.menuAi')}</ContextMenuLabel>
+      <ContextMenuItem onClick={onAnalyzeWithAI}>
+        <Sparkles className="w-3 h-3 mr-2" />
+        {t('media.card.analyzeWithAI')}
+      </ContextMenuItem>
+    </>
+  )
+}
+
+function DeleteMediaAction({ t, onDelete }: DeleteMediaActionProps) {
+  return (
+    <ContextMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+      <Trash2 className="w-3 h-3 mr-2" />
+      {t('common.delete')}
+    </ContextMenuItem>
+  )
+}
+
+export const GridMediaCard = memo(function GridMediaCard(props: MediaCardProps) {
+  return <MediaCardInternal {...props} viewMode="grid" />
+})
+
+export const ListMediaCard = memo(function ListMediaCard(props: MediaCardProps) {
+  return <MediaCardInternal {...props} viewMode="list" />
+})
+
+const MediaCardInternal = memo(function MediaCardInternal({
   media,
   selected = false,
   isBroken = false,
@@ -358,8 +470,8 @@ export const MediaCard = memo(function MediaCard({
   onDoubleClick,
   onDelete,
   onRelink,
-  viewMode = 'grid',
-}: MediaCardProps) {
+  viewMode,
+}: MediaCardInternalProps) {
   const { t } = useTranslation()
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
   const [skimProgress, setSkimProgress] = useState<number | null>(null)
@@ -930,13 +1042,49 @@ export const MediaCard = memo(function MediaCard({
     onSelect?.(e)
   }
 
+  const audioLoadingRef = useRef(false)
+  const audioScrubUrlRef = useRef<string | null>(null)
+  const audioScrubRequestIdRef = useRef(0)
+
+  const scrubAudioAtProgress = useCallback(
+    async (progress: number) => {
+      if (!isAudio || media.duration <= 0) return
+      const requestId = ++audioScrubRequestIdRef.current
+      let mediaUrl = audioScrubUrlRef.current
+
+      try {
+        if (!mediaUrl) {
+          const { mediaLibraryService } = await importMediaLibraryService()
+          mediaUrl = await mediaLibraryService.getMediaBlobUrl(media.id)
+          if (!mediaUrl || requestId !== audioScrubRequestIdRef.current) return
+          audioScrubUrlRef.current = mediaUrl
+        }
+
+        await audioScrubPreview.scrub({
+          mediaId: media.id,
+          mediaUrl,
+          timeSeconds: getAudioScrubTime(media.duration, progress),
+        })
+      } catch {
+        // Audio scrub preview is opportunistic; failed decode/autoplay should not
+        // block normal media-library hover or selection behavior.
+      }
+    },
+    [isAudio, media.duration, media.id],
+  )
+
+  const stopAudioScrubPreview = useCallback(() => {
+    audioScrubRequestIdRef.current += 1
+    audioScrubPreview.stop()
+  }, [])
+
   const canHoverPreview =
-    (mediaType === 'video' || mediaType === 'image') &&
+    (mediaType === 'video' || mediaType === 'audio' || mediaType === 'image') &&
     !isBroken &&
     !isPreparingMedia &&
     !isTranscriptionDialogOpen
   const canScrubPreview =
-    mediaType === 'video' &&
+    (mediaType === 'video' || mediaType === 'audio') &&
     media.duration > 0 &&
     !isBroken &&
     !isPreparingMedia &&
@@ -959,16 +1107,32 @@ export const MediaCard = memo(function MediaCard({
       if (rect.width <= 0) return
 
       const progress = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+      setSkimProgress(progress)
+
+      if (mediaType === 'audio') {
+        setMediaSkimPreview(media.id, 0)
+        void scrubAudioAtProgress(progress)
+        return
+      }
+
       const durationInFrames = Math.max(1, Math.round(media.duration * (media.fps || 30)))
       const frame = Math.min(
         durationInFrames - 1,
         Math.max(0, Math.round(progress * (durationInFrames - 1))),
       )
 
-      setSkimProgress(progress)
       setMediaSkimPreview(media.id, frame)
     },
-    [canHoverPreview, canScrubPreview, media.duration, media.fps, media.id, setMediaSkimPreview],
+    [
+      canHoverPreview,
+      canScrubPreview,
+      media.duration,
+      media.fps,
+      media.id,
+      mediaType,
+      scrubAudioAtProgress,
+      setMediaSkimPreview,
+    ],
   )
 
   const flushScheduledSkimPreview = useCallback(() => {
@@ -1019,19 +1183,27 @@ export const MediaCard = memo(function MediaCard({
   const handleThumbnailPointerLeave = useCallback(() => {
     if (!canHoverPreview) return
     cancelScheduledSkimPreview()
+    stopAudioScrubPreview()
     setSkimProgress(null)
     clearMediaSkimPreview()
-  }, [canHoverPreview, cancelScheduledSkimPreview, clearMediaSkimPreview])
+  }, [canHoverPreview, cancelScheduledSkimPreview, clearMediaSkimPreview, stopAudioScrubPreview])
 
   useEffect(() => {
     if (!canHoverPreview) return
     return () => {
       cancelScheduledSkimPreview()
+      stopAudioScrubPreview()
       if (useEditorStore.getState().mediaSkimPreviewMediaId === media.id) {
         clearMediaSkimPreview()
       }
     }
-  }, [canHoverPreview, cancelScheduledSkimPreview, clearMediaSkimPreview, media.id])
+  }, [
+    canHoverPreview,
+    cancelScheduledSkimPreview,
+    clearMediaSkimPreview,
+    media.id,
+    stopAudioScrubPreview,
+  ])
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -1043,8 +1215,6 @@ export const MediaCard = memo(function MediaCard({
       }
     }
   }, [])
-
-  const audioLoadingRef = useRef(false)
 
   const handleAudioToggle = useCallback(
     async (e: React.MouseEvent) => {
@@ -1312,9 +1482,7 @@ export const MediaCard = memo(function MediaCard({
               {/* Info — single row: icon + name + duration */}
               <div className="flex-1 min-w-0 flex items-center gap-1.5">
                 {isImporting ? (
-                  <span className="text-[10px] text-muted-foreground">
-                    {preparingLabel}
-                  </span>
+                  <span className="text-[10px] text-muted-foreground">{preparingLabel}</span>
                 ) : (
                   <>
                     <div className="p-0.5 rounded bg-primary/90 text-primary-foreground flex-shrink-0">

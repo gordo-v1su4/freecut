@@ -1,4 +1,5 @@
 import { useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback, memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 
 // Stores and selectors
@@ -15,6 +16,7 @@ import { useSelectionStore } from '@/shared/state/selection'
 // Hooks
 import { useMarqueeSelection } from '@/shared/marquee/use-marquee-selection'
 import { useWaveformPrefetch } from '../hooks/use-waveform-prefetch'
+import { useTimelineAudioSkimPreview } from '../hooks/use-timeline-audio-skim-preview'
 import { withPerfMeasure, perfMarkRender } from '@/shared/logging/perf-marks'
 
 // Constants
@@ -684,6 +686,7 @@ export const TimelineContent = memo(function TimelineContent({
   void duration
 
   perfMarkRender('TimelineContent')
+  const { t } = useTranslation()
 
   // Prefetch waveforms for clips approaching the viewport
   useWaveformPrefetch()
@@ -759,6 +762,7 @@ export const TimelineContent = memo(function TimelineContent({
   const setPreviewFrameRef = useRef(setPreviewFrame)
   setPreviewFrameRef.current = setPreviewFrame
   const previewRafRef = useRef<number | null>(null)
+  useTimelineAudioSkimPreview()
 
   const pixelsToFrameRef = useRef(pixelsToFrame)
   pixelsToFrameRef.current = pixelsToFrame
@@ -1810,6 +1814,15 @@ export const TimelineContent = memo(function TimelineContent({
           onSelectionChange={handleMarqueeSelectionChange}
           onMarqueeActiveChange={handleMarqueeActiveChange}
         />
+
+        {itemIds.length === 0 && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 top-[64px] z-20 flex items-center justify-center px-6">
+            <div className="rounded-xl border border-dashed border-border/80 bg-background/85 px-5 py-4 text-center shadow-lg backdrop-blur-sm">
+              <p className="text-sm font-semibold text-foreground">{t('timeline.emptyTitle')}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t('timeline.emptyDescription')}</p>
+            </div>
+          </div>
+        )}
 
         <div
           className="relative z-30 shrink-0 timeline-ruler bg-background"

@@ -21,6 +21,11 @@ import {
 import { useGizmoStore } from '@/features/editor/deps/preview'
 import { importMediaLibraryService } from '@/features/editor/deps/media-library'
 import { getResolvedPlaybackFrame, usePlaybackStore } from '@/shared/state/playback'
+import {
+  getAudioSkimMeterLevel,
+  getAudioSkimMeterVersion,
+  subscribeAudioSkimMeterLevel,
+} from '@/shared/state/audio-skim-meter'
 import { usePreviewBridgeStore } from '@/shared/state/preview-bridge'
 import { useEditorStore } from '@/shared/state/editor/store'
 import { EDITOR_LAYOUT_CSS_VALUES } from '@/config/editor-layout'
@@ -184,6 +189,7 @@ export const AudioMeterPanel = memo(function AudioMeterPanel() {
   const tracks = useTimelineStore((s) => s.tracks)
   const transitions = useTimelineStore((s) => s.transitions)
   const fps = useTimelineStore((s) => s.fps)
+  const audioSkimmingEnabled = useTimelineStore((s) => s.audioSkimmingEnabled)
   const itemsByTrackId = useItemsStore((s) => s.itemsByTrackId)
   const compositions = useCompositionsStore((s) => s.compositions)
 
@@ -201,6 +207,15 @@ export const AudioMeterPanel = memo(function AudioMeterPanel() {
   const toggleMute = usePlaybackStore((s) => s.toggleMute)
   const busAudioEq = usePlaybackStore((s) => s.busAudioEq)
   const setBusAudioEq = usePlaybackStore((s) => s.setBusAudioEq)
+  const audioSkimMeterVersion = useSyncExternalStore(
+    subscribeAudioSkimMeterLevel,
+    getAudioSkimMeterVersion,
+    getAudioSkimMeterVersion,
+  )
+  const audioSkimMeterLevel = useMemo(() => {
+    void audioSkimMeterVersion
+    return getAudioSkimMeterLevel()
+  }, [audioSkimMeterVersion])
 
   const [waveformsByMediaId, setWaveformsByMediaId] = useState<
     Map<string, AudioMeterWaveform | null>
@@ -289,7 +304,9 @@ export const AudioMeterPanel = memo(function AudioMeterPanel() {
     liveBusOverrideDb !== null
       ? Math.pow(10, liveBusOverrideDb / 20)
       : Math.pow(10, masterBusDb / 20)
-  const playbackGain = isPlaying && !muted ? effectiveMasterGain * monitorVolume : 0
+  const isAudioSkimMeterActive = audioSkimmingEnabled && audioSkimMeterLevel !== null && !isPlaying
+  const isMeterActive = isPlaying || isAudioSkimMeterActive
+  const playbackGain = isMeterActive && !muted ? effectiveMasterGain * monitorVolume : 0
 
   const preloadSources = useMemo(() => {
     void liveOverrideVersion
@@ -302,9 +319,9 @@ export const AudioMeterPanel = memo(function AudioMeterPanel() {
 
   // Per-track sources include track volume but not master/bus volume.
   const perTrackSources = useMemo(() => {
-    if (!isPlaying || muted) return []
+    if (!isMeterActive || muted) return []
     return preloadSources
-  }, [isPlaying, muted, preloadSources])
+  }, [isMeterActive, muted, preloadSources])
 
   // Bus/master sources include both track volume and master volume.
   const sources = useMemo(() => {
@@ -402,20 +419,32 @@ export const AudioMeterPanel = memo(function AudioMeterPanel() {
     }
   }, [stableActiveMediaIds])
 
-  const estimate = useMemo(() => {
+  const waveformEstimate = useMemo(() => {
     return estimateAudioMeterLevel({
       sources,
       waveformsByMediaId,
     })
   }, [sources, waveformsByMediaId])
+  const estimate = audioSkimMeterLevel
+    ? {
+        left: audioSkimMeterLevel.left,
+        right: audioSkimMeterLevel.right,
+        resolvedSourceCount: 1,
+        unresolvedSourceCount: 0,
+      }
+    : waveformEstimate
   const maxLevel = Math.max(estimate.left, estimate.right)
-  const statusLabel = !isPlaying
+  const statusLabel = !isMeterActive
     ? 'Idle'
     : estimate.unresolvedSourceCount > 0 && estimate.resolvedSourceCount === 0
       ? 'Scanning'
+      : isAudioSkimMeterActive
+        ? 'Skim'
       : formatMeterDb(maxLevel)
   const scanFallbackPercent =
-    isPlaying && estimate.unresolvedSourceCount > 0 && estimate.resolvedSourceCount === 0 ? 18 : 0
+    isMeterActive && estimate.unresolvedSourceCount > 0 && estimate.resolvedSourceCount === 0
+      ? 18
+      : 0
 
   // ---------------------------------------------------------------------------
   // Meter animation (only active in meter mode, but state kept alive)
@@ -478,13 +507,13 @@ export const AudioMeterPanel = memo(function AudioMeterPanel() {
   }, [])
 
   useEffect(() => {
-    isPlayingRef.current = isPlaying
+    isPlayingRef.current = isMeterActive
     targetPercentRef.current = {
       left: Math.max(linearLevelToPercent(estimate.left), scanFallbackPercent),
       right: Math.max(linearLevelToPercent(estimate.right), scanFallbackPercent),
     }
     ensureMeterAnimation()
-  }, [ensureMeterAnimation, estimate.left, estimate.right, isPlaying, scanFallbackPercent])
+  }, [ensureMeterAnimation, estimate.left, estimate.right, isMeterActive, scanFallbackPercent])
 
   useEffect(() => {
     applyMeterVisuals(0, 0, 0, 0)
@@ -966,7 +995,7 @@ export const AudioMeterPanel = memo(function AudioMeterPanel() {
           tracks={mixerTracks}
           perTrackLevels={perTrackLevels}
           masterEstimate={estimate}
-          isPlaying={isPlaying}
+          isPlaying={isMeterActive}
           masterVolumeDb={masterVolumeDb}
           masterMuted={muted}
           onMasterVolumeChange={handleMasterVolumeChange}
@@ -1018,7 +1047,7 @@ export const AudioMeterPanel = memo(function AudioMeterPanel() {
             tracks={mixerTracks}
             perTrackLevels={perTrackLevels}
             masterEstimate={estimate}
-            isPlaying={isPlaying}
+            isPlaying={isMeterActive}
             masterVolumeDb={masterVolumeDb}
             masterMuted={muted}
             onMasterVolumeChange={handleMasterVolumeChange}

@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Diamond } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/shared/ui/cn'
@@ -45,6 +46,7 @@ export function KeyframeToggle({
   className,
   disabled = false,
 }: KeyframeToggleProps) {
+  const { t } = useTranslation()
   // Get current frame (throttled to reduce re-renders during playback)
   const currentFrame = useThrottledFrame()
 
@@ -161,12 +163,20 @@ export function KeyframeToggle({
           )}
           aria-label={
             isInTransition
-              ? 'Keyframes blocked (transition region)'
+              ? t('timeline.keyframeEditor.keyframesBlockedTransition', {
+                  defaultValue: 'Keyframes blocked (transition region)',
+                })
               : isOutsideBounds
-                ? 'Playhead outside clip bounds'
+                ? t('timeline.keyframeEditor.playheadOutsideClipBounds', {
+                    defaultValue: 'Playhead outside clip bounds',
+                  })
                 : hasKeyframe
-                  ? 'Remove keyframe'
-                  : 'Add keyframe'
+                  ? t('timeline.keyframeEditor.removeKeyframe', {
+                      defaultValue: 'Remove keyframe',
+                    })
+                  : t('timeline.keyframeEditor.addKeyframe', {
+                      defaultValue: 'Add keyframe',
+                    })
           }
         >
           <Diamond
@@ -181,11 +191,25 @@ export function KeyframeToggle({
         {isInTransition && transitionBlockedRange ? (
           <>{getTransitionBlockedMessage(transitionBlockedRange)}</>
         ) : isOutsideBounds ? (
-          <>Playhead is outside clip bounds</>
+          <>
+            {t('timeline.keyframeEditor.playheadIsOutsideClipBounds', {
+              defaultValue: 'Playhead is outside clip bounds',
+            })}
+          </>
         ) : hasKeyframe ? (
-          <>Remove keyframe at frame {relativeFrame}</>
+          <>
+            {t('timeline.keyframeEditor.removeKeyframeAtFrame', {
+              frame: relativeFrame,
+              defaultValue: 'Remove keyframe at frame {{frame}}',
+            })}
+          </>
         ) : (
-          <>Add keyframe at frame {relativeFrame}</>
+          <>
+            {t('timeline.keyframeEditor.addKeyframeAtFrame', {
+              frame: relativeFrame,
+              defaultValue: 'Add keyframe at frame {{frame}}',
+            })}
+          </>
         )}
       </TooltipContent>
     </Tooltip>

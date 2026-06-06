@@ -746,8 +746,8 @@ export const TtsGenerateDialog = memo(function TtsGenerateDialog() {
               }`}
             >
               <p className="text-[11px] text-muted-foreground">
-                {result.voice} Â· {result.model} Â·{' '}
-                {result.duration > 0 ? `${result.duration.toFixed(1)}s` : '—'}
+                {result.voice} / {result.model} /{' '}
+                {result.duration > 0 ? `${result.duration.toFixed(1)}s` : '-'}
               </p>
               <MiniAudioPlayer src={result.objectUrl} />
 

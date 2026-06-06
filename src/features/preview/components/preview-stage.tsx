@@ -9,7 +9,7 @@ import {
   type RefObject,
 } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Player, type PlayerRef } from '@/features/preview/deps/player-core'
+import { HeadlessPlayer, type PlayerRef } from '@/features/preview/deps/player-core'
 import { MainComposition } from '@/features/preview/deps/composition-runtime'
 import type { CompositionInputProps } from '@/types/export'
 import { usePlaybackStore } from '@/shared/state/playback'
@@ -112,6 +112,7 @@ export const PreviewStage = memo(function PreviewStage({
     pixelSnapOffset.x !== 0 || pixelSnapOffset.y !== 0
       ? `translate3d(${pixelSnapOffset.x}px, ${pixelSnapOffset.y}px, 0)`
       : undefined
+  const isTimelineEmpty = inputProps.tracks.every((track) => track.items.length === 0)
 
   return (
     <div
@@ -163,7 +164,16 @@ export const PreviewStage = memo(function PreviewStage({
                 </div>
               )}
 
-              <Player
+              {!isResolving && isTimelineEmpty && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/35 px-6 text-center pointer-events-none">
+                  <div className="max-w-sm rounded-xl border border-white/10 bg-black/50 px-5 py-4 text-white shadow-xl backdrop-blur-sm">
+                    <p className="text-sm font-semibold mb-1">{t('preview.stage.emptyTitle')}</p>
+                    <p className="text-xs text-white/75">{t('preview.stage.emptyDescription')}</p>
+                  </div>
+                </div>
+              )}
+
+              <HeadlessPlayer
                 ref={playerRef}
                 durationInFrames={totalFrames}
                 fps={fps}
@@ -171,7 +181,6 @@ export const PreviewStage = memo(function PreviewStage({
                 height={playerRenderSize.height}
                 autoPlay={false}
                 loop={false}
-                controls={false}
                 layoutSize={playerSize}
                 style={{
                   width: '100%',
@@ -181,7 +190,7 @@ export const PreviewStage = memo(function PreviewStage({
                 onPlayStateChange={onPlayStateChange}
               >
                 <MainComposition {...inputProps} useProxyMedia={useProxy} />
-              </Player>
+              </HeadlessPlayer>
 
               {FAST_SCRUB_RENDERER_ENABLED && (
                 <canvas

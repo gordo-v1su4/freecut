@@ -75,7 +75,7 @@ describe('drop-execution', () => {
     expect(entries.map((entry) => entry.mediaId)).toEqual(['video-1', 'audio-1'])
   })
 
-  it('applies resolved timeline drops and warns on partial placement', () => {
+  it('applies resolved timeline drops and explains partial placement failures', () => {
     const item = { id: 'item-1' } as TimelineItem
     const notify = {
       error: vi.fn(),
@@ -105,8 +105,42 @@ describe('drop-execution', () => {
     expect(addItem).toHaveBeenCalledWith(item)
     expect(addItems).not.toHaveBeenCalled()
     expect(notify.warning).toHaveBeenCalledWith(
-      'Some dropped media items could not be added: 1 failed',
+      'Added 1 of 2 dropped media items. 1 could not be placed because no compatible track or open space was available.',
     )
     expect(notify.error).not.toHaveBeenCalled()
+  })
+
+  it('explains total placement failure without mutating tracks or adding clips', () => {
+    const notify = {
+      error: vi.fn(),
+      warning: vi.fn(),
+    }
+    const addItem = vi.fn()
+    const addItems = vi.fn()
+    const setTracks = vi.fn()
+
+    const applied = applyResolvedTimelineDrop({
+      addItem,
+      addItems,
+      currentTracks: ['track-a'],
+      dropResult: {
+        items: [],
+        tracks: ['track-b'],
+      },
+      emptyMessage: 'Unable to add dropped media items',
+      notify,
+      partialFailureLabel: 'dropped media items',
+      requestedCount: 2,
+      setTracks,
+    })
+
+    expect(applied).toBe(false)
+    expect(notify.error).toHaveBeenCalledWith(
+      'Unable to add dropped media items. No compatible track or open space was available for 2 dropped media items.',
+    )
+    expect(notify.warning).not.toHaveBeenCalled()
+    expect(setTracks).not.toHaveBeenCalled()
+    expect(addItem).not.toHaveBeenCalled()
+    expect(addItems).not.toHaveBeenCalled()
   })
 })

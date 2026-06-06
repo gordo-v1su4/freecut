@@ -4,6 +4,7 @@ import {
   useClock,
   useClockIsPlaying,
   useClockPlaybackRate,
+  usePlayer,
   useVideoConfig,
 } from '@/features/preview/deps/player-context'
 import { getGlobalVideoSourcePool } from '@/features/preview/deps/player-pool'
@@ -18,13 +19,13 @@ import { getDirectionalPrewarmOffsets } from '../utils/fast-scrub-prewarm'
 import { usePlaybackStore } from '@/shared/state/playback'
 import { useSourcePlayerStore } from '@/shared/state/source-player'
 import { useMediaLibraryStore } from '@/features/preview/deps/media-library'
-import { FileAudio } from 'lucide-react'
+import { shouldSeekPlayingMedia } from '../utils/source-media-sync'
+import { SourceAudioWaveform } from './source-audio-waveform'
 
 interface SourceCompositionProps {
   mediaId?: string
   src: string
   mediaType: 'video' | 'audio' | 'image'
-  fileName: string
   pausedFrameSource?: 'clock' | 'source-player'
   forceFastScrub?: boolean
 }
@@ -36,7 +37,6 @@ let globalSourceMonitorDecoderPool: SharedVideoExtractorPool | null = null
 const SOURCE_MONITOR_STRICT_DECODE_FALLBACK_FAILURES = 2
 const SOURCE_MONITOR_FRAME_CACHE_MAX = 90
 const SOURCE_MONITOR_CACHE_TIME_QUANTUM = 1 / 60
-const SOURCE_MONITOR_PLAYING_RESYNC_THRESHOLD_FRAMES = 6
 const SOURCE_MONITOR_PREWARM_MAX_TIMESTAMPS = 6
 const SOURCE_MONITOR_PREWARM_FORWARD_STEPS = 4
 const SOURCE_MONITOR_PREWARM_BACKWARD_STEPS = 6
@@ -53,10 +53,6 @@ function getSourceMonitorDecoderPool(): SharedVideoExtractorPool {
 
 function quantizeSourceMonitorTime(time: number): number {
   return Math.round(time / SOURCE_MONITOR_CACHE_TIME_QUANTUM) * SOURCE_MONITOR_CACHE_TIME_QUANTUM
-}
-
-function shouldResyncPlayingMedia(currentTime: number, targetTime: number, fps: number): boolean {
-  return Math.abs(currentTime - targetTime) * fps >= SOURCE_MONITOR_PLAYING_RESYNC_THRESHOLD_FRAMES
 }
 
 function useSourceMonitorVideoSrc(mediaId: string | undefined, src: string): string {
@@ -79,7 +75,6 @@ export function SourceComposition({
   mediaId,
   src,
   mediaType,
-  fileName,
   pausedFrameSource = 'source-player',
   forceFastScrub = false,
 }: SourceCompositionProps) {
@@ -96,7 +91,7 @@ export function SourceComposition({
   if (mediaType === 'image') {
     return <ImageSource src={src} />
   }
-  return <AudioSource src={src} fileName={fileName} />
+  return <AudioSource mediaId={mediaId} src={src} />
 }
 
 function VideoSource({
@@ -600,7 +595,7 @@ function VideoSource({
         }
 
         if (playingRef.current) {
-          if (!shouldResyncPlayingMedia(audio.currentTime, targetTime, fps)) {
+          if (!shouldSeekPlayingMedia(audio, targetTime, fps)) {
             return
           }
         }
@@ -632,7 +627,7 @@ function VideoSource({
       }
 
       if (playingRef.current) {
-        if (!shouldResyncPlayingMedia(video.currentTime, targetTime, fps)) {
+        if (!shouldSeekPlayingMedia(video, targetTime, fps)) {
           syncAudioTime()
           return
         }
@@ -791,12 +786,13 @@ function ImageSource({ src }: { src: string }) {
   )
 }
 
-function AudioSource({ src, fileName }: { src: string; fileName: string }) {
+function AudioSource({ mediaId, src }: { mediaId?: string; src: string }) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const clock = useClock()
   const playing = useClockIsPlaying()
   const playbackRate = useClockPlaybackRate()
-  const { fps } = useVideoConfig()
+  const { fps, durationInFrames } = useVideoConfig()
+  const player = usePlayer(durationInFrames)
   const lastFrameRef = useRef(clock.currentFrame)
 
   const syncAudioFrame = useCallback(
@@ -812,7 +808,7 @@ function AudioSource({ src, fileName }: { src: string; fileName: string }) {
         return
       }
 
-      if (playing && !shouldResyncPlayingMedia(audio.currentTime, targetTime, fps)) {
+      if (playing && !shouldSeekPlayingMedia(audio, targetTime, fps)) {
         return
       }
 
@@ -856,30 +852,47 @@ function AudioSource({ src, fileName }: { src: string; fileName: string }) {
     }
   }, [playing, playbackRate, src, fps])
 
+  const handleSeekSeconds = useCallback(
+    (timeSeconds: number) => {
+      const frame = Math.max(
+        0,
+        Math.min(durationInFrames - 1, Math.round(timeSeconds * Math.max(1, fps))),
+      )
+      lastFrameRef.current = frame
+      useSourcePlayerStore.getState().setCurrentSourceFrame(frame)
+      player.seek(frame)
+    },
+    [durationInFrames, fps, player],
+  )
+
   return (
     <AbsoluteFill
       style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#1a1a2e',
+        backgroundColor: '#171821',
+        padding: 18,
       }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-        <FileAudio style={{ width: 48, height: 48, color: '#22c55e' }} />
-        <span
-          style={{
-            color: '#a1a1aa',
-            fontSize: 14,
-            maxWidth: 200,
-            textAlign: 'center',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {fileName}
-        </span>
+      <div
+        style={{
+          width: '100%',
+          height: 'min(100%, 360px)',
+          maxHeight: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'stretch',
+          justifyContent: 'center',
+        }}
+      >
+        <SourceAudioWaveform
+          mediaId={mediaId}
+          src={src}
+          durationSeconds={durationInFrames / Math.max(1, fps)}
+          currentTimeSeconds={clock.currentFrame / Math.max(1, fps)}
+          onSeekSeconds={handleSeekSeconds}
+        />
       </div>
       <audio ref={audioRef} src={src} preload="auto" />
     </AbsoluteFill>
