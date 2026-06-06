@@ -7,6 +7,7 @@ export interface AudioScrubPreviewRequest {
 
 interface ActiveGrain {
   source: AudioBufferSourceNode
+  gainNode: GainNode
 }
 
 interface AudioScrubPreviewOptions {
@@ -86,14 +87,14 @@ export function createAudioScrubPreview(options: AudioScrubPreviewOptions = {}) 
     } catch {
       // Best-effort cleanup.
     }
+    try {
+      grain.gainNode.disconnect()
+    } catch {
+      // Best-effort cleanup.
+    }
   }
 
-  const scrub = async ({
-    mediaId,
-    mediaUrl,
-    timeSeconds,
-    gain = 1,
-  }: AudioScrubPreviewRequest) => {
+  const scrub = async ({ mediaId, mediaUrl, timeSeconds, gain = 1 }: AudioScrubPreviewRequest) => {
     if (!mediaUrl) return
 
     const ctx = getContext()
@@ -131,9 +132,14 @@ export function createAudioScrubPreview(options: AudioScrubPreviewOptions = {}) 
       } catch {
         // Best-effort cleanup.
       }
+      try {
+        gainNode.disconnect()
+      } catch {
+        // Best-effort cleanup.
+      }
     }
 
-    activeGrain = { source }
+    activeGrain = { source, gainNode }
     source.start(now, offset, grainDuration)
   }
 
