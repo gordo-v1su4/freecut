@@ -35,12 +35,12 @@ import {
 } from './media-draw'
 import { isPreviewTraceEnabled, recordRenderTrace } from '@/shared/logging/preview-trace'
 
-export function getTier2VideoFrameToleranceSeconds(sourceFps: number): number {
+function getTier2VideoFrameToleranceSeconds(sourceFps: number): number {
   const normalizedSourceFps = Number.isFinite(sourceFps) && sourceFps > 0 ? sourceFps : 30
   return (1 / normalizedSourceFps) * TIER2_VIDEO_FRAME_TOLERANCE_FACTOR
 }
 
-export function clampVideoSourceTime(
+function clampVideoSourceTime(
   sourceTime: number,
   sourceFps: number,
   sourceDurationFrames: number | undefined,
@@ -59,7 +59,7 @@ export function clampVideoSourceTime(
   return Math.min(clampedToStart, maxTime)
 }
 
-export function drawTier2VideoFrame(
+function drawTier2VideoFrame(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   frame: ImageBitmap | VideoFrame,
   sourceWidth: number,
@@ -90,7 +90,7 @@ export function drawTier2VideoFrame(
   }
 }
 
-export async function tryDrawWorkerPredecodedBitmap(
+async function tryDrawWorkerPredecodedBitmap(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   item: VideoItem,
   transform: ItemTransform,

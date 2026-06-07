@@ -371,7 +371,7 @@ function clampDeltaToLastValidValue(
  * @param side 'start' for head handle, 'end' for tail handle
  * @returns Number of available frames for transition
  */
-export function getAvailableHandle(clip: TimelineItem, side: 'start' | 'end'): number {
+function getAvailableHandle(clip: TimelineItem, side: 'start' | 'end'): number {
   // Non-media items have infinite handles (no source constraints)
   if (clip.type === 'text' || clip.type === 'shape' || clip.type === 'adjustment') {
     return Infinity

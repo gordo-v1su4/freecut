@@ -9,7 +9,7 @@
 import { INDEX_FILENAME } from './paths'
 import { readJson, writeJsonAtomic } from './fs-primitives'
 
-export const INDEX_VERSION = '1.0'
+const INDEX_VERSION = '1.0'
 
 export interface WorkspaceIndexEntry {
   id: string

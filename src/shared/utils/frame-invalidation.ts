@@ -13,7 +13,7 @@ export function hasFrameInvalidation(request?: FrameInvalidationRequest): boolea
   return (request.frames?.length ?? 0) > 0 || (request.ranges?.length ?? 0) > 0
 }
 
-export function isFrameInRange(frame: number, range: FrameRange): boolean {
+function isFrameInRange(frame: number, range: FrameRange): boolean {
   return frame >= range.startFrame && frame < range.endFrame
 }
 

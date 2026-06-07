@@ -117,7 +117,7 @@ export function buildLinkedAudioForVideo(params: {
 }
 
 /** A video qualifies for splitting when it has audible media and no companion. */
-export function isUnpairedAudibleVideo(
+function isUnpairedAudibleVideo(
   item: TimelineItem,
   items: readonly TimelineItem[],
   videoHasAudioByMediaId: Record<string, boolean | undefined>,

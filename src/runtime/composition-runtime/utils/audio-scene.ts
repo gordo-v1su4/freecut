@@ -174,7 +174,7 @@ function getReverseSourceEnd(
   )
 }
 
-export function isContinuousAudioBoundary(
+function isContinuousAudioBoundary(
   left: ContinuousAudioItem,
   right: ContinuousAudioItem,
   timelineFps = 30,
@@ -209,7 +209,7 @@ export function isContinuousAudioBoundary(
   return !hasExplicitTrimStart(right)
 }
 
-export function resolveContinuousClipTrimStarts<TItem extends ContinuousAudioItem>(
+function resolveContinuousClipTrimStarts<TItem extends ContinuousAudioItem>(
   items: TItem[],
   fps: number,
 ): Map<string, number> {

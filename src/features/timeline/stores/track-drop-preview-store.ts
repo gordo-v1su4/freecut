@@ -9,7 +9,7 @@ export interface TrackDropGhostPreview {
   targetTrackId: string
 }
 
-export const EMPTY_TRACK_DROP_GHOST_PREVIEWS: TrackDropGhostPreview[] = []
+const EMPTY_TRACK_DROP_GHOST_PREVIEWS: TrackDropGhostPreview[] = []
 
 type TrackDropGhostPreviewMap = Record<string, TrackDropGhostPreview[]>
 

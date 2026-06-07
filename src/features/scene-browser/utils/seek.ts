@@ -7,7 +7,7 @@
 
 import { useEditorStore, useMediaLibraryStore, useSourcePlayerStore } from '../deps/media-library'
 
-export const SCENE_SELECTION_DURATION_SEC = 3
+const SCENE_SELECTION_DURATION_SEC = 3
 
 export function seekToScene(mediaId: string, timeSec: number): void {
   const media = useMediaLibraryStore.getState().mediaById[mediaId]

@@ -4,7 +4,7 @@ import type { ChangelogFile } from '@/data/changelog-types'
 const data = changelogData as ChangelogFile
 const LAST_SEEN_KEY = 'freecut:whatsNewLastSeen'
 
-export function getLatestIdentifier(): string {
+function getLatestIdentifier(): string {
   if (data.current) return `current:${data.current.date}`
   return data.releases[0]?.version ?? ''
 }

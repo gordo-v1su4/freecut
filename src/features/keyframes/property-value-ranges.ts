@@ -69,7 +69,7 @@ function inferUnit(label: string): string {
   return ''
 }
 
-export function getPropertyValueRange(property: AnimatableProperty): PropertyValueRange | null {
+function getPropertyValueRange(property: AnimatableProperty): PropertyValueRange | null {
   if (isBuiltInAnimatableProperty(property)) {
     return BUILT_IN_PROPERTY_VALUE_RANGES[property]
   }

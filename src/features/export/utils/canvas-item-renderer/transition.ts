@@ -85,7 +85,7 @@ export async function renderTransitionToCanvas(
   }
 }
 
-export async function renderTransitionBaseParticipants(
+async function renderTransitionBaseParticipants(
   activeTransition: ActiveTransition,
   frame: number,
   rctx: ItemRenderContext,
@@ -150,7 +150,7 @@ export async function renderTransitionBaseParticipants(
   }
 }
 
-export async function renderTransitionParticipants(
+async function renderTransitionParticipants(
   activeTransition: ActiveTransition,
   frame: number,
   rctx: ItemRenderContext,
@@ -213,7 +213,7 @@ export async function renderTransitionParticipants(
   }
 }
 
-export async function renderTransitionTextureParticipants(
+async function renderTransitionTextureParticipants(
   activeTransition: ActiveTransition,
   frame: number,
   rctx: ItemRenderContext,
@@ -233,7 +233,7 @@ export async function renderTransitionTextureParticipants(
   )
 }
 
-export async function renderTransitionHybridTextureParticipants(
+async function renderTransitionHybridTextureParticipants(
   activeTransition: ActiveTransition,
   frame: number,
   rctx: ItemRenderContext,
@@ -308,7 +308,7 @@ export async function renderTransitionHybridTextureParticipants(
   }
 }
 
-export async function renderTransitionParticipantToTexture(
+async function renderTransitionParticipantToTexture(
   participant: TransitionParticipantRenderState,
   frame: number,
   rctx: ItemRenderContext,
@@ -367,7 +367,7 @@ export async function renderTransitionParticipantToTexture(
   )
 }
 
-export function logTransitionGpuParticipantPath(
+function logTransitionGpuParticipantPath(
   participant: TransitionParticipantRenderState,
   mediaKind: ResolvedGpuMediaParticipantSource['kind'] | null,
   path: 'gpu-direct' | 'canvas-rasterize',
@@ -384,7 +384,7 @@ export function logTransitionGpuParticipantPath(
   })
 }
 
-export function getTransitionParticipantCanvasReason(
+function getTransitionParticipantCanvasReason(
   participant: TransitionParticipantRenderState,
   rctx: ItemRenderContext,
 ): string {

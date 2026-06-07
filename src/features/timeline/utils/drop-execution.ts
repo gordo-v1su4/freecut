@@ -193,7 +193,7 @@ export async function resolveDroppedMediaEntriesFromExternalFiles({
   return droppedEntries
 }
 
-export function buildTimelinePlacementFailureMessage(params: {
+function buildTimelinePlacementFailureMessage(params: {
   emptyMessage?: string
   placedCount: number
   requestedCount: number

@@ -1,7 +1,7 @@
 import type { TimelineItem, TimelineTrack } from '@/types/timeline'
 import { getTrackKind, type TrackKind } from './classic-tracks'
 
-export function getRequiredTrackKindForItemType(itemType: TimelineItem['type']): TrackKind {
+function getRequiredTrackKindForItemType(itemType: TimelineItem['type']): TrackKind {
   return itemType === 'audio' ? 'audio' : 'video'
 }
 

@@ -232,7 +232,7 @@ export function combineEffects(
  * @param frame - Current frame number
  * @param canvas - Canvas dimensions
  */
-export function applyAllEffects(
+function applyAllEffects(
   ctx: OffscreenCanvasRenderingContext2D,
   sourceCanvas: OffscreenCanvas,
   effects: ItemEffect[],
@@ -266,7 +266,7 @@ export function applyAllEffects(
  * Returns a GPU output canvas if the pipeline is batching and GPU effects
  * were applied (for deferred compositing). Returns null otherwise.
  */
-export async function applyAllEffectsAsync(
+async function applyAllEffectsAsync(
   ctx: OffscreenCanvasRenderingContext2D,
   sourceCanvas: OffscreenCanvas,
   effects: ItemEffect[],

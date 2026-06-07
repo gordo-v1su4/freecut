@@ -59,8 +59,7 @@ const WAVEFORM_NOTIFY_INTERVAL_MS = 180
 
 // Samples per second for waveform generation (highest resolution)
 const SAMPLES_PER_SECOND: number = WAVEFORM_LEVELS[0] // 500 samples/sec
-const WAVEFORM_OVERVIEW_SAMPLES_PER_SECOND: number =
-  WAVEFORM_LEVELS[WAVEFORM_LEVELS.length - 1]! // 10 samples/sec
+const WAVEFORM_OVERVIEW_SAMPLES_PER_SECOND: number = WAVEFORM_LEVELS[WAVEFORM_LEVELS.length - 1]! // 10 samples/sec
 const WAVEFORM_VISIBLE_RANGE_MAX_SAMPLES_PER_SECOND = 100
 const WAVEFORM_BIN_DURATION_SEC = 30
 const WAVEFORM_BIN_SAMPLES = SAMPLES_PER_SECOND * WAVEFORM_BIN_DURATION_SEC
@@ -95,7 +94,7 @@ export interface CachedWaveformLevel {
   lastAccessed: number
 }
 
-export class AbortError extends Error {
+class AbortError extends Error {
   constructor(message = 'Aborted') {
     super(message)
     this.name = 'AbortError'
@@ -1251,7 +1250,10 @@ class WaveformCacheService {
 
     const persistedMetadata = await waveformOPFSStorage.getMetadata(mediaId)
     if (persistedMetadata) {
-      const overviewLevelIndex = Math.min(WAVEFORM_LEVELS.length - 1, persistedMetadata.levels.length - 1)
+      const overviewLevelIndex = Math.min(
+        WAVEFORM_LEVELS.length - 1,
+        persistedMetadata.levels.length - 1,
+      )
       const level = await this.getDisplayLevel(mediaId, Math.max(0, overviewLevelIndex))
       if (level) {
         return this.makeCachedWaveform(
@@ -1395,10 +1397,9 @@ class WaveformCacheService {
     // Only hydrate persisted peaks. A fresh waveform requires a full-source
     // audio decode, which stays demand-driven from visible clips so scroll
     // prefetch cannot queue long decodes ahead of immediate import/drop work.
-    this.loadFromStorage(mediaId)
-      .catch((error) => {
-        logger.warn('Waveform storage load failed during prefetch:', error)
-      })
+    this.loadFromStorage(mediaId).catch((error) => {
+      logger.warn('Waveform storage load failed during prefetch:', error)
+    })
   }
 
   /**

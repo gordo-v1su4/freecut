@@ -370,7 +370,7 @@ function getNavigatorPlatform(): string {
   return navigator.platform || navigator.userAgent || 'Windows'
 }
 
-export function getHotkeyPlatform(platformValue?: string): HotkeyPlatform {
+function getHotkeyPlatform(platformValue?: string): HotkeyPlatform {
   const platform = (platformValue ?? getNavigatorPlatform()).toLowerCase()
   return platform.includes('mac') || platform.includes('iphone') || platform.includes('ipad')
     ? 'mac'
@@ -388,11 +388,11 @@ function isExplicitlyUnassignedHotkey(rawBinding: string): boolean {
   return rawBinding.trim() === ''
 }
 
-export function isHotkeyKey(value: string): value is HotkeyKey {
+function isHotkeyKey(value: string): value is HotkeyKey {
   return value in HOTKEYS
 }
 
-export function resolveHotkeyKey(value: string): HotkeyKey | null {
+function resolveHotkeyKey(value: string): HotkeyKey | null {
   if (isHotkeyKey(value)) {
     return value
   }
@@ -467,7 +467,7 @@ function resolveHotkeyImportCommand(command: HotkeyImportCommand): {
   }
 }
 
-export function normalizeHotkeyToken(token: string): string {
+function normalizeHotkeyToken(token: string): string {
   const normalized = token.trim().toLowerCase()
   if (!normalized) return ''
   return HOTKEY_TOKEN_ALIASES[normalized] ?? normalized
@@ -639,7 +639,7 @@ export function getHotkeyBindingFromEventData(eventData: HotkeyEventData): strin
   return normalizeHotkeyBinding(tokens.join('+'))
 }
 
-export function getHotkeyConflictMap(bindings: HotkeyBindingMap): Record<string, HotkeyKey[]> {
+function getHotkeyConflictMap(bindings: HotkeyBindingMap): Record<string, HotkeyKey[]> {
   const conflicts: Record<string, HotkeyKey[]> = {}
 
   for (const [key, binding] of Object.entries(bindings) as [HotkeyKey, string][]) {

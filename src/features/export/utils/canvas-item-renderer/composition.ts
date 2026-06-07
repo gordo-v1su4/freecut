@@ -398,7 +398,7 @@ export function getActiveSubCompMasks(
   return activeMasks
 }
 
-export function isSubCompFullyOccludingItem(
+function isSubCompFullyOccludingItem(
   item: TimelineItem,
   trackOrder: number,
   localFrame: number,

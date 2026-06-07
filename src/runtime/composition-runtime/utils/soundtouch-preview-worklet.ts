@@ -56,7 +56,7 @@ export function serializeAudioBufferForSoundTouchPreview(
   }
 }
 
-export function canUseSoundTouchPreviewWorklet(context: AudioContext): boolean {
+function canUseSoundTouchPreviewWorklet(context: AudioContext): boolean {
   return typeof AudioWorkletNode !== 'undefined' && typeof context.audioWorklet !== 'undefined'
 }
 

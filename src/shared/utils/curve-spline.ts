@@ -55,7 +55,7 @@ function computeMonotoneTangents(points: CurvePoint[]): number[] {
   return tangents
 }
 
-export function normalizeCurvePoints(points: CurvePoint[] | undefined): CurvePoint[] {
+function normalizeCurvePoints(points: CurvePoint[] | undefined): CurvePoint[] {
   if (!points || points.length === 0) {
     return [
       { x: 0, y: 0 },

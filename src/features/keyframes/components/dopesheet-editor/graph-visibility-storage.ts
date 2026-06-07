@@ -1,7 +1,7 @@
 import type { AnimatableProperty } from '@/types/keyframe'
 import { GRAPH_VISIBLE_PROPERTIES_STORAGE_KEY } from './dopesheet-constants'
 
-export function getDefaultGraphVisibleProperties(
+function getDefaultGraphVisibleProperties(
   properties: AnimatableProperty[],
   selectedProperty: AnimatableProperty | null | undefined,
 ): Set<AnimatableProperty> {

@@ -2,7 +2,7 @@ import type { TimelineItem, VideoItem } from '@/types/timeline'
 
 type ReverseConformMode = 'preview' | 'export'
 
-export function hasReadyReverseConform(
+function hasReadyReverseConform(
   item: TimelineItem,
 ): item is TimelineItem & { reverseConformSrc: string } {
   return (
@@ -14,7 +14,7 @@ export function hasReadyReverseConform(
   )
 }
 
-export function hasReadyReversePreviewConform(
+function hasReadyReversePreviewConform(
   item: TimelineItem,
 ): item is TimelineItem & { reverseConformPreviewSrc: string } {
   return (

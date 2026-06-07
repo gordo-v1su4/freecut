@@ -11,9 +11,9 @@ import type { AudioSilenceRange } from '@/shared/utils/audio-silence'
 
 const logger = createLogger('FillerWordRemovalPreview')
 
-export const FILLER_REMOVAL_PREVIEW_OVERLAY_ID = 'filler-word-removal-preview'
+const FILLER_REMOVAL_PREVIEW_OVERLAY_ID = 'filler-word-removal-preview'
 
-export const DEFAULT_SIMPLE_FILLER_WORDS = [
+const DEFAULT_SIMPLE_FILLER_WORDS = [
   'ah',
   'eh',
   'em',
@@ -43,13 +43,7 @@ export const SUGGESTED_EXTRA_FILLER_WORDS = [
   'well',
 ] as const
 
-export const DEFAULT_FILLER_PHRASES = [
-  'you know',
-  'i mean',
-  'kind of',
-  'sort of',
-  'you see',
-] as const
+const DEFAULT_FILLER_PHRASES = ['you know', 'i mean', 'kind of', 'sort of', 'you see'] as const
 
 export interface FillerRemovalSettings {
   fillerWords: string[]

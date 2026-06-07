@@ -29,7 +29,7 @@ function clone<T>(value: T): T {
 }
 
 /** End frame of the last item on the timeline (0 when empty). */
-export function timelineDurationFrames(
+function timelineDurationFrames(
   items: ReadonlyArray<{ from: number; durationInFrames: number }>,
 ): number {
   if (items.length === 0) return 0
@@ -48,7 +48,7 @@ interface TimelineCapture {
 }
 
 /** Read + deep-copy everything a render needs from the live stores. */
-export function captureTimeline(): TimelineCapture {
+function captureTimeline(): TimelineCapture {
   const tl = useTimelineStore.getState()
   const currentProject = useProjectStore.getState().currentProject
   const playback = usePlaybackStore.getState()

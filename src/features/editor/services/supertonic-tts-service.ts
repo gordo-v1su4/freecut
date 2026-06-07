@@ -91,7 +91,7 @@ export const SUPERTONIC_TTS_VOICE_OPTIONS = [
 
 export type SupertonicTtsVoice = (typeof SUPERTONIC_TTS_VOICE_OPTIONS)[number]['value']
 
-export const SUPERTONIC_TTS_SUPPORTED_LANGUAGE_CODES = [
+const SUPERTONIC_TTS_SUPPORTED_LANGUAGE_CODES = [
   'en',
   'ko',
   'ja',

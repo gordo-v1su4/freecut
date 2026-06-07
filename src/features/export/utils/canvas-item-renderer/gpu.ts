@@ -442,7 +442,7 @@ export async function prepareGpuMediaParticipant(
   }
 }
 
-export async function resolveGpuMediaParticipantSource(
+async function resolveGpuMediaParticipantSource(
   participant: TransitionParticipantRenderState,
   transform: ItemTransform,
   frame: number,
@@ -532,7 +532,7 @@ export async function resolveGpuMediaParticipantSource(
   }
 }
 
-export function resolveGpuTextParticipantSource(
+function resolveGpuTextParticipantSource(
   participant: TransitionParticipantRenderState<TextItem>,
   frame: number,
   rctx: ItemRenderContext,
@@ -629,11 +629,11 @@ export function resolveGpuTextParticipantSource(
   return null
 }
 
-export function isGpuGlyphAtlasTextEligible(): boolean {
+function isGpuGlyphAtlasTextEligible(): boolean {
   return true
 }
 
-export async function resolveGpuCompositionParticipantSource(
+async function resolveGpuCompositionParticipantSource(
   participant: TransitionParticipantRenderState<CompositionItem>,
   frame: number,
   rctx: ItemRenderContext,
@@ -667,7 +667,7 @@ export async function resolveGpuCompositionParticipantSource(
   return null
 }
 
-export async function renderGpuSubCompChildrenToTexture(
+async function renderGpuSubCompChildrenToTexture(
   participant: TransitionParticipantRenderState<CompositionItem>,
   frame: number,
   rctx: ItemRenderContext,
@@ -805,7 +805,7 @@ export async function renderGpuSubCompChildrenToTexture(
   }
 }
 
-export async function renderPreparedGpuSubCompLayerToTexture(
+async function renderPreparedGpuSubCompLayerToTexture(
   prepared: PreparedGpuMediaParticipant,
   rctx: ItemRenderContext,
   outputTexture: GPUTexture,
@@ -983,7 +983,7 @@ export async function renderPreparedGpuSubCompLayerToTexture(
   }
 }
 
-export function acquireGpuScratchTexture(
+function acquireGpuScratchTexture(
   rctx: ItemRenderContext,
   device: GPUDevice,
   width: number,
@@ -1003,7 +1003,7 @@ export function acquireGpuScratchTexture(
   )
 }
 
-export function releaseGpuScratchTexture(rctx: ItemRenderContext, texture: GPUTexture): void {
+function releaseGpuScratchTexture(rctx: ItemRenderContext, texture: GPUTexture): void {
   if (rctx.gpuScratchTexturePool) {
     rctx.gpuScratchTexturePool.release(texture)
     return
@@ -1035,9 +1035,7 @@ export function getGpuShapeUnsupportedReason(
   return null
 }
 
-export function areGpuSubCompMasksSupported(
-  masks: ReturnType<typeof getActiveSubCompMasks>,
-): boolean {
+function areGpuSubCompMasksSupported(masks: ReturnType<typeof getActiveSubCompMasks>): boolean {
   if (masks.length === 0) return true
   for (const mask of masks) {
     if (mask.bitmapMask) continue
@@ -1053,7 +1051,7 @@ export function areGpuSubCompMasksSupported(
   return true
 }
 
-export function renderGpuSubCompMaskToTexture(
+function renderGpuSubCompMaskToTexture(
   mask: ReturnType<typeof getActiveSubCompMasks>[number],
   rctx: ItemRenderContext,
   outputTexture: GPUTexture,
@@ -1144,7 +1142,7 @@ export function renderGpuSubCompMaskToTexture(
   })
 }
 
-export function copyGpuTextureToTexture(
+function copyGpuTextureToTexture(
   device: GPUDevice,
   source: GPUTexture,
   target: GPUTexture,
@@ -1156,7 +1154,7 @@ export function copyGpuTextureToTexture(
   device.queue.submit([commandEncoder.finish()])
 }
 
-export function getGpuTextTextureCacheKey(item: TextItem, width: number, height: number): string {
+function getGpuTextTextureCacheKey(item: TextItem, width: number, height: number): string {
   return JSON.stringify({
     width,
     height,
@@ -1180,7 +1178,7 @@ export function getGpuTextTextureCacheKey(item: TextItem, width: number, height:
   })
 }
 
-export function getGpuBitmapMaskTextureCacheKey(
+function getGpuBitmapMaskTextureCacheKey(
   mask: ReturnType<typeof getActiveSubCompMasks>[number],
 ): string {
   return JSON.stringify({
@@ -1210,7 +1208,7 @@ export function getGpuBitmapMaskTextureCacheKey(
   })
 }
 
-export function pruneGpuTextTextureCache(cache: Map<string, GpuTextTextureCacheEntry>): void {
+function pruneGpuTextTextureCache(cache: Map<string, GpuTextTextureCacheEntry>): void {
   while (getGpuTextTextureCacheBytes(cache) > GPU_TEXT_TEXTURE_CACHE_MAX_BYTES) {
     const oldestKey = cache.keys().next().value
     if (oldestKey === undefined) return
@@ -1227,9 +1225,7 @@ export function pruneGpuTextTextureCache(cache: Map<string, GpuTextTextureCacheE
   }
 }
 
-export function pruneGpuBitmapMaskTextureCache(
-  cache: Map<string, GpuBitmapMaskTextureCacheEntry>,
-): void {
+function pruneGpuBitmapMaskTextureCache(cache: Map<string, GpuBitmapMaskTextureCacheEntry>): void {
   while (getGpuBitmapMaskTextureCacheBytes(cache) > GPU_BITMAP_MASK_TEXTURE_CACHE_MAX_BYTES) {
     const oldestKey = cache.keys().next().value
     if (oldestKey === undefined) return
@@ -1239,17 +1235,17 @@ export function pruneGpuBitmapMaskTextureCache(
   }
 }
 
-export function getGpuTextureByteSize(width: number, height: number): number {
+function getGpuTextureByteSize(width: number, height: number): number {
   return width * height * 4
 }
 
-export function getGpuTextTextureCacheBytes(cache: Map<string, GpuTextTextureCacheEntry>): number {
+function getGpuTextTextureCacheBytes(cache: Map<string, GpuTextTextureCacheEntry>): number {
   let bytes = 0
   for (const entry of cache.values()) bytes += entry.bytes
   return bytes
 }
 
-export function getGpuBitmapMaskTextureCacheBytes(
+function getGpuBitmapMaskTextureCacheBytes(
   cache: Map<string, GpuBitmapMaskTextureCacheEntry>,
 ): number {
   let bytes = 0
@@ -1257,7 +1253,7 @@ export function getGpuBitmapMaskTextureCacheBytes(
   return bytes
 }
 
-export function logGpuTextTextureCacheEvent(
+function logGpuTextTextureCacheEvent(
   event: 'hit' | 'miss' | 'evict' | 'atlas-render',
   details: Record<string, unknown>,
 ): void {
@@ -1265,7 +1261,7 @@ export function logGpuTextTextureCacheEvent(
   log.debug('GPU text texture cache', { event, ...details })
 }
 
-export function resolveGpuMediaCornerPin(
+function resolveGpuMediaCornerPin(
   item: ImageItem | VideoItem | TextItem,
   mediaRect: GpuMediaRect,
 ): NonNullable<GpuMediaRenderParams['cornerPin']> | undefined {
@@ -1284,7 +1280,7 @@ export function resolveGpuMediaCornerPin(
   }
 }
 
-export function parseGpuColor(color: string): [number, number, number, number] | null {
+function parseGpuColor(color: string): [number, number, number, number] | null {
   const trimmed = color.trim()
   const hex = trimmed.match(/^#([\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i)
   if (hex) {
@@ -1315,7 +1311,7 @@ export function parseGpuColor(color: string): [number, number, number, number] |
   return [r, g, b, a]
 }
 
-export function resolveGpuShapePathVertices(
+function resolveGpuShapePathVertices(
   shape: ShapeItem,
   transform: ItemTransform,
 ): Array<[number, number]> | null {
@@ -1361,7 +1357,7 @@ export function resolveGpuShapePathVertices(
     : downsampleClosedPathVertices(flattened, MAX_GPU_SHAPE_PATH_VERTICES)
 }
 
-export function sampleCubicBezier(
+function sampleCubicBezier(
   p0: [number, number],
   p1: [number, number],
   p2: [number, number],
@@ -1379,7 +1375,7 @@ export function sampleCubicBezier(
   ]
 }
 
-export function estimateBezierLength(
+function estimateBezierLength(
   p0: [number, number],
   p1: [number, number],
   p2: [number, number],
@@ -1388,11 +1384,11 @@ export function estimateBezierLength(
   return distance2d(p0, p1) + distance2d(p1, p2) + distance2d(p2, p3)
 }
 
-export function distance2d(a: [number, number], b: [number, number]): number {
+function distance2d(a: [number, number], b: [number, number]): number {
   return Math.hypot(a[0] - b[0], a[1] - b[1])
 }
 
-export function downsampleClosedPathVertices(
+function downsampleClosedPathVertices(
   vertices: Array<[number, number]>,
   maxVertices: number,
 ): Array<[number, number]> | null {
@@ -1413,7 +1409,7 @@ export function downsampleClosedPathVertices(
   return result.length >= 3 ? result : null
 }
 
-export function sampleClosedPolylineAtDistance(
+function sampleClosedPolylineAtDistance(
   vertices: Array<[number, number]>,
   segmentLengths: number[],
   targetDistance: number,

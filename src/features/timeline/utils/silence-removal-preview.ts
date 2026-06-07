@@ -15,7 +15,7 @@ import {
 
 const logger = createLogger('SilenceRemovalPreview')
 
-export const SILENCE_REMOVAL_PREVIEW_OVERLAY_ID = 'silence-removal-preview'
+const SILENCE_REMOVAL_PREVIEW_OVERLAY_ID = 'silence-removal-preview'
 
 export interface SilenceRemovalSettings {
   thresholdDb: number

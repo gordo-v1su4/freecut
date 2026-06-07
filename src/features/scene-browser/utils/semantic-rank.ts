@@ -32,13 +32,13 @@ export const SEMANTIC_MATCH_THRESHOLD = 0.3
  * it gates combined weak-signal acceptance: Fair-Fair only counts when
  * the text side ALSO clears its Fair floor.
  */
-export const SEMANTIC_IMAGE_MATCH_THRESHOLD = 0.22
+const SEMANTIC_IMAGE_MATCH_THRESHOLD = 0.22
 
 /** "Good" tier floor for text — strong enough to accept alone. */
-export const SEMANTIC_TEXT_STRONG_THRESHOLD = 0.4
+const SEMANTIC_TEXT_STRONG_THRESHOLD = 0.4
 
 /** "Strong" tier floor for CLIP image cosines — strong enough to accept alone. */
-export const SEMANTIC_IMAGE_STRONG_THRESHOLD = 0.3
+const SEMANTIC_IMAGE_STRONG_THRESHOLD = 0.3
 
 export interface SemanticRankOptions {
   /** Minimum text cosine to retain a scene (default 0.3). */

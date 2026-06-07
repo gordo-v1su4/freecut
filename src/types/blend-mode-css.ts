@@ -36,7 +36,7 @@ export const BLEND_MODE_CSS: Record<BlendMode, React.CSSProperties['mixBlendMode
 }
 
 /** Map blend mode to Canvas2D globalCompositeOperation value */
-export const BLEND_MODE_COMPOSITE_OP: Record<BlendMode, GlobalCompositeOperation> = {
+const BLEND_MODE_COMPOSITE_OP: Record<BlendMode, GlobalCompositeOperation> = {
   normal: 'source-over',
   dissolve: 'source-over',
   darken: 'darken',

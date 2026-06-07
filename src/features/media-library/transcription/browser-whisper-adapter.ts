@@ -8,7 +8,7 @@ import {
 import type { MediaTranscriptionAdapter, MediaTranscriber } from './adapter-types'
 import type { TranscribeOptions } from './types'
 
-export const BROWSER_WHISPER_TRANSCRIPTION_ADAPTER_ID = 'browser-whisper'
+const BROWSER_WHISPER_TRANSCRIPTION_ADAPTER_ID = 'browser-whisper'
 
 export const browserWhisperTranscriptionAdapter: MediaTranscriptionAdapter = {
   id: BROWSER_WHISPER_TRANSCRIPTION_ADAPTER_ID,

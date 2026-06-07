@@ -34,7 +34,7 @@ export const DEFAULT_LANGUAGE = 'en'
 
 export const SUPPORTED_LANGUAGE_CODES: readonly string[] = SUPPORTED_LANGUAGES.map((l) => l.code)
 
-export function isSupportedLanguage(code: string | null | undefined): boolean {
+function isSupportedLanguage(code: string | null | undefined): boolean {
   return !!code && SUPPORTED_LANGUAGE_CODES.includes(code)
 }
 

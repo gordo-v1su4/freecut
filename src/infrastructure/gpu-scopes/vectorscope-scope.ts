@@ -195,7 +195,7 @@ fn fs(in: VertexOutput) -> @location(0) vec4f {
 }
 `
 
-export const VS_SIZE = 512
+const VS_SIZE = 512
 
 export class VectorscopeScope {
   private device: GPUDevice
