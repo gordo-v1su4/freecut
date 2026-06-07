@@ -21,7 +21,7 @@ export function rememberLastEditorProjectId(projectId: string): void {
   }
 }
 
-export function getLastEditorProjectId(): string | undefined {
+function getLastEditorProjectId(): string | undefined {
   try {
     return window.localStorage.getItem(LAST_EDITOR_PROJECT_ID_KEY) ?? undefined
   } catch {

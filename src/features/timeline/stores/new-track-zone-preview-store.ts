@@ -9,7 +9,7 @@ export interface NewTrackZoneGhostPreview {
   targetZone: 'video' | 'audio'
 }
 
-export const EMPTY_NEW_TRACK_ZONE_GHOST_PREVIEWS: NewTrackZoneGhostPreview[] = []
+const EMPTY_NEW_TRACK_ZONE_GHOST_PREVIEWS: NewTrackZoneGhostPreview[] = []
 
 type NewTrackZone = 'video' | 'audio'
 type NewTrackZoneGhostPreviewMap = Partial<Record<NewTrackZone, NewTrackZoneGhostPreview[]>>

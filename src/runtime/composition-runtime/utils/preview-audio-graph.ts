@@ -7,7 +7,7 @@ import {
 import type { ResolvedAudioEqSettings } from '@/types/audio'
 
 export const PREVIEW_AUDIO_GAIN_RAMP_SECONDS = 0.008
-export const PREVIEW_AUDIO_EQ_RAMP_SECONDS = 0.012
+const PREVIEW_AUDIO_EQ_RAMP_SECONDS = 0.012
 
 interface PreviewClipAudioEqStageNodes {
   band1BypassNode: GainNode

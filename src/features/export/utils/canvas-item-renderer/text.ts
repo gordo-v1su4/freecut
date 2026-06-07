@@ -149,7 +149,7 @@ export function renderSubtitleSegmentItem(
   renderTextItem(ctx, ephemeralText, transform, rctx)
 }
 
-export function findActiveSubtitleCue<T extends { startSeconds: number; endSeconds: number }>(
+function findActiveSubtitleCue<T extends { startSeconds: number; endSeconds: number }>(
   cues: readonly T[],
   seconds: number,
 ): T | null {

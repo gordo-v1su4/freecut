@@ -11,12 +11,12 @@ export const DEFAULT_PROJECT_FPS_OPTIONS: readonly ProjectFpsOption[] = [
   { label: '60 fps (Smooth)', value: 60 },
 ] as const
 
-export const LEGACY_PROJECT_FPS_OPTIONS: readonly ProjectFpsOption[] = [
+const LEGACY_PROJECT_FPS_OPTIONS: readonly ProjectFpsOption[] = [
   { label: '120 fps (Legacy)', value: 120 },
   { label: '240 fps (Legacy)', value: 240 },
 ] as const
 
-export const ALLOWED_PROJECT_FPS_VALUES = [
+const ALLOWED_PROJECT_FPS_VALUES = [
   ...DEFAULT_PROJECT_FPS_OPTIONS.map((option) => option.value),
   ...LEGACY_PROJECT_FPS_OPTIONS.map((option) => option.value),
 ] as const

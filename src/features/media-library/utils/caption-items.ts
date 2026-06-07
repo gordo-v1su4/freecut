@@ -411,7 +411,7 @@ export function aiCaptionsToSegments(
   })
 }
 
-export function isGeneratedCaptionTextItem(
+function isGeneratedCaptionTextItem(
   item: TimelineItem,
 ): item is TextItem & { captionSource: GeneratedCaptionSource } {
   return (
@@ -438,7 +438,7 @@ type ClipBoundSubtitleSegmentSource = Extract<
   { clipId: string }
 >
 
-export function isGeneratedCaptionSegmentItem(
+function isGeneratedCaptionSegmentItem(
   item: TimelineItem,
 ): item is SubtitleSegmentItem & { source: ClipBoundSubtitleSegmentSource } {
   if (item.type !== 'subtitle') return false

@@ -82,7 +82,7 @@ export function getGhostPreviewItemClasses(type: TimelineGhostPreviewType): stri
   return 'border-timeline-image bg-timeline-image/20'
 }
 
-export function isNonEmptyString(value: unknown): value is string {
+function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
 }
 

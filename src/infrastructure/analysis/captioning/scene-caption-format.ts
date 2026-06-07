@@ -1,6 +1,6 @@
 import type { SceneCaptionData } from './types'
 
-export const CANONICAL_SHOT_SIZES = [
+const CANONICAL_SHOT_SIZES = [
   'extreme wide shot',
   'wide shot',
   'medium-wide shot',

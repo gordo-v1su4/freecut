@@ -18,9 +18,9 @@ import { createLogger } from '@/shared/logging/logger'
 
 const logger = createLogger('HandlesDB')
 
-export const HANDLES_DB_NAME = 'freecut-handles-db'
-export const HANDLES_DB_VERSION = 1
-export const HANDLES_STORE = 'handles'
+const HANDLES_DB_NAME = 'freecut-handles-db'
+const HANDLES_DB_VERSION = 1
+const HANDLES_STORE = 'handles'
 
 export type HandleKind = 'workspace' | 'media' | 'project-folder'
 
@@ -105,7 +105,7 @@ export async function deleteHandle(kind: HandleKind, id: string): Promise<void> 
   await db.delete(HANDLES_STORE, compoundKey(kind, id))
 }
 
-export async function listHandlesByKind(kind: HandleKind): Promise<HandleRecord[]> {
+async function listHandlesByKind(kind: HandleKind): Promise<HandleRecord[]> {
   const db = await getHandlesDB()
   return db.getAllFromIndex(HANDLES_STORE, 'kind', kind)
 }
@@ -211,7 +211,7 @@ export async function removeKnownWorkspace(workspaceId: string): Promise<void> {
   }
 }
 
-export async function clearWorkspaceHandleRecord(): Promise<void> {
+async function clearWorkspaceHandleRecord(): Promise<void> {
   await deleteHandle('workspace', WORKSPACE_ID)
 }
 

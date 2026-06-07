@@ -85,7 +85,7 @@ function collectMediaIdsFromItems(
  * Used to backfill associations for legacy projects that reference media
  * without explicit links.
  */
-export function collectProjectTimelineMediaIds(
+function collectProjectTimelineMediaIds(
   project: Pick<Project, 'timeline'> | null | undefined,
 ): string[] {
   if (!project?.timeline) return []

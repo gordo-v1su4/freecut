@@ -3,9 +3,9 @@ import type { MediaTranscriptModel } from '@/types/storage'
 import { browserWhisperTranscriptionAdapter } from './browser-whisper-adapter'
 import type { MediaTranscriptionAdapter, MediaTranscriptionModelOption } from './adapter-types'
 
-export const DEFAULT_MEDIA_TRANSCRIPTION_ADAPTER_ID = browserWhisperTranscriptionAdapter.id
+const DEFAULT_MEDIA_TRANSCRIPTION_ADAPTER_ID = browserWhisperTranscriptionAdapter.id
 
-export const mediaTranscriptionAdapterRegistry = new ProviderRegistry<MediaTranscriptionAdapter>(
+const mediaTranscriptionAdapterRegistry = new ProviderRegistry<MediaTranscriptionAdapter>(
   [browserWhisperTranscriptionAdapter],
   DEFAULT_MEDIA_TRANSCRIPTION_ADAPTER_ID,
 )

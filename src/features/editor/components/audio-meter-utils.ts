@@ -995,7 +995,7 @@ function getWaveformNormalizationPeak(peaks: Float32Array): number {
   return resolved
 }
 
-export function estimateWaveformLevelAtTime(params: {
+function estimateWaveformLevelAtTime(params: {
   waveform: AudioMeterWaveform
   sourceTimeSeconds: number
   windowSeconds: number
@@ -1045,7 +1045,7 @@ export function estimateWaveformLevelAtTime(params: {
   return peakValue <= 0.001 ? 0 : Math.pow(peakValue, 1.05)
 }
 
-export function estimateWaveformStereoLevelAtTime(params: {
+function estimateWaveformStereoLevelAtTime(params: {
   waveform: AudioMeterWaveform
   sourceTimeSeconds: number
   windowSeconds: number
@@ -1150,7 +1150,7 @@ export function estimateAudioMeterLevel(params: {
   }
 }
 
-export function linearLevelToDb(level: number): number {
+function linearLevelToDb(level: number): number {
   if (level <= 0.000001) {
     return AUDIO_METER_MIN_DB
   }

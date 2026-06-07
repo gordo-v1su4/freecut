@@ -19,7 +19,7 @@ export interface MusicgenModelDefinition {
 
 export const DEFAULT_MUSICGEN_MODEL: MusicgenModelId = 'musicgen-small'
 
-export const MUSICGEN_MODEL_DEFINITIONS: Record<MusicgenModelId, MusicgenModelDefinition> = {
+const MUSICGEN_MODEL_DEFINITIONS: Record<MusicgenModelId, MusicgenModelDefinition> = {
   'musicgen-small': {
     id: 'musicgen-small',
     label: 'MusicGen Small',

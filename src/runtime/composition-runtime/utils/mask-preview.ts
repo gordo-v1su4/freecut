@@ -5,7 +5,7 @@ export interface RasterizedMaskLayerSettings {
   feather: number
 }
 
-export function getRasterizedMaskLayerSettings(
+function getRasterizedMaskLayerSettings(
   shape: Pick<ShapeItem, 'maskType' | 'maskFeather' | 'maskInvert'>,
 ): RasterizedMaskLayerSettings {
   const maskType = shape.maskType ?? 'clip'

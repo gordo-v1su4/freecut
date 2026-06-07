@@ -22,7 +22,7 @@ const CROP_ANIMATABLE_PROPERTIES: CropAnimatableProperty[] = [
   'cropSoftness',
 ]
 
-export function getCropSoftnessReferenceDimension(dimensions: CropSourceDimensions): number {
+function getCropSoftnessReferenceDimension(dimensions: CropSourceDimensions): number {
   return Math.max(1, Math.min(dimensions.width, dimensions.height))
 }
 
@@ -45,7 +45,7 @@ export function getCropPropertyValue(
   }
 }
 
-export function setCropPropertyValue(
+function setCropPropertyValue(
   crop: CropSettings | undefined,
   property: CropAnimatableProperty,
   value: number,

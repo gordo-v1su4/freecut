@@ -136,7 +136,7 @@ export function getPreferredContainerForCodec(codec: ClientCodec): ClientVideoCo
   return CLIENT_CODEC_TO_CONTAINER[codec]
 }
 
-export function isVideoCodecCompatibleWithContainer(
+function isVideoCodecCompatibleWithContainer(
   codec: ClientCodec,
   container: ClientVideoContainer,
 ): boolean {

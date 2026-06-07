@@ -127,12 +127,7 @@ function getTimelineSkimItemGain(
         })
       : 1
 
-  return (
-    dbToLinear(item.volume) *
-    dbToLinear(trackVolumeDb) *
-    fadeGain *
-    getMixerLiveGain(item.id)
-  )
+  return dbToLinear(item.volume) * dbToLinear(trackVolumeDb) * fadeGain * getMixerLiveGain(item.id)
 }
 
 /**
@@ -201,7 +196,10 @@ export function selectTimelineSkimSourceAtFrame(
     }
   }
 
-  const resolveLeaf = (entry: { item: AudioOrVideoItem; gain: number }): TimelineSkimSource | null => {
+  const resolveLeaf = (entry: {
+    item: AudioOrVideoItem
+    gain: number
+  }): TimelineSkimSource | null => {
     const timeSeconds = getTimelineAudioSkimTimeSeconds(
       entry.item,
       frame,
@@ -396,7 +394,10 @@ export function getTimelineAudioBufferPeak({
 }): { left: number; right: number } {
   const sampleRate = buffer.sampleRate
   const startFrame = Math.max(0, Math.floor((timeSeconds - sliceStartTimeSeconds) * sampleRate))
-  const endFrame = Math.min(buffer.length, Math.max(startFrame + 1, startFrame + Math.ceil(windowSeconds * sampleRate)))
+  const endFrame = Math.min(
+    buffer.length,
+    Math.max(startFrame + 1, startFrame + Math.ceil(windowSeconds * sampleRate)),
+  )
   if (startFrame >= endFrame) return { left: 0, right: 0 }
 
   const leftChannel = buffer.getChannelData(0)
@@ -412,7 +413,7 @@ export function getTimelineAudioBufferPeak({
   return { left: leftPeak, right: rightPeak }
 }
 
-export function createTimelineAudioBufferSkimPreview(
+function createTimelineAudioBufferSkimPreview(
   options: {
     grainDurationSeconds?: number
     fadeSeconds?: number

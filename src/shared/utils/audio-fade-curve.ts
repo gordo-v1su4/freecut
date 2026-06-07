@@ -1,5 +1,5 @@
-export const AUDIO_FADE_CURVE_MIN = -1
-export const AUDIO_FADE_CURVE_MAX = 1
+const AUDIO_FADE_CURVE_MIN = -1
+const AUDIO_FADE_CURVE_MAX = 1
 export const AUDIO_FADE_CURVE_X_MIN = 0.04
 export const AUDIO_FADE_CURVE_X_MAX = 0.96
 export const AUDIO_FADE_CURVE_X_DEFAULT = 0.52

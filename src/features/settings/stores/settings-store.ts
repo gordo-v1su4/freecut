@@ -66,7 +66,7 @@ function normalizeCaptionSearchMode(value: unknown): CaptionSearchMode {
   return value === 'semantic' ? 'semantic' : 'keyword'
 }
 
-export const DEFAULT_CAPTION_STYLE_PRESET_ID = CAPTION_STYLE_PRESETS[0]?.id ?? 'netflix'
+const DEFAULT_CAPTION_STYLE_PRESET_ID = CAPTION_STYLE_PRESETS[0]?.id ?? 'netflix'
 
 function normalizeCaptionStylePresetId(value: unknown): string {
   return typeof value === 'string' && CAPTION_STYLE_PRESETS.some((preset) => preset.id === value)

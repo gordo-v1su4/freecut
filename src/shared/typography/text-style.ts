@@ -13,7 +13,7 @@ import { FONT_WEIGHT_MAP } from '@/shared/typography/fonts'
 import { getTextItemSpans } from '@/shared/utils/text-item-spans'
 
 /** Authoritative fallbacks for unspecified text-item properties. */
-export const TEXT_DEFAULTS = {
+const TEXT_DEFAULTS = {
   fontSize: 60,
   fontFamily: 'Inter',
   fontWeight: 'normal',
@@ -88,7 +88,7 @@ export type TextStyleInput = Pick<
  * `sans-serif` fallback matches the DOM preview so metrics stay consistent if
  * the primary family is still loading.
  */
-export function buildCssFont(
+function buildCssFont(
   fontStyle: string,
   fontWeight: number,
   fontSize: number,

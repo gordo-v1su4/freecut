@@ -194,7 +194,7 @@ function buildEqBandClamps(band: EqBandSpec): FieldClamp[] {
   return clamps
 }
 
-export const OPTIONAL_FIELD_CLAMPS: ReadonlyArray<FieldClamp> = [
+const OPTIONAL_FIELD_CLAMPS: ReadonlyArray<FieldClamp> = [
   // Frame fields
   { key: 'trimStart', clamp: (v) => roundFrame(v as number) },
   { key: 'trimEnd', clamp: (v) => roundFrame(v as number) },

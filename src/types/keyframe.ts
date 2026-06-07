@@ -251,7 +251,7 @@ export function isEffectAnimatableProperty(
   return parseEffectAnimatableProperty(property) !== null
 }
 
-export function getAnimatablePropertyLabel(property: AnimatableProperty): string {
+function getAnimatablePropertyLabel(property: AnimatableProperty): string {
   if (isBuiltInAnimatableProperty(property)) {
     return BUILT_IN_PROPERTY_LABELS[property]
   }

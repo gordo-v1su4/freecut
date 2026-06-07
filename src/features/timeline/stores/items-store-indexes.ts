@@ -20,7 +20,7 @@ function areItemArraysEqual(a: TimelineItem[] | undefined, b: TimelineItem[]): b
   return true
 }
 
-export function buildItemsByTrackId(
+function buildItemsByTrackId(
   items: TimelineItem[],
   previous: Record<string, TimelineItem[]>,
 ): Record<string, TimelineItem[]> {
@@ -41,7 +41,7 @@ export function buildItemsByTrackId(
   return next
 }
 
-export function buildItemsByLinkedGroupId(
+function buildItemsByLinkedGroupId(
   items: TimelineItem[],
   previous: Record<string, TimelineItem[]>,
 ): Record<string, TimelineItem[]> {
@@ -99,7 +99,7 @@ export function selectReplaceableCaptionClipIds(state: { items: TimelineItem[] }
   return captionCacheSet
 }
 
-export function buildReplaceableCaptionClipIds(items: TimelineItem[]): Set<string> {
+function buildReplaceableCaptionClipIds(items: TimelineItem[]): Set<string> {
   const ids = new Set<string>()
   const clipsByMediaId: Record<string, Array<AudioItem | VideoItem>> = {}
 
@@ -179,7 +179,7 @@ function isLegacyLinkedPair(anchor: TimelineItem, candidate: TimelineItem): bool
   return anchor.from === candidate.from && anchor.durationInFrames === candidate.durationInFrames
 }
 
-export function buildLinkedItemsByItemId(
+function buildLinkedItemsByItemId(
   items: TimelineItem[],
   itemsByLinkedGroupId: Record<string, TimelineItem[]>,
   previous: Record<string, TimelineItem[]>,
@@ -231,7 +231,7 @@ export function buildLinkedItemsByItemId(
   return next
 }
 
-export function buildItemById(
+function buildItemById(
   items: TimelineItem[],
   previous: Record<string, TimelineItem>,
 ): Record<string, TimelineItem> {
@@ -257,7 +257,7 @@ export function buildMediaDependencyKey(mediaDependencyIds: string[]): string {
   return mediaDependencyIds.join('|')
 }
 
-export function computeMaxItemEndFrame(items: TimelineItem[]): number {
+function computeMaxItemEndFrame(items: TimelineItem[]): number {
   let max = 0
   for (const item of items) {
     const end = item.from + item.durationInFrames

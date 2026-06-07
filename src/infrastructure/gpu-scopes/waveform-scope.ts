@@ -278,8 +278,8 @@ fn fs(in: VertexOutput) -> @location(0) vec4f {
 }
 `
 
-export const OUT_W = 1024
-export const OUT_H = 512
+const OUT_W = 1024
+const OUT_H = 512
 
 export class WaveformScope {
   private device: GPUDevice
