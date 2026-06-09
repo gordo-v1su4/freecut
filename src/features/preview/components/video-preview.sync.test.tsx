@@ -639,6 +639,39 @@ async function renderAfterInitialSeek() {
   return rendered
 }
 
+async function waitForRendererFrame(
+  renderer: (typeof rendererMockState.instances)[number],
+  expectedFrame: number,
+  scrubCanvas: HTMLCanvasElement,
+  options: { expectedDisplayedFrame?: number; expectVisible?: boolean } = {},
+) {
+  await waitFor(() => {
+    expect(renderer.renderFrame).toHaveBeenCalledWith(expectedFrame)
+    if (options.expectedDisplayedFrame !== undefined) {
+      expect(getDisplayedFrame()).toBe(options.expectedDisplayedFrame)
+    }
+    if (options.expectVisible !== false) {
+      expect(scrubCanvas.style.visibility).toBe('visible')
+    }
+  })
+}
+
+async function setScrubFrameAndWaitVisible(
+  scrubCanvas: HTMLCanvasElement,
+  frame: number,
+  beforeSetFrame?: () => void,
+) {
+  act(() => {
+    beforeSetFrame?.()
+    usePlaybackStore.getState().setScrubFrame(frame)
+  })
+
+  await waitFor(() => {
+    expect(getDisplayedFrame()).toBe(frame)
+    expect(scrubCanvas.style.visibility).toBe('visible')
+  })
+}
+
 async function renderReadySingleRendererPreview(
   expectedFrame: number,
   options: { expectedDisplayedFrame?: number } = {},
@@ -652,13 +685,7 @@ async function renderReadySingleRendererPreview(
     return rendererMockState.instances[0]!
   })
 
-  await waitFor(() => {
-    expect(renderer.renderFrame).toHaveBeenCalledWith(expectedFrame)
-    if (options.expectedDisplayedFrame !== undefined) {
-      expect(getDisplayedFrame()).toBe(options.expectedDisplayedFrame)
-    }
-    expect(scrubCanvas.style.visibility).toBe('visible')
-  })
+  await waitForRendererFrame(renderer, expectedFrame, scrubCanvas, options)
 
   return { container, renderer, scrubCanvas }
 }
@@ -674,13 +701,7 @@ async function waitForSingleRendererFrame(
     return rendererMockState.instances[0]!
   })
 
-  await waitFor(() => {
-    expect(renderer.renderFrame).toHaveBeenCalledWith(expectedFrame)
-    if (options.expectedDisplayedFrame !== undefined) {
-      expect(getDisplayedFrame()).toBe(options.expectedDisplayedFrame)
-    }
-    expect(scrubCanvas.style.visibility).toBe('visible')
-  })
+  await waitForRendererFrame(renderer, expectedFrame, scrubCanvas, options)
 
   return renderer
 }
@@ -695,15 +716,7 @@ async function waitForLatestRendererFrame(
     return rendererMockState.instances[rendererMockState.instances.length - 1]!
   })
 
-  await waitFor(() => {
-    expect(renderer.renderFrame).toHaveBeenCalledWith(expectedFrame)
-    if (options.expectedDisplayedFrame !== undefined) {
-      expect(getDisplayedFrame()).toBe(options.expectedDisplayedFrame)
-    }
-    if (options.expectVisible !== false) {
-      expect(scrubCanvas.style.visibility).toBe('visible')
-    }
-  })
+  await waitForRendererFrame(renderer, expectedFrame, scrubCanvas, options)
 
   return renderer
 }
@@ -1158,17 +1171,7 @@ describe('VideoPreview sync behavior', () => {
       } as unknown as TimelineItem,
     ])
 
-    render(
-      <VideoPreview
-        project={{ width: 1920, height: 1080, backgroundColor: '#000000' }}
-        containerSize={{ width: 1280, height: 720 }}
-      />,
-    )
-
-    await waitFor(() => {
-      expect(seekToMock).toHaveBeenCalled()
-    })
-    seekToMock.mockClear()
+    await renderAfterInitialSeek()
 
     act(() => {
       usePlaybackStore.getState().setScrubFrame(24)
@@ -1977,14 +1980,7 @@ describe('VideoPreview sync behavior', () => {
       expect(seekToMock).toHaveBeenCalled()
     })
 
-    act(() => {
-      usePlaybackStore.getState().setScrubFrame(48)
-    })
-
-    await waitFor(() => {
-      expect(getDisplayedFrame()).toBe(48)
-      expect(scrubCanvas.style.visibility).toBe('visible')
-    })
+    await setScrubFrameAndWaitVisible(scrubCanvas, 48)
 
     act(() => {
       usePlaybackStore.getState().setPreviewFrame(null)
@@ -2013,14 +2009,7 @@ describe('VideoPreview sync behavior', () => {
   it('does not enter scrub mode or repaint when clicking the already displayed settled frame', async () => {
     const { scrubCanvas, renderer } = await renderPreviewWithReadyRenderer()
 
-    act(() => {
-      usePlaybackStore.getState().setScrubFrame(48)
-    })
-
-    await waitFor(() => {
-      expect(getDisplayedFrame()).toBe(48)
-      expect(scrubCanvas.style.visibility).toBe('visible')
-    })
+    await setScrubFrameAndWaitVisible(scrubCanvas, 48)
 
     act(() => {
       usePlaybackStore.getState().setPreviewFrame(null)
@@ -2337,14 +2326,8 @@ describe('VideoPreview sync behavior', () => {
   it('keeps fast-scrub overlay visible until Player confirms the exact scrub release frame', async () => {
     const { scrubCanvas } = await renderPreviewAfterInitialSeek()
 
-    act(() => {
+    await setScrubFrameAndWaitVisible(scrubCanvas, 48, () => {
       deferPlayerSeekCompletion = true
-      usePlaybackStore.getState().setScrubFrame(48)
-    })
-
-    await waitFor(() => {
-      expect(getDisplayedFrame()).toBe(48)
-      expect(scrubCanvas.style.visibility).toBe('visible')
     })
     act(() => {
       seekToMock.mockClear()
@@ -2503,17 +2486,7 @@ describe('VideoPreview sync behavior', () => {
     setSingleVideoTrack()
     useItemsStore.getState().setItems(createTransitionClipPair())
 
-    render(
-      <VideoPreview
-        project={{ width: 1920, height: 1080, backgroundColor: '#000000' }}
-        containerSize={{ width: 1280, height: 720 }}
-      />,
-    )
-
-    await waitFor(() => {
-      expect(seekToMock).toHaveBeenCalled()
-    })
-    seekToMock.mockClear()
+    await renderAfterInitialSeek()
 
     act(() => {
       usePlaybackStore.getState().setScrubFrame(35)
@@ -2768,17 +2741,7 @@ describe('VideoPreview sync behavior', () => {
       ],
     })
 
-    render(
-      <VideoPreview
-        project={{ width: 1920, height: 1080, backgroundColor: '#000000' }}
-        containerSize={{ width: 1280, height: 720 }}
-      />,
-    )
-
-    await waitFor(() => {
-      expect(seekToMock).toHaveBeenCalled()
-    })
-    seekToMock.mockClear()
+    await renderAfterInitialSeek()
 
     act(() => {
       usePlaybackStore.getState().setCurrentFrame(48)

@@ -6,6 +6,7 @@ import {
   makeTimelineAudioItem,
   makeTimelineTrack as makeTrack,
   makeTimelineVideoItem,
+  resetTimelineCompositionTestState,
   setDefaultRootTimelineTracks,
 } from '@/features/timeline/test-helpers'
 import { useItemsStore } from '../items-store'
@@ -35,11 +36,7 @@ function makeAudioItem(overrides: Partial<AudioItem> = {}): AudioItem {
 
 describe('composition-actions split wrappers', () => {
   beforeEach(() => {
-    useItemsStore.getState().setTracks([])
-    useItemsStore.getState().setItems([])
-    useTransitionsStore.getState().setTransitions([])
-    useKeyframesStore.getState().setKeyframes([])
-    useCompositionsStore.getState().setCompositions([])
+    resetTimelineCompositionTestState()
     useTimelineCommandStore.getState().clearHistory()
     useCompositionNavigationStore.getState().resetToRoot()
     useSelectionStore.getState().clearSelection()

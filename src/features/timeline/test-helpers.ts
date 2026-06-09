@@ -1,6 +1,9 @@
 import type { AudioItem, TimelineTrack, VideoItem } from '@/types/timeline'
 import { useItemsStore } from './stores/items-store'
 import { useTimelineSettingsStore } from './stores/timeline-settings-store'
+import { useTransitionsStore } from './stores/transitions-store'
+import { useKeyframesStore } from './stores/keyframes-store'
+import { useCompositionsStore } from './stores/compositions-store'
 
 type TimelineTrackOverrides = Partial<TimelineTrack> & Pick<TimelineTrack, 'id' | 'name' | 'order'>
 
@@ -62,8 +65,25 @@ export function setDefaultRootTimelineTracks() {
     ])
 }
 
+export function makeTwoVideoTwoAudioTimelineTracks(height = 80): TimelineTrack[] {
+  return [
+    makeTimelineTrack({ id: 'v1', name: 'V1', kind: 'video', order: 0, height }),
+    makeTimelineTrack({ id: 'v2', name: 'V2', kind: 'video', order: 1, height }),
+    makeTimelineTrack({ id: 'a1', name: 'A1', kind: 'audio', order: 2, height }),
+    makeTimelineTrack({ id: 'a2', name: 'A2', kind: 'audio', order: 3, height }),
+  ]
+}
+
 export function resetTimelineItemsTestState() {
   useTimelineSettingsStore.setState({ fps: 30 })
   useItemsStore.getState().setItems([])
   useItemsStore.getState().setTracks([])
+}
+
+export function resetTimelineCompositionTestState() {
+  useItemsStore.getState().setTracks([])
+  useItemsStore.getState().setItems([])
+  useTransitionsStore.getState().setTransitions([])
+  useKeyframesStore.getState().setKeyframes([])
+  useCompositionsStore.getState().setCompositions([])
 }

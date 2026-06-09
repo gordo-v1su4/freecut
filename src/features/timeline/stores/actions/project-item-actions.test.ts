@@ -3,11 +3,10 @@ import {
   makeTimelineAudioItem as makeAudioItem,
   makeTimelineTrack as makeTrack,
   makeTimelineVideoItem as makeVideoItem,
+  resetTimelineCompositionTestState,
   setDefaultRootTimelineTracks,
 } from '@/features/timeline/test-helpers'
 import { useItemsStore } from '../items-store'
-import { useTransitionsStore } from '../transitions-store'
-import { useKeyframesStore } from '../keyframes-store'
 import { useTimelineCommandStore } from '../timeline-command-store'
 import { useTimelineSettingsStore } from '../timeline-settings-store'
 import { useCompositionsStore } from '../compositions-store'
@@ -20,11 +19,7 @@ import {
 
 describe('project-item-actions', () => {
   beforeEach(() => {
-    useItemsStore.getState().setTracks([])
-    useItemsStore.getState().setItems([])
-    useTransitionsStore.getState().setTransitions([])
-    useKeyframesStore.getState().setKeyframes([])
-    useCompositionsStore.getState().setCompositions([])
+    resetTimelineCompositionTestState()
     useTimelineCommandStore.getState().clearHistory()
     useCompositionNavigationStore.getState().resetToRoot()
     useTimelineSettingsStore.getState().setFps(30)

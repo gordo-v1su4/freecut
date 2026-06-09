@@ -109,18 +109,19 @@ function createCoordParams(): CoordinateParams {
 }
 
 function renderMaskEditorOverlay(itemTransform: Transform = FULL_CANVAS_TRANSFORM) {
-  const { container } = render(
+  const rendered = render(
     <MaskEditorOverlay
       coordParams={createCoordParams()}
       playerSize={PLAYER_SIZE}
       itemTransform={itemTransform}
     />,
   )
+  const { container } = rendered
   const canvas = container.querySelector('canvas')
   expect(canvas).toBeTruthy()
   vi.spyOn(canvas!, 'getBoundingClientRect').mockReturnValue(createRect())
 
-  return { canvas: canvas!, container }
+  return { ...rendered, canvas: canvas! }
 }
 
 function dragEditedPathPoint(itemTransform: Transform): ShapeItem | undefined {
@@ -155,6 +156,15 @@ async function drawClosedRectanglePath() {
   })
 
   return rendered
+}
+
+function expectShapeOnActiveTrackAtPlayhead(
+  shape: { trackId?: string; from?: number } | undefined,
+  trackId: string | undefined,
+) {
+  expect(shape?.trackId).toBe(trackId)
+  expect(shape?.from).toBe(120)
+  expect(useSelectionStore.getState().activeTrackId).toBe(trackId ?? null)
 }
 
 describe('MaskEditorOverlay shape pen flow', () => {
@@ -328,9 +338,7 @@ describe('MaskEditorOverlay shape pen flow', () => {
     expect(newTrack).toBeDefined()
     expect(newTrack?.name).toBe('Track 3')
     expect(newTrack?.order).toBeLessThan(0)
-    expect(shape?.trackId).toBe(newTrack?.id)
-    expect(shape?.from).toBe(120)
-    expect(useSelectionStore.getState().activeTrackId).toBe(newTrack?.id ?? null)
+    expectShapeOnActiveTrackAtPlayhead(shape, newTrack?.id)
   })
 
   it('creates a video track when pen paths spill into a new classic track lane', async () => {
@@ -389,9 +397,7 @@ describe('MaskEditorOverlay shape pen flow', () => {
     expect(newTrack?.name).toBe('V2')
     expect(newTrack?.order).toBeLessThan(0)
     expect(shape?.isMask).toBe(false)
-    expect(shape?.trackId).toBe(newTrack?.id)
-    expect(shape?.from).toBe(120)
-    expect(useSelectionStore.getState().activeTrackId).toBe(newTrack?.id ?? null)
+    expectShapeOnActiveTrackAtPlayhead(shape, newTrack?.id)
   })
 
   it('creates a new track to keep the mask at the playhead when all tracks are occupied', async () => {
@@ -457,9 +463,7 @@ describe('MaskEditorOverlay shape pen flow', () => {
 
     expect(newTrack).toBeDefined()
     expect(newTrack?.name).toBe('Track 3')
-    expect(shape?.trackId).toBe(newTrack?.id)
-    expect(shape?.from).toBe(120)
-    expect(useSelectionStore.getState().activeTrackId).toBe(newTrack?.id ?? null)
+    expectShapeOnActiveTrackAtPlayhead(shape, newTrack?.id)
   })
 
   it('closes and commits the path when the closing anchor is dragged to shape the bezier', async () => {
@@ -855,32 +859,14 @@ describe('MaskEditorOverlay edit mode', () => {
   it('moves the whole path when dragging inside the shape body', () => {
     seedEditablePath()
 
-    const coordParams: CoordinateParams = {
-      containerRect: createRect(),
-      playerSize: PLAYER_SIZE,
-      projectSize: PROJECT_SIZE,
-      zoom: 1,
-    }
-
-    const { container } = render(
-      <MaskEditorOverlay
-        coordParams={coordParams}
-        playerSize={PLAYER_SIZE}
-        itemTransform={PATH_ITEM_TRANSFORM}
-      />,
-    )
-
-    const canvas = container.querySelector('canvas')
-    expect(canvas).toBeTruthy()
-
-    vi.spyOn(canvas!, 'getBoundingClientRect').mockReturnValue(createRect())
+    const { canvas } = renderMaskEditorOverlay(PATH_ITEM_TRANSFORM)
 
     act(() => {
       useMaskEditorStore.getState().selectVertices([0, 1, 2, 3], 3)
     })
 
-    fireEvent.pointerDown(canvas!, { clientX: 100, clientY: 60, pointerId: 1 })
-    fireEvent.pointerMove(canvas!, { clientX: 120, clientY: 75, pointerId: 1 })
+    fireEvent.pointerDown(canvas, { clientX: 100, clientY: 60, pointerId: 1 })
+    fireEvent.pointerMove(canvas, { clientX: 120, clientY: 75, pointerId: 1 })
 
     const itemDuringDrag = useItemsStore.getState().items.find((item) => item.id === 'path-1')
     expect(itemDuringDrag?.transform?.x).toBe(0)
@@ -890,7 +876,7 @@ describe('MaskEditorOverlay edit mode', () => {
     expect(useGizmoStore.getState().previewTransform?.x).toBeCloseTo(20)
     expect(useGizmoStore.getState().previewTransform?.y).toBeCloseTo(15)
 
-    fireEvent.pointerUp(canvas!, { clientX: 120, clientY: 75, pointerId: 1 })
+    fireEvent.pointerUp(canvas, { clientX: 120, clientY: 75, pointerId: 1 })
 
     const movedItem = useItemsStore.getState().items.find((item) => item.id === 'path-1') as
       | ShapeItem
@@ -1210,32 +1196,14 @@ describe('MaskEditorOverlay edit mode', () => {
   it('keeps the current multi-selection while dragging a selected point', () => {
     seedEditablePath()
 
-    const coordParams: CoordinateParams = {
-      containerRect: createRect(),
-      playerSize: PLAYER_SIZE,
-      projectSize: PROJECT_SIZE,
-      zoom: 1,
-    }
-
-    const { container } = render(
-      <MaskEditorOverlay
-        coordParams={coordParams}
-        playerSize={PLAYER_SIZE}
-        itemTransform={PATH_ITEM_TRANSFORM}
-      />,
-    )
-
-    const canvas = container.querySelector('canvas')
-    expect(canvas).toBeTruthy()
-
-    vi.spyOn(canvas!, 'getBoundingClientRect').mockReturnValue(createRect())
+    const { canvas } = renderMaskEditorOverlay(PATH_ITEM_TRANSFORM)
 
     act(() => {
       useMaskEditorStore.getState().selectVertices([0, 1, 2, 3], 1)
     })
 
-    fireEvent.pointerDown(canvas!, { clientX: 150, clientY: 30, pointerId: 1 })
-    fireEvent.pointerMove(canvas!, { clientX: 165, clientY: 30, pointerId: 1 })
+    fireEvent.pointerDown(canvas, { clientX: 150, clientY: 30, pointerId: 1 })
+    fireEvent.pointerMove(canvas, { clientX: 165, clientY: 30, pointerId: 1 })
 
     expect(useMaskEditorStore.getState().selectedVertexIndices).toEqual([0, 1, 2, 3])
     expect(useMaskEditorStore.getState().selectedVertexIndex).toBe(1)
@@ -1294,29 +1262,11 @@ describe('MaskEditorOverlay edit mode', () => {
     try {
       seedEditablePath()
 
-      const coordParams: CoordinateParams = {
-        containerRect: createRect(),
-        playerSize: PLAYER_SIZE,
-        projectSize: PROJECT_SIZE,
-        zoom: 1,
-      }
+      const { canvas, rerender } = renderMaskEditorOverlay(PATH_ITEM_TRANSFORM)
 
-      const { container, rerender } = render(
-        <MaskEditorOverlay
-          coordParams={coordParams}
-          playerSize={PLAYER_SIZE}
-          itemTransform={PATH_ITEM_TRANSFORM}
-        />,
-      )
-
-      const canvas = container.querySelector('canvas')
-      expect(canvas).toBeTruthy()
-
-      vi.spyOn(canvas!, 'getBoundingClientRect').mockReturnValue(createRect())
-
-      fireEvent.pointerDown(canvas!, { clientX: 150, clientY: 30, pointerId: 1 })
-      fireEvent.pointerMove(canvas!, { clientX: 170, clientY: 30, pointerId: 1 })
-      fireEvent.pointerUp(canvas!, { clientX: 170, clientY: 30, pointerId: 1 })
+      fireEvent.pointerDown(canvas, { clientX: 150, clientY: 30, pointerId: 1 })
+      fireEvent.pointerMove(canvas, { clientX: 170, clientY: 30, pointerId: 1 })
+      fireEvent.pointerUp(canvas, { clientX: 170, clientY: 30, pointerId: 1 })
 
       const committedItem = useItemsStore.getState().items.find((item) => item.id === 'path-1')
       const committedTransform: Transform = {
@@ -1333,7 +1283,7 @@ describe('MaskEditorOverlay edit mode', () => {
 
       rerender(
         <MaskEditorOverlay
-          coordParams={coordParams}
+          coordParams={createCoordParams()}
           playerSize={PLAYER_SIZE}
           itemTransform={committedTransform}
         />,

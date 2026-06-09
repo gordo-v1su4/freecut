@@ -34,16 +34,6 @@ const loggerMocks = vi.hoisted(() => ({
   setLevel: vi.fn(),
 }))
 
-const backgroundMediaWorkMocks = vi.hoisted(() => ({
-  enqueueBackgroundMediaWork: vi.fn((run: () => unknown) => {
-    const result = run()
-    if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
-      void (result as PromiseLike<unknown>)
-    }
-    return vi.fn()
-  }),
-}))
-
 vi.mock('../services/media-library-service', () => ({
   mediaLibraryService: mediaLibraryServiceMocks,
 }))
@@ -58,7 +48,11 @@ vi.mock('../services/proxy-service', () => ({
   proxyService: proxyServiceMocks,
 }))
 
-vi.mock('../services/background-media-work', () => backgroundMediaWorkMocks)
+vi.mock('../services/background-media-work', async () => {
+  const { createBackgroundMediaWorkMocks } =
+    await import('../test-utils/background-media-work-test-mocks')
+  return createBackgroundMediaWorkMocks(vi)
+})
 
 vi.mock('../utils/validation', () => ({
   getMimeType: vi.fn((file: File) => file.type || 'application/octet-stream'),

@@ -3,22 +3,17 @@ import type { AudioItem } from '@/types/timeline'
 import {
   makeTimelineTrack as makeTrack,
   makeTimelineVideoItem as makeVideoItem,
+  resetTimelineCompositionTestState,
   setDefaultRootTimelineTracks,
 } from '@/features/timeline/test-helpers'
 import { useItemsStore } from './items-store'
-import { useTransitionsStore } from './transitions-store'
-import { useKeyframesStore } from './keyframes-store'
 import { useCompositionsStore } from './compositions-store'
 import { useCompositionNavigationStore } from './composition-navigation-store'
 import { usePlaybackStore } from '@/shared/state/playback'
 
 describe('composition-navigation-store', () => {
   beforeEach(() => {
-    useItemsStore.getState().setTracks([])
-    useItemsStore.getState().setItems([])
-    useTransitionsStore.getState().setTransitions([])
-    useKeyframesStore.getState().setKeyframes([])
-    useCompositionsStore.getState().setCompositions([])
+    resetTimelineCompositionTestState()
     useCompositionNavigationStore.getState().resetToRoot()
     usePlaybackStore.getState().setCurrentFrame(0)
   })
