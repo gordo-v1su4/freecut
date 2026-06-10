@@ -1,7 +1,7 @@
 import type { Transition } from '@/types/transition'
 import type { AudioItem, CompositionItem, TimelineItem, VideoItem } from '@/types/timeline'
 
-export interface ManagedLinkedAudioTransitionPair {
+interface ManagedLinkedAudioTransitionPair {
   leftAudio: AudioItem
   rightAudio: AudioItem
 }
@@ -100,22 +100,7 @@ export function getLinkedAudioCompanion(
   )
 }
 
-export function getLinkedVideoCompanion(
-  items: TimelineItem[],
-  anchor: TimelineItem,
-): VideoItem | CompositionItem | null {
-  if (!isCompositionAudioItem(anchor) && anchor.type !== 'audio') return null
-  if (isCompositionAudioItem(anchor)) {
-    return getLinkedCompositionVisualCompanion(items, anchor)
-  }
-  return (
-    (items.find((candidate) => isLinkedCompanion(anchor, candidate, 'video')) as
-      | VideoItem
-      | undefined) ?? null
-  )
-}
-
-export function isSynchronizedLinkedAudio(
+function isSynchronizedLinkedAudio(
   videoClip: VideoItem | CompositionItem,
   audioClip: AudioItem,
 ): boolean {
@@ -124,7 +109,7 @@ export function isSynchronizedLinkedAudio(
   )
 }
 
-export function getManagedLinkedAudioTransitionPair(
+function getManagedLinkedAudioTransitionPair(
   items: TimelineItem[],
   leftClip: TimelineItem,
   rightClip: TimelineItem,
@@ -180,10 +165,6 @@ export function getManagedLinkedAudioTransitions(
 
 export function hasLinkedAudioCompanion(items: TimelineItem[], anchor: TimelineItem): boolean {
   return getLinkedAudioCompanion(items, anchor) !== null
-}
-
-export function hasLinkedVideoCompanion(items: TimelineItem[], anchor: TimelineItem): boolean {
-  return getLinkedVideoCompanion(items, anchor) !== null
 }
 
 export function getLinkedVideoIdsWithAudio(items: TimelineItem[]): Set<string> {

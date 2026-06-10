@@ -12,7 +12,7 @@ import type { ItemEffect } from '@/types/effects'
 import { isGifUrl, isWebpUrl } from '@/shared/utils/media-utils'
 import { type SubCompRenderData } from './canvas-item-renderer'
 
-export function hasEnabledGpuEffect(effects: TimelineItem['effects']): boolean {
+function hasEnabledGpuEffect(effects: TimelineItem['effects']): boolean {
   return effects?.some((e) => e.enabled && e.effect.type === 'gpu-effect') ?? false
 }
 
