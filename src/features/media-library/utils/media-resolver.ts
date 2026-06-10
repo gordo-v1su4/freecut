@@ -34,9 +34,8 @@ export async function resolveMediaUrl(mediaId: string): Promise<string> {
 
   // Create the request promise
   const requestPromise = (async () => {
-    const { mediaLibraryService, FileAccessError } = await import(
-      '@/features/media-library/services/media-library-service'
-    )
+    const { mediaLibraryService, FileAccessError } =
+      await import('@/features/media-library/services/media-library-service')
 
     try {
       // Get media metadata from library
