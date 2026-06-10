@@ -250,7 +250,13 @@ describe('waveform prefetch filtering', () => {
       })
       await flushPrefetchTimers()
 
-      expect(waveformCacheMocks.prefetch).toHaveBeenCalledWith(item.mediaId, 'blob:prefetch')
+      // The fixed-pass flush can finish before the waveform-cache dynamic
+      // import lands when the worker is CPU-starved (parallel full-suite
+      // runs). waitFor yields on real timers between checks — and advances
+      // the fake timers each pass — so the import gets event-loop time.
+      await vi.waitFor(() =>
+        expect(waveformCacheMocks.prefetch).toHaveBeenCalledWith(item.mediaId, 'blob:prefetch'),
+      )
     } finally {
       vi.useRealTimers()
     }
