@@ -12,6 +12,4 @@ export {
   saveCaptionImageEmbeddings,
   getCaptionImageEmbeddings,
   getTranscript,
-  getScenes,
 } from '@/infrastructure/storage'
-export type { SavedScenes } from '@/infrastructure/storage'

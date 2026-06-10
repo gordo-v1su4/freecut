@@ -31,12 +31,10 @@ export {
 // Thumbnails
 export {
   saveThumbnail,
-  getThumbnail,
   getThumbnailByMediaId,
   deleteThumbnailsByMediaId,
   saveProjectThumbnail,
   loadProjectThumbnail,
-  deleteProjectThumbnail,
 } from '@/infrastructure/storage/workspace-fs/thumbnails'
 
 // Content-addressable blob references
@@ -62,7 +60,6 @@ export {
   getWaveformRecord,
   getWaveformMeta,
   getWaveformBins,
-  saveWaveformRecord,
   saveWaveformMeta,
   saveWaveformBin,
   deleteWaveform,
@@ -93,12 +90,10 @@ export {
 
 // AI captions (vision-language-model frame descriptions)
 export {
-  getCaptions,
   getCaptionsByContentHash,
   saveCaptions,
   adoptCaptionsFromCache,
   deleteCaptions,
-  deleteSharedCaptionsIfUnreferenced,
   saveCaptionThumbnail,
   getCaptionThumbnailBlob,
   probeCaptionThumbnail,
@@ -133,26 +128,15 @@ export { proxyDir, proxyFilePath, proxyMetaPath } from '@/infrastructure/storage
 export {
   getEmbeddedSubtitleSidecar,
   saveEmbeddedSubtitleSidecar,
-  deleteEmbeddedSubtitleSidecar,
   type EmbeddedSubtitleSidecar,
 } from '@/infrastructure/storage/workspace-fs/embedded-subtitles'
 
 // Scene-detection results
-export {
-  getScenes,
-  saveScenes,
-  deleteScenes,
-  type SavedScenes,
-} from '@/infrastructure/storage/workspace-fs/scenes'
+export { deleteScenes } from '@/infrastructure/storage/workspace-fs/scenes'
 
 // Generic AI-output envelope (use these directly for new AI services)
 export {
   readAiOutput,
-  writeAiOutput,
-  deleteAiOutput,
-  listAiOutputs,
-  getMediaIdsWithAiOutput,
-  AI_OUTPUT_SCHEMA_VERSION,
   type AiOutput,
   type AiOutputKind,
   type AiOutputPayloads,
@@ -186,7 +170,6 @@ export {
 export {
   softDeleteProject,
   restoreProject,
-  isProjectTrashed,
   listTrashedProjects,
   getTrashedProjectMediaIds,
   sweepTrashOlderThan,
