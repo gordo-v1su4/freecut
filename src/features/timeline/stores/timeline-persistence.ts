@@ -182,8 +182,7 @@ async function buildVideoHasAudioMap(
 ): Promise<Record<string, boolean | undefined>> {
   const mediaById = useMediaLibraryStore.getState().mediaById
   const missingMediaIds = mediaIds.filter((mediaId) => !mediaById[mediaId])
-  const mediaLibraryModule =
-    missingMediaIds.length > 0 ? await importMediaLibraryService() : null
+  const mediaLibraryModule = missingMediaIds.length > 0 ? await importMediaLibraryService() : null
   const entries = await Promise.all(
     mediaIds.map(async (mediaId) => {
       const cachedMedia = mediaById[mediaId]
