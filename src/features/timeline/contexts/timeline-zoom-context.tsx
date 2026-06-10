@@ -53,10 +53,3 @@ export function useTimelineZoomContext(): TimelineZoomValue {
     (s) => s.pixelsPerSecond,
   )
 }
-
-export function useTimelineContentZoomContext(): TimelineZoomValue {
-  return useTimelineZoomValue(
-    (s) => s.contentLevel,
-    (s) => s.contentPixelsPerSecond,
-  )
-}

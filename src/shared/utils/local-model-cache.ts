@@ -12,7 +12,6 @@ import {
 } from './musicgen-models'
 
 export const TRANSFORMERS_CACHE_NAME = 'transformers-cache'
-export const LOCAL_MODEL_CACHE_STORAGE_LABEL = 'Browser cache storage'
 const WHISPER_CACHE_MATCH_FRAGMENTS = ['/onnx-community/whisper-']
 const KOKORO_TTS_CACHE_MATCH_FRAGMENTS = ['/onnx-community/kokoro-82m-v1.0-onnx/']
 
@@ -158,7 +157,7 @@ function matchesDefinitionRequest(
   return definition.matchPathFragments.some((fragment) => requestUrl.includes(fragment))
 }
 
-export async function inspectLocalModelCache(
+async function inspectLocalModelCache(
   definition: LocalModelCacheDefinition,
 ): Promise<LocalModelCacheSummary> {
   const cacheStorage = getCacheStorage()

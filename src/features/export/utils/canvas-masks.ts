@@ -506,39 +506,3 @@ export function getActiveMasksForFrame(
 
   return activeMasks
 }
-
-/**
- * Prepare masks for rendering - resolves paths and metadata for all active masks.
- *
- * @param tracks - All timeline tracks
- * @param frame - Current frame
- * @param canvas - Canvas settings
- * @returns Array of prepared mask data ready for application
- */
-export function prepareMasks(
-  tracks: TimelineTrack[],
-  frame: number,
-  canvas: MaskCanvasSettings,
-  keyframes: MaskKeyframeResolver = new Map(),
-  getPreviewTransformOverride?: (itemId: string) => Partial<ResolvedTransform> | undefined,
-  getPreviewPathVerticesOverride?: PreviewPathVerticesOverride,
-): Array<{
-  path?: Path2D
-  bitmapMask?: OffscreenCanvas
-  inverted: boolean
-  feather: number
-  maskType: 'clip' | 'alpha'
-  trackOrder: number
-}> {
-  const index = buildMaskFrameIndex(tracks, canvas)
-  const preparedMasks = getActiveMasksForFrame(
-    index,
-    frame,
-    canvas,
-    keyframes,
-    getPreviewTransformOverride,
-    getPreviewPathVerticesOverride,
-  )
-
-  return preparedMasks
-}

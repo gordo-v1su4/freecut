@@ -8,8 +8,6 @@
 import type { Transition, WipeDirection, SlideDirection, FlipDirection } from '@/types/transition'
 import type { TimelineItem } from '@/types/timeline'
 import { transitionRegistry } from '@/shared/timeline/transitions/registry'
-import { resolveTransitionWindows } from '@/shared/timeline/transitions/transition-planner'
-import { resolveTransitionFrameState } from '@/features/export/deps/composition-runtime'
 import { createLogger } from '@/shared/logging/logger'
 import type { TransitionPipeline } from '@/infrastructure/gpu-transitions'
 
@@ -56,64 +54,6 @@ export interface TransitionFrameIndex {
 export interface TransitionFrameState {
   activeTransitions: ActiveTransition[]
   transitionClipIds: Set<string>
-}
-
-/**
- * Build a map of clip IDs to clips for quick lookup.
- */
-export function buildClipMap(clips: TimelineItem[]): Map<string, TimelineItem> {
-  const map = new Map<string, TimelineItem>()
-  for (const clip of clips) {
-    map.set(clip.id, clip)
-  }
-  return map
-}
-
-/**
- * Build an index of resolved transition windows once before rendering.
- */
-export function createTransitionFrameIndex(
-  transitions: Transition[],
-  clipMap: Map<string, TimelineItem>,
-): TransitionFrameIndex {
-  return {
-    windows: resolveTransitionWindows(transitions, clipMap),
-  }
-}
-
-/**
- * Resolve active transitions and participating clip IDs for one frame.
- * Uses pre-resolved windows to avoid expensive recomputation per frame.
- */
-export function getTransitionFrameState(
-  index: TransitionFrameIndex,
-  frame: number,
-  fps: number,
-): TransitionFrameState {
-  void fps
-  return resolveTransitionFrameState({
-    transitionWindows: index.windows,
-    frame,
-  })
-}
-
-/**
- * Find active transitions at the current frame.
- *
- * @param transitions - All transitions
- * @param clipMap - Map of clip ID to clip
- * @param frame - Current frame
- * @param fps - Frames per second
- * @returns Array of active transitions with progress
- */
-export function findActiveTransitions(
-  transitions: Transition[],
-  clipMap: Map<string, TimelineItem>,
-  frame: number,
-  fps: number,
-): ActiveTransition[] {
-  const index = createTransitionFrameIndex(transitions, clipMap)
-  return getTransitionFrameState(index, frame, fps).activeTransitions
 }
 
 // ============================================================================
@@ -618,23 +558,4 @@ export function renderTransition(
       renderCutTransition(ctx, leftCanvas, rightCanvas, progress)
       break
   }
-}
-
-/**
- * Get clip IDs involved in transitions at the current frame.
- * These clips should be rendered via the transition system, not normally.
- */
-export function getTransitionClipIds(
-  transitions: Transition[],
-  clipMap: Map<string, TimelineItem>,
-  frame: number,
-): Set<string> {
-  const index = createTransitionFrameIndex(transitions, clipMap)
-  const clipIds = new Set<string>()
-  for (const window of index.windows) {
-    if (frame < window.startFrame || frame >= window.endFrame) continue
-    clipIds.add(window.transition.leftClipId)
-    clipIds.add(window.transition.rightClipId)
-  }
-  return clipIds
 }

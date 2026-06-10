@@ -92,19 +92,6 @@ export async function readWorkspaceBlob(segments: string[]): Promise<Blob | null
 }
 
 /**
- * Check whether a path exists in the workspace without reading it.
- */
-export async function workspaceCacheExists(segments: string[]): Promise<boolean> {
-  const root = getWorkspaceRoot()
-  if (!root) return false
-  try {
-    return await exists(root, segments)
-  } catch {
-    return false
-  }
-}
-
-/**
  * Remove a file or subtree from the workspace cache. No-op when absent.
  */
 export async function removeWorkspaceCacheEntry(

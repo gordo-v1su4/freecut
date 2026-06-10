@@ -33,10 +33,6 @@ interface ProjectFormBaseProps {
 
 type ProjectFormProps = Omit<ProjectFormBaseProps, 'mode' | 'surface'>
 
-export function CreateProjectForm(props: ProjectFormProps) {
-  return <ProjectFormBase {...props} mode="create" surface="page" />
-}
-
 export function InlineCreateProjectForm(props: ProjectFormProps) {
   return <ProjectFormBase {...props} mode="create" surface="inline" />
 }

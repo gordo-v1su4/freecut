@@ -1,7 +1,6 @@
 import { getPropertyKeyframes, interpolatePropertyValue } from './interpolation'
 import {
   buildEffectAnimatableProperty,
-  isEffectAnimatableProperty,
   parseEffectAnimatableProperty,
   type AnimatableProperty,
   type ItemKeyframes,
@@ -262,7 +261,3 @@ export function resolveAnimatedGpuEffects(
 }
 
 export const resolveAnimatedColorEffects = resolveAnimatedGpuEffects
-
-export function isEffectProperty(property: AnimatableProperty): boolean {
-  return isEffectAnimatableProperty(property)
-}

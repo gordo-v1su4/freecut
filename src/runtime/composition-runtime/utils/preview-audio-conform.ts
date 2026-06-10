@@ -19,12 +19,8 @@ const PREVIEW_AUDIO_CONFORM_MIME_TYPE = 'audio/wav'
 const pendingPreviewAudioConformLoads = new Map<string, Promise<string | null>>()
 const pendingPreviewAudioConformPersists = new Map<string, Promise<void>>()
 
-export function getPreviewAudioConformCacheKey(mediaId: string): string {
+function getPreviewAudioConformCacheKey(mediaId: string): string {
   return `preview-audio:${mediaId}`
-}
-
-export function getCachedPreviewAudioConformUrl(mediaId: string): string | null {
-  return blobUrlManager.get(getPreviewAudioConformCacheKey(mediaId))
 }
 
 /**

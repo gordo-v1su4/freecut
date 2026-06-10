@@ -34,14 +34,6 @@ export function releaseTimelineDropPreviewOwner(ownerId: string): void {
   }
 }
 
-export function clearActiveTimelineDropPreviewOwner(): void {
-  const owner = activeTimelineDropPreviewOwner
-  activeTimelineDropPreviewOwner = null
-  if (owner) {
-    timelineDropPreviewOwnerClearers.get(owner)?.()
-  }
-}
-
 export function clearAllTimelineDropPreviewOwners(): void {
   activeTimelineDropPreviewOwner = null
   for (const clear of timelineDropPreviewOwnerClearers.values()) {

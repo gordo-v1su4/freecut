@@ -68,11 +68,11 @@ export const CONTENT_DIR = 'content'
  */
 export const EXPORTS_DIR = 'exports'
 
-export const PROJECT_FILENAME = 'project.json'
-export const PROJECT_THUMBNAIL_FILENAME = 'thumbnail.jpg'
-export const PROJECT_MEDIA_LINKS_FILENAME = 'media-links.json'
+const PROJECT_FILENAME = 'project.json'
+const PROJECT_THUMBNAIL_FILENAME = 'thumbnail.jpg'
+const PROJECT_MEDIA_LINKS_FILENAME = 'media-links.json'
 /** Persisted render-queue jobs for a project (survives refresh). */
-export const PROJECT_RENDER_QUEUE_FILENAME = 'render-queue.json'
+const PROJECT_RENDER_QUEUE_FILENAME = 'render-queue.json'
 
 /**
  * Marker file present inside a project directory that has been soft-deleted.
@@ -84,35 +84,34 @@ export const PROJECT_RENDER_QUEUE_FILENAME = 'render-queue.json'
  * Naming choice: `.freecut-trashed.json` makes the state self-explanatory
  * when browsing the workspace folder externally with a file manager.
  */
-export const PROJECT_TRASHED_MARKER_FILENAME = '.freecut-trashed.json'
+const PROJECT_TRASHED_MARKER_FILENAME = '.freecut-trashed.json'
 
-export const MEDIA_METADATA_FILENAME = 'metadata.json'
-export const MEDIA_THUMBNAIL_FILENAME = 'thumbnail.jpg'
-export const MEDIA_SOURCE_LINK_FILENAME = 'source.link.json'
-export const MEDIA_CACHE_DIR = 'cache'
+const MEDIA_METADATA_FILENAME = 'metadata.json'
+const MEDIA_THUMBNAIL_FILENAME = 'thumbnail.jpg'
+const MEDIA_CACHE_DIR = 'cache'
 
-export const CACHE_WAVEFORM_DIR = 'waveform'
-export const CACHE_FILMSTRIP_DIR = 'filmstrip'
-export const CACHE_GIF_FRAMES_DIR = 'gif-frames'
-export const CACHE_DECODED_AUDIO_DIR = 'decoded-audio'
-export const CACHE_AI_DIR = 'ai'
+const CACHE_WAVEFORM_DIR = 'waveform'
+const CACHE_FILMSTRIP_DIR = 'filmstrip'
+const CACHE_GIF_FRAMES_DIR = 'gif-frames'
+const CACHE_DECODED_AUDIO_DIR = 'decoded-audio'
+const CACHE_AI_DIR = 'ai'
 /** Single file per media under cache/. Non-browser audio codecs are decoded
  *  once to WAV and reused for preview playback. */
-export const CACHE_PREVIEW_AUDIO_FILENAME = 'preview-audio.wav'
+const CACHE_PREVIEW_AUDIO_FILENAME = 'preview-audio.wav'
 /** Single file per media under cache/waveform/. Header-indexed multi-res
  *  binary format for timeline waveform rendering. */
-export const CACHE_WAVEFORM_MULTI_RES_FILENAME = 'multi-res.bin'
+const CACHE_WAVEFORM_MULTI_RES_FILENAME = 'multi-res.bin'
 /** Per-caption thumbnail JPEGs captured alongside LFM caption generation. */
-export const CACHE_CAPTION_THUMBS_DIR = 'captions-thumbs'
+const CACHE_CAPTION_THUMBS_DIR = 'captions-thumbs'
 /**
  * Legacy path for transcripts — was `cache/transcript.json` before AI outputs
  * were consolidated under `cache/ai/`. Readers fall back to this on miss; a
  * subsequent save rewrites to the new path.
  */
-export const CACHE_TRANSCRIPT_FILENAME_LEGACY = 'transcript.json'
-export const CACHE_META_FILENAME = 'meta.json'
+const CACHE_TRANSCRIPT_FILENAME_LEGACY = 'transcript.json'
+const CACHE_META_FILENAME = 'meta.json'
 
-export const CONTENT_REFS_FILENAME = 'refs.json'
+const CONTENT_REFS_FILENAME = 'refs.json'
 
 /** Segments for `projects/{id}/`. */
 export function projectDir(id: string): string[] {
@@ -167,12 +166,6 @@ export function mediaMetadataPath(id: string): string[] {
 /** Segments for `media/{id}/thumbnail.jpg`. */
 export function mediaThumbnailPath(id: string): string[] {
   return [...mediaDir(id), MEDIA_THUMBNAIL_FILENAME]
-}
-
-/** Segments for the legacy `media/{id}/source.{ext}` layout. */
-export function mediaSourcePath(id: string, extension: string): string[] {
-  const ext = extension.startsWith('.') ? extension.slice(1) : extension
-  return [...mediaDir(id), `source.${ext}`]
 }
 
 /**
@@ -242,11 +235,6 @@ export function sanitizeWorkspaceFileName(fileName: string): string {
   return cleaned || 'source.bin'
 }
 
-/** Segments for `media/{id}/source.link.json`. */
-export function mediaSourceLinkPath(id: string): string[] {
-  return [...mediaDir(id), MEDIA_SOURCE_LINK_FILENAME]
-}
-
 /** Segments for `media/{id}/cache/`. */
 export function mediaCacheDir(id: string): string[] {
   return [...mediaDir(id), MEDIA_CACHE_DIR]
@@ -288,7 +276,7 @@ export function previewAudioPath(mediaId: string): string[] {
   return [...mediaCacheDir(mediaId), CACHE_PREVIEW_AUDIO_FILENAME]
 }
 
-export function reverseConformDir(mediaId: string): string[] {
+function reverseConformDir(mediaId: string): string[] {
   return [...mediaCacheDir(mediaId), 'reverse-conform']
 }
 
@@ -476,11 +464,6 @@ export function contentRefsPath(hash: string): string[] {
   return [...contentDir(hash), CONTENT_REFS_FILENAME]
 }
 
-export function contentDataPath(hash: string, extension: string): string[] {
-  const ext = extension.startsWith('.') ? extension.slice(1) : extension
-  return [...contentDir(hash), `data.${ext}`]
-}
-
 /* ---------------- Content-deduped shared store ---------------- */
 //
 // Proxies are shared across mediaIds that resolve to the same source (via
@@ -489,7 +472,7 @@ export function contentDataPath(hash: string, extension: string): string[] {
 // proxy file. The sibling `content/<hash[0:2]>/<hash>/` tree is reserved
 // for future source-blob dedup via `contentDir()` / `contentDataPath()`.
 
-export const CONTENT_PROXIES_DIR = 'proxies'
+const CONTENT_PROXIES_DIR = 'proxies'
 
 export function proxiesRoot(): string[] {
   return [CONTENT_DIR, CONTENT_PROXIES_DIR]

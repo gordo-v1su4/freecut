@@ -113,50 +113,6 @@ export function getAutoKeyframeOperation(
 }
 
 /**
- * Performs auto-keyframing for a single property.
- * Returns true if the property was auto-keyframed, false if base transform should be updated.
- */
-export function autoKeyframeProperty(
-  item: TimelineItem,
-  itemKeyframes: ItemKeyframes | undefined,
-  property: AnimatableProperty,
-  value: number,
-  currentFrame: number,
-  addKeyframe: (
-    itemId: string,
-    property: AnimatableProperty,
-    frame: number,
-    value: number,
-    easing?: EasingType,
-  ) => void,
-  updateKeyframe: (
-    itemId: string,
-    property: AnimatableProperty,
-    keyframeId: string,
-    updates: { value?: number },
-  ) => void,
-): boolean {
-  const operation = getAutoKeyframeOperation(item, itemKeyframes, property, value, currentFrame)
-  if (!operation) {
-    return false
-  }
-
-  if (operation.type === 'update') {
-    updateKeyframe(operation.itemId, operation.property, operation.keyframeId, operation.updates)
-  } else {
-    addKeyframe(
-      operation.itemId,
-      operation.property,
-      operation.frame,
-      operation.value,
-      operation.easing,
-    )
-  }
-
-  return true
-}
-
-/**
  * Properties that can be animated via gizmo transforms
  */
 export const GIZMO_ANIMATABLE_PROPS: TransformAnimatableProperty[] = [

@@ -5,7 +5,7 @@
  *
  * Prefer changing presets here before editing one-off component sizes.
  */
-export const EDITOR_DENSITY_PRESETS = {
+const EDITOR_DENSITY_PRESETS = {
   compact: {
     toolbarHeight: 48,
     sidebarRailWidth: 44,
@@ -123,8 +123,6 @@ export function getEditorLayoutCssVars(layout = EDITOR_LAYOUT): Record<string, s
     [EDITOR_LAYOUT_CSS_VAR_NAMES.timelineWaveformRowHeight]: `${layout.timelineWaveformRowHeight}px`,
   }
 }
-
-export const EDITOR_LAYOUT_CSS_VARS = getEditorLayoutCssVars()
 
 const LEFT_SIDEBAR_MAX_VIEWPORT_RATIO = 0.45
 

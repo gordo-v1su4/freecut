@@ -107,21 +107,6 @@ export interface ItemPreview {
   effects?: ItemEffect[]
 }
 
-/**
- * Check if a partial transform has all required properties (full transform).
- * Full transforms replace the base; partial transforms merge with base.
- */
-export function isFullTransform(t?: Partial<Transform>): t is Transform {
-  if (!t) return false
-  return (
-    t.x !== undefined &&
-    t.y !== undefined &&
-    t.width !== undefined &&
-    t.height !== undefined &&
-    t.rotation !== undefined
-  )
-}
-
 interface GizmoStoreState {
   /** Current gizmo interaction state (null when not interacting) */
   activeGizmo: GizmoState | null

@@ -17,17 +17,13 @@ export function getZoomLevelNow(): number {
   return useZoomStore.getState().level
 }
 
-export function getFpsNow(): number {
+function getFpsNow(): number {
   return useTimelineSettingsStore.getState().fps
 }
 
 export function pixelsToTimeNow(pixels: number): number {
   const pps = getPixelsPerSecondNow()
   return pps > 0 ? pixels / pps : 0
-}
-
-export function timeToPixelsNow(timeInSeconds: number): number {
-  return timeInSeconds * getPixelsPerSecondNow()
 }
 
 export function frameToPixelsNow(frame: number): number {

@@ -102,25 +102,25 @@ export const AUDIO_EQ_GAIN_DB_MIN = -20
 export const AUDIO_EQ_GAIN_DB_MAX = 20
 export const AUDIO_EQ_Q_MIN = 0.3
 export const AUDIO_EQ_Q_MAX = 10.3
-export const AUDIO_EQ_BAND1_TYPES = [
+const AUDIO_EQ_BAND1_TYPES = [
   'low-shelf',
   'peaking',
   'high-shelf',
   'high-pass',
 ] as const satisfies ReadonlyArray<AudioEqBand1Type>
-export const AUDIO_EQ_INNER_BAND_TYPES = [
+const AUDIO_EQ_INNER_BAND_TYPES = [
   'low-shelf',
   'peaking',
   'high-shelf',
   'notch',
 ] as const satisfies ReadonlyArray<AudioEqInnerBandType>
-export const AUDIO_EQ_BAND6_TYPES = [
+const AUDIO_EQ_BAND6_TYPES = [
   'low-pass',
   'low-shelf',
   'peaking',
   'high-shelf',
 ] as const satisfies ReadonlyArray<AudioEqBand6Type>
-export const AUDIO_EQ_CUT_SLOPES_DB_PER_OCT = [6, 12, 18, 24] as const
+const AUDIO_EQ_CUT_SLOPES_DB_PER_OCT = [6, 12, 18, 24] as const
 export const AUDIO_EQ_LOW_CUT_FREQUENCY_HZ = 30
 export const AUDIO_EQ_LOW_CUT_MIN_FREQUENCY_HZ = 20
 export const AUDIO_EQ_LOW_CUT_MAX_FREQUENCY_HZ = 399
@@ -635,17 +635,6 @@ export function appendResolvedAudioEqStage(
   return [...(stages ?? []), resolveAudioEqSettings(source)]
 }
 
-export function appendOptionalResolvedAudioEqStage(
-  stages: ReadonlyArray<ResolvedAudioEqSettings> | undefined,
-  source?: AudioEqSettings | AudioEqFieldSource | null,
-): ResolvedAudioEqSettings[] {
-  if (source == null || isAudioEqSourceDisabled(source)) {
-    return [...(stages ?? [])]
-  }
-
-  return appendResolvedAudioEqStage(stages, source)
-}
-
 export function appendResolvedAudioEqSources(
   stages: ReadonlyArray<ResolvedAudioEqSettings> | undefined,
   ...sources: Array<AudioEqSettings | AudioEqFieldSource | null | undefined>
@@ -702,9 +691,7 @@ export function resolvePreviewAudioEqStages(
   return stages
 }
 
-export function isAudioEqStageActive(
-  stage?: AudioEqSettings | ResolvedAudioEqSettings | null,
-): boolean {
+function isAudioEqStageActive(stage?: AudioEqSettings | ResolvedAudioEqSettings | null): boolean {
   if (!stage) return false
   return (
     Math.abs(stage.outputGainDb ?? 0) > AUDIO_EQ_ACTIVE_EPSILON ||

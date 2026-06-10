@@ -5,9 +5,9 @@
 
 // Preload media files ahead of the playhead to reduce buffering
 export const PRELOAD_AHEAD_SECONDS = 5
-export const PRELOAD_MAX_IDS_PER_TICK_PLAYING = 10
-export const PRELOAD_MAX_IDS_PER_TICK_IDLE = 6
-export const PRELOAD_MAX_IDS_PER_TICK_SCRUB = 3
+const PRELOAD_MAX_IDS_PER_TICK_PLAYING = 10
+const PRELOAD_MAX_IDS_PER_TICK_IDLE = 6
+const PRELOAD_MAX_IDS_PER_TICK_SCRUB = 3
 export const PRELOAD_SCAN_TIME_BUDGET_MS = 6
 export const PRELOAD_SCRUB_DIRECTION_BIAS_SECONDS = 1.0
 export const PRELOAD_BURST_EXTRA_IDS = 4
@@ -53,9 +53,9 @@ export const SOURCE_WARM_TICK_MS = 300
 export const RESOLVE_RETRY_MIN_MS = 400
 export const RESOLVE_RETRY_MAX_MS = 8000
 export const RESOLVE_MAX_CONCURRENCY = 6
-export const RESOLVE_MAX_IDS_PER_PASS_PLAYING = 12
-export const RESOLVE_MAX_IDS_PER_PASS_IDLE = 8
-export const RESOLVE_MAX_IDS_PER_PASS_SCRUB = 4
+const RESOLVE_MAX_IDS_PER_PASS_PLAYING = 12
+const RESOLVE_MAX_IDS_PER_PASS_IDLE = 8
+const RESOLVE_MAX_IDS_PER_PASS_SCRUB = 4
 export const RESOLVE_DEFER_DURING_SCRUB_MS = 120
 export const PREVIEW_PERF_PUBLISH_INTERVAL_MS = 750
 export const PREVIEW_PERF_PANEL_STORAGE_KEY = 'freecut.preview.perf-panel'
@@ -156,31 +156,6 @@ declare global {
 import type { PreviewInteractionMode } from './preview-interaction-mode'
 import type { CompositionInputProps } from '@/types/export'
 
-export function toTrackFingerprint(tracks: CompositionInputProps['tracks']): string {
-  const parts: string[] = []
-  for (const track of tracks) {
-    const trackEqStr = track.audioEq ? JSON.stringify(track.audioEq) : ''
-    parts.push(
-      `t:${track.id}:${track.order}:${track.visible ? 1 : 0}:${track.solo ? 1 : 0}:${track.muted ? 1 : 0}:${track.volume ?? 0}:${trackEqStr}`,
-    )
-    for (const item of track.items) {
-      const src = 'src' in item ? (item.src ?? '') : ''
-      const eqStr =
-        (item.audioEqOutputGainDb ??
-        item.audioEqBand1Enabled ??
-        item.audioEqLowGainDb ??
-        item.audioEqHighGainDb ??
-        item.audioEqBand6Enabled)
-          ? `${item.audioEqOutputGainDb ?? 0}:${item.audioEqBand1Enabled ? 1 : 0}:${item.audioEqBand1FrequencyHz ?? 0}:${item.audioEqBand1GainDb ?? 0}:${item.audioEqLowGainDb ?? 0}:${item.audioEqLowFrequencyHz ?? 0}:${item.audioEqLowMidGainDb ?? 0}:${item.audioEqLowMidFrequencyHz ?? 0}:${item.audioEqMidGainDb ?? 0}:${item.audioEqHighMidGainDb ?? 0}:${item.audioEqHighMidFrequencyHz ?? 0}:${item.audioEqHighGainDb ?? 0}:${item.audioEqHighFrequencyHz ?? 0}:${item.audioEqBand6Enabled ? 1 : 0}:${item.audioEqBand6FrequencyHz ?? 0}:${item.audioEqBand6GainDb ?? 0}`
-          : ''
-      parts.push(
-        `i:${item.id}:${item.type}:${item.from}:${item.durationInFrames}:${item.mediaId ?? ''}:${src}:${item.speed ?? 1}:${item.volume ?? 1}:${item.audioPitchSemitones ?? 0}:${item.audioPitchCents ?? 0}:${item.sourceStart ?? 0}:${item.sourceEnd ?? 0}:${eqStr}`,
-      )
-    }
-  }
-  return parts.join('|')
-}
-
 /**
  * Fingerprint only the stable renderer topology: track visibility/order and
  * item identity/source membership. Timing trims and source-window shifts
@@ -213,7 +188,7 @@ export function getResolvePassBudget(mode: PreviewInteractionMode): number {
   return RESOLVE_MAX_IDS_PER_PASS_IDLE
 }
 
-export function getCodecCost(codec: string | undefined): number {
+function getCodecCost(codec: string | undefined): number {
   if (!codec) return 0
   const normalized = codec.toLowerCase()
   if (

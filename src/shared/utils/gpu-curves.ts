@@ -1,4 +1,4 @@
-import { buildMonotoneCurveSvgPath, evaluateMonotoneCurve } from './curve-spline'
+import { evaluateMonotoneCurve } from './curve-spline'
 
 export type GpuCurvesChannelKey = 'master' | 'red' | 'green' | 'blue'
 
@@ -90,7 +90,7 @@ export function getDefaultGpuCurvesChannelControl(): GpuCurvesChannelControl {
   }
 }
 
-export function sanitizeGpuCurvesChannelControl(
+function sanitizeGpuCurvesChannelControl(
   control: GpuCurvesChannelControl,
 ): GpuCurvesChannelControl {
   const defaultControl = getDefaultGpuCurvesChannelControl()
@@ -216,7 +216,7 @@ export function getGpuCurvesDraftParams(params: EffectParams): Record<string, nu
   }, {})
 }
 
-export function evaluateGpuCurvesChannel(control: GpuCurvesChannelControl, input: number): number {
+function evaluateGpuCurvesChannel(control: GpuCurvesChannelControl, input: number): number {
   return evaluateMonotoneCurve(buildGpuCurvesChannelPoints(control), input)
 }
 
@@ -230,21 +230,4 @@ export function evaluateGpuCurvesEffectChannel(
     return masterValue
   }
   return evaluateGpuCurvesChannel(readGpuCurvesChannelControl(params, channel), masterValue)
-}
-
-export function buildGpuCurvesEffectPath(
-  params: EffectParams,
-  channel: GpuCurvesChannelKey,
-  size: number,
-  samples: number,
-): string {
-  const points: Array<{ x: number; y: number }> = []
-  for (let i = 0; i <= samples; i += 1) {
-    const input = i / samples
-    points.push({
-      x: input,
-      y: evaluateGpuCurvesEffectChannel(params, channel, input),
-    })
-  }
-  return buildMonotoneCurveSvgPath(points, size, size)
 }

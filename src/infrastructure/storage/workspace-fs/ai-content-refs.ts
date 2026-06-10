@@ -43,19 +43,6 @@ function lockKey(hash: string, sampleIntervalSec?: number): string {
   return `ai-content-refs:${hash}:${variantKey}`
 }
 
-export async function getAiContentRefs(
-  hash: string,
-  sampleIntervalSec?: number,
-): Promise<AiContentRefs | null> {
-  const root = requireWorkspaceRoot()
-  try {
-    return await readJson<AiContentRefs>(root, contentAiRefsPath(hash, sampleIntervalSec))
-  } catch (error) {
-    logger.warn(`getAiContentRefs(${hash}) failed`, error)
-    return null
-  }
-}
-
 /**
  * Add `mediaId` to the reference set for `hash`, creating the file when it
  * doesn't exist. Returns the post-add reference count. Idempotent — calling

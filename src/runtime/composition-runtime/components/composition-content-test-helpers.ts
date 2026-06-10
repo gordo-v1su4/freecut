@@ -50,7 +50,7 @@ export function makeNestedTimelineTrack(overrides: Partial<TimelineTrack> = {}):
   }
 }
 
-export function makeNestedVideoAudioTracks(): TimelineTrack[] {
+function makeNestedVideoAudioTracks(): TimelineTrack[] {
   return [
     makeNestedTimelineTrack({ id: 'sub-track-video', name: 'V1', kind: 'video', order: 0 }),
     makeNestedTimelineTrack({ id: 'sub-track-audio', name: 'A1', kind: 'audio', order: 1 }),

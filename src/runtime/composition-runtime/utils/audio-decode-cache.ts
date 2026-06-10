@@ -593,20 +593,6 @@ export async function getOrDecodeAudioSliceForPlayback(
   }
 }
 
-export async function getOrDecodeAudioForPlayback(
-  mediaId: string,
-  src: PreviewAudioSource,
-  options?: {
-    minReadySeconds?: number
-    waitTimeoutMs?: number
-    targetTimeSeconds?: number
-    preRollSeconds?: number
-  },
-): Promise<AudioBuffer> {
-  const slice = await getOrDecodeAudioSliceForPlayback(mediaId, src, options)
-  return slice.buffer
-}
-
 /** Clear all cached preview audio buffers (call on project unload). */
 export function clearPreviewAudioCache(): void {
   cache.clear()

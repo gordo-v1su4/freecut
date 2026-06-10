@@ -22,17 +22,6 @@ export function inferSubtitleFormat(fileName: string): SubtitleFormat | null {
   return null
 }
 
-export function parseSubtitleFile(text: string, format: SubtitleFormat): SubtitleParseResult {
-  return format === 'srt' ? parseSrt(text) : parseVtt(text)
-}
-
-export function serializeSubtitleFile(
-  cues: readonly SubtitleCue[],
-  format: SubtitleFormat,
-): string {
-  return format === 'srt' ? serializeSrt(cues) : serializeVtt(cues)
-}
-
 export function parseSrt(text: string): SubtitleParseResult {
   return parseSubtitleBlocks(stripBom(text).replace(/\r\n?/g, '\n'), 'srt')
 }

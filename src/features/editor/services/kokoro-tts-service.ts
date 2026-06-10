@@ -64,8 +64,6 @@ export type KokoroTtsModel = keyof typeof MODEL_CONFIGS
 type KokoroTtsModelConfig = (typeof MODEL_CONFIGS)[KokoroTtsModel]
 export const KOKORO_TTS_BEST_MODEL: KokoroTtsModel = 'fp32'
 
-export const KOKORO_TTS_MODEL_OPTIONS: KokoroTtsModelOption[] = [MODEL_CONFIGS.fp32]
-
 export const KOKORO_TTS_VOICE_OPTIONS = [
   { value: 'af_heart', label: 'Heart (US, F)' },
   { value: 'af_bella', label: 'Bella (US, F)' },

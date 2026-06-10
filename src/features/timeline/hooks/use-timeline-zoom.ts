@@ -120,10 +120,3 @@ export function useTimelineZoom(options: UseTimelineZoomOptions = {}) {
     pixelsPerSecond: (s) => s.pixelsPerSecond,
   })
 }
-
-export function useTimelineContentZoom(options: UseTimelineZoomOptions = {}) {
-  return useTimelineZoomInternal(options, {
-    zoomLevel: (s) => s.contentLevel,
-    pixelsPerSecond: (s) => s.contentPixelsPerSecond,
-  })
-}

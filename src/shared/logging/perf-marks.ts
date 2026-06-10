@@ -12,15 +12,6 @@ const HAS_PERF =
   typeof performance.mark === 'function' &&
   typeof performance.measure === 'function'
 
-export function perfMark(name: string): void {
-  if (!HAS_PERF) return
-  try {
-    performance.mark(name)
-  } catch {
-    // ignore — bad name / detached buffer
-  }
-}
-
 /**
  * Mark a React component render with a `tl.render.<name>` instant mark. The
  * count of these marks during a gesture reveals which components are doing the
@@ -37,15 +28,6 @@ export function perfMarkRender(name: string): void {
     performance.mark(`tl.render.${name}`)
   } catch {
     // ignore
-  }
-}
-
-export function perfMeasure(name: string, startMark: string, endMark?: string): void {
-  if (!HAS_PERF) return
-  try {
-    performance.measure(name, startMark, endMark)
-  } catch {
-    // ignore — missing start mark
   }
 }
 

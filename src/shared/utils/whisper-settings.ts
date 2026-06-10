@@ -1,7 +1,5 @@
 import type { MediaTranscriptModel, MediaTranscriptQuantization } from '@/types/storage'
 import {
-  BROWSER_WHISPER_MODEL_LABELS,
-  BROWSER_WHISPER_MODEL_OPTIONS,
   DEFAULT_BROWSER_WHISPER_MODEL,
   normalizeSelectableBrowserWhisperModel,
 } from './browser-whisper-models'
@@ -10,14 +8,6 @@ export const DEFAULT_WHISPER_MODEL: MediaTranscriptModel = DEFAULT_BROWSER_WHISP
 export const DEFAULT_WHISPER_QUANTIZATION: MediaTranscriptQuantization = 'hybrid'
 export const DEFAULT_WHISPER_LANGUAGE = ''
 export const WHISPER_AUTO_LANGUAGE_VALUE = 'auto'
-
-export const WHISPER_MODEL_LABELS: Record<MediaTranscriptModel, string> =
-  BROWSER_WHISPER_MODEL_LABELS
-
-export const WHISPER_MODEL_OPTIONS: ReadonlyArray<{
-  value: MediaTranscriptModel
-  label: string
-}> = BROWSER_WHISPER_MODEL_OPTIONS
 
 export function normalizeSelectableWhisperModel(
   model: MediaTranscriptModel | undefined,

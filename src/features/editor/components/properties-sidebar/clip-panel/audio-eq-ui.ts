@@ -85,14 +85,6 @@ export function getAudioEqControlRangeById(id: AudioEqControlRangeId): AudioEqCo
   return AUDIO_EQ_CONTROL_RANGES.find((range) => range.id === id) ?? AUDIO_EQ_CONTROL_RANGES[0]!
 }
 
-export function audioEqControlRangeContainsFrequency(
-  id: AudioEqControlRangeId,
-  frequencyHz: number,
-): boolean {
-  const range = getAudioEqControlRangeById(id)
-  return frequencyHz >= range.minFrequencyHz && frequencyHz <= range.maxFrequencyHz
-}
-
 export function inferAudioEqControlRangeId(
   frequencyHz: number,
   preferred: AudioEqControlRangeId,
