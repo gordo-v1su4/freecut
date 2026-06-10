@@ -17,7 +17,7 @@ import {
   clampSpeed,
 } from '../utils/source-calculations'
 import { isCompositionWrapperItem, wouldCreateCompositionCycle } from '../utils/composition-graph'
-import { useCompositionNavigationStore } from './composition-navigation-store'
+import { getActiveCompositionId } from './composition-navigation-active'
 import { useCompositionsStore } from './compositions-store'
 import { useTimelineSettingsStore } from './timeline-settings-store'
 import { useMarkersStore } from './markers-store'
@@ -301,7 +301,7 @@ export const useItemsStore = create<ItemsState & ItemsActions>()((set, get) => (
     const state = get()
     const itemsMap = new Map(state.items.map((i) => [i.id, i]))
     const newItems: TimelineItem[] = []
-    const activeCompositionId = useCompositionNavigationStore.getState().activeCompositionId
+    const activeCompositionId = getActiveCompositionId()
     const compositionById = useCompositionsStore.getState().compositionById
     const linkedGroupMap = new Map<string, string>()
 

@@ -58,6 +58,7 @@ import { useKeyframesStore } from './keyframes-store'
 import { useCompositionsStore } from './compositions-store'
 import { useSelectionStore } from '@/shared/state/selection'
 import { usePlaybackStore } from '@/shared/state/playback'
+import { setActiveCompositionId } from './composition-navigation-active'
 
 /** Save current items/tracks/transitions/keyframes from domain stores into a stash entry. */
 function captureCurrentTimeline(compositionId: string | null): StashedTimeline {
@@ -190,6 +191,7 @@ export const useCompositionNavigationStore = create<
     }
     usePlaybackStore.getState().setCurrentFrame(localFrame)
 
+    setActiveCompositionId(compositionId)
     set({
       breadcrumbs: [
         ...state.breadcrumbs,
@@ -220,6 +222,7 @@ export const useCompositionNavigationStore = create<
     const newBreadcrumbs = state.breadcrumbs.slice(0, -1)
     const lastEntry = newBreadcrumbs[newBreadcrumbs.length - 1]!
 
+    setActiveCompositionId(lastEntry.compositionId)
     set({
       breadcrumbs: newBreadcrumbs,
       activeCompositionId: lastEntry.compositionId,
@@ -253,6 +256,7 @@ export const useCompositionNavigationStore = create<
     const newBreadcrumbs = state.breadcrumbs.slice(0, index + 1)
     const lastEntry = newBreadcrumbs[newBreadcrumbs.length - 1]!
 
+    setActiveCompositionId(lastEntry.compositionId)
     set({
       breadcrumbs: newBreadcrumbs,
       activeCompositionId: lastEntry.compositionId,
@@ -277,6 +281,7 @@ export const useCompositionNavigationStore = create<
       restoreTimeline(rootStash)
     }
 
+    setActiveCompositionId(null)
     set({
       breadcrumbs: [{ compositionId: null, label: 'Main Timeline' }],
       activeCompositionId: null,
