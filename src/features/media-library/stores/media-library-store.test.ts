@@ -26,6 +26,8 @@ const proxyServiceMocks = vi.hoisted(() => ({
   onStatusChange: vi.fn((listener) => {
     proxyStatusListenerRef.current = listener
   }),
+  setMediaResolver: vi.fn(),
+  setFilmstripPrewarm: vi.fn(),
 }))
 
 const indexedDbMocks = vi.hoisted(() => ({

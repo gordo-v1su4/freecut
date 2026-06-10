@@ -38,6 +38,7 @@ import { useSemanticIndex } from '../hooks/use-semantic-index'
 import { SceneSearchField, SceneSearchModeButtons } from './scene-search-input'
 import { GlobalSceneRow, ScopedSceneRow } from './scene-row'
 import { GlobalSceneCard, ScopedSceneCard } from './scene-card'
+import '../utils/invalidate'
 
 interface SceneBrowserPanelProps {
   className?: string

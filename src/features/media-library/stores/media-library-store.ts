@@ -536,6 +536,13 @@ if (!hotStore) {
       store.setProxyProgress(mediaId, progress)
     }
   })
+
+  proxyService.setMediaResolver((mediaId) => useMediaLibraryStore.getState().mediaById[mediaId])
+  proxyService.setFilmstripPrewarm(async (mediaId, proxyFile, duration, window) => {
+    const { importFilmstripCache } = await import('../deps/timeline-services')
+    const { filmstripCache } = await importFilmstripCache()
+    await filmstripCache.prewarmPriorityWindow(mediaId, proxyFile, duration, window)
+  })
 }
 
 // Selector hooks for common use cases (optional, but recommended)

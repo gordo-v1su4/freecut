@@ -20,7 +20,6 @@ import {
   registerObjectUrl,
   unregisterObjectUrl,
 } from '@/infrastructure/browser/object-url-registry'
-import { importFilmstripCache } from '@/features/media-library/deps/timeline-services'
 import {
   mirrorBlobToWorkspace,
   mirrorJsonToWorkspace,
@@ -38,7 +37,6 @@ import {
   proxyOpfsFilePath,
 } from '../proxy-constants'
 import type { ProxyWorkerRequest, ProxyWorkerResponse } from '../workers/proxy-generation-worker'
-import { useMediaLibraryStore } from '../stores/media-library-store'
 import { enqueueBackgroundMediaWork } from './background-media-work'
 
 const logger = createLogger('ProxyService')
@@ -69,6 +67,19 @@ type ProxyStatusListener = (
   mediaId: string,
   status: 'generating' | 'ready' | 'error' | 'idle',
   progress?: number,
+) => void
+
+interface ProxyPrewarmMedia {
+  mimeType: string
+  duration: number
+}
+
+type ProxyMediaResolver = (mediaId: string) => ProxyPrewarmMedia | undefined
+type ProxyFilmstripPrewarm = (
+  mediaId: string,
+  proxyFile: Blob,
+  duration: number,
+  window: { startTime: number; endTime: number },
 ) => void
 
 type ProxySourceLoader = () => Promise<Blob | null>
@@ -131,6 +142,8 @@ class ProxyService {
   private activeJobPhaseByKey = new Map<string, 'loading' | 'processing'>()
   private progressEmissionByProxyKey = new Map<string, ProgressEmissionState>()
   private statusListener: ProxyStatusListener | null = null
+  private mediaResolver: ProxyMediaResolver | null = null
+  private filmstripPrewarm: ProxyFilmstripPrewarm | null = null
   private generatingProxyKeys = new Set<string>()
   private isRefreshing = false
   private readonly maxConcurrentJobs = 1
@@ -160,6 +173,21 @@ class ProxyService {
    */
   onStatusChange(listener: ProxyStatusListener): void {
     this.statusListener = listener
+  }
+
+  /**
+   * Register a read-only media lookup used for proxy-related cache prewarming.
+   */
+  setMediaResolver(resolver: ProxyMediaResolver): void {
+    this.mediaResolver = resolver
+  }
+
+  /**
+   * Register optional follow-up work for a ready proxy. Kept outside this
+   * service so proxy lifecycle does not statically depend on timeline caches.
+   */
+  setFilmstripPrewarm(prewarm: ProxyFilmstripPrewarm): void {
+    this.filmstripPrewarm = prewarm
   }
 
   /**
@@ -679,22 +707,19 @@ class ProxyService {
       return
     }
 
-    const mediaById = useMediaLibraryStore.getState().mediaById
     for (const mediaId of mediaIds) {
-      const media = mediaById[mediaId]
+      const media = this.mediaResolver?.(mediaId)
       if (!media || !media.mimeType.startsWith('video/') || media.duration <= 0) {
         continue
       }
 
       const coverWarmEndTime = Math.min(media.duration, PROXY_FILMSTRIP_COVER_PREWARM_SECONDS)
       enqueueBackgroundMediaWork(
-        async () => {
-          const { filmstripCache } = await importFilmstripCache()
-          return filmstripCache.prewarmPriorityWindow(mediaId, proxyFile, media.duration, {
+        () =>
+          this.filmstripPrewarm?.(mediaId, proxyFile, media.duration, {
             startTime: 0,
             endTime: coverWarmEndTime,
-          })
-        },
+          }),
         {
           priority: 'warm',
           delayMs: PROXY_FILMSTRIP_COVER_PREWARM_DELAY_MS,
@@ -703,13 +728,11 @@ class ProxyService {
 
       const warmEndTime = Math.min(media.duration, PROXY_FILMSTRIP_PREWARM_SECONDS)
       enqueueBackgroundMediaWork(
-        async () => {
-          const { filmstripCache } = await importFilmstripCache()
-          return filmstripCache.prewarmPriorityWindow(mediaId, proxyFile, media.duration, {
+        () =>
+          this.filmstripPrewarm?.(mediaId, proxyFile, media.duration, {
             startTime: 0,
             endTime: warmEndTime,
-          })
-        },
+          }),
         {
           priority: 'warm',
           delayMs: PROXY_FILMSTRIP_PREWARM_DELAY_MS,

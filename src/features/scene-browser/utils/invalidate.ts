@@ -11,19 +11,26 @@
  */
 
 import { invalidateMediaCaptionThumbBlobs } from '../hooks/use-caption-thumbnail'
+import { registerMediaCaptionCacheInvalidator } from '../deps/media-library'
 import { invalidateEmbeddingsCache } from './embeddings-cache'
 import { invalidateLazyThumbCache } from './lazy-thumb'
-import { useMediaLibraryStore } from '../deps/media-library'
 
-export function invalidateMediaCaptionThumbnails(mediaId: string): void {
-  const thumbRelPaths =
-    useMediaLibraryStore
-      .getState()
-      .mediaById[mediaId]?.aiCaptions?.map((caption) => caption.thumbRelPath) ?? []
+function invalidateMediaCaptionThumbnails(
+  mediaId: string,
+  thumbRelPaths: ReadonlyArray<string | undefined> = [],
+): void {
   invalidateMediaCaptionThumbBlobs(mediaId, thumbRelPaths)
   invalidateLazyThumbCache(mediaId)
   // Semantic embeddings are tied 1:1 to caption indexes — a re-analyze
   // throws away the old caption array and generates a fresh one, so the
   // cached vectors no longer correspond to their (new) scenes.
   invalidateEmbeddingsCache(mediaId)
+}
+
+const unregisterMediaCaptionCacheInvalidator = registerMediaCaptionCacheInvalidator(
+  invalidateMediaCaptionThumbnails,
+)
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(unregisterMediaCaptionCacheInvalidator)
 }

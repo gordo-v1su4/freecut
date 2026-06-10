@@ -36,7 +36,7 @@ import {
 } from '@/infrastructure/storage'
 import { computeContentHashFromBuffer } from '../utils/content-hash'
 import { updateMedia as updateMediaDB } from '@/infrastructure/storage'
-import { invalidateMediaCaptionThumbnails } from '../deps/scene-browser'
+import { invalidateMediaCaptionCaches } from './media-caption-cache-events'
 import { useMediaLibraryStore } from '../stores/media-library-store'
 import { importMediaLibraryService } from './media-library-service-loader'
 import { getMediaType } from '../utils/validation'
@@ -118,7 +118,10 @@ class MediaAnalysisService {
       // this media before either adopting cached captions or writing fresh
       // outputs. Otherwise a re-analyze can keep serving stale per-media
       // blobs/embeddings until the next reload.
-      invalidateMediaCaptionThumbnails(media.id)
+      invalidateMediaCaptionCaches(
+        media.id,
+        media.aiCaptions?.map((caption) => caption.thumbRelPath) ?? [],
+      )
 
       if (contentHash) {
         const cached = await getCaptionsByContentHash(contentHash, sampleIntervalSec).catch(

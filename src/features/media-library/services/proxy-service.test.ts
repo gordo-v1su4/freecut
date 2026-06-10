@@ -22,21 +22,7 @@ const loggerMocks = vi.hoisted(() => ({
   setLevel: vi.fn(),
 }))
 
-const timelineServiceMocks = vi.hoisted(() => ({
-  filmstripCache: {
-    prewarmPriorityWindow: vi.fn(async () => undefined),
-  },
-  importFilmstripCache: vi.fn(),
-}))
-timelineServiceMocks.importFilmstripCache.mockResolvedValue({
-  filmstripCache: timelineServiceMocks.filmstripCache,
-})
-
-const mediaLibraryStoreMocks = vi.hoisted(() => ({
-  getState: vi.fn(() => ({
-    mediaById: {},
-  })),
-}))
+const filmstripPrewarmMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/shared/utils/managed-worker', () => ({
   createManagedWorker: vi.fn(() => workerManagerMocks),
@@ -51,19 +37,11 @@ vi.mock('@/shared/logging/logger', () => ({
   createLogger: vi.fn(() => loggerMocks),
 }))
 
-vi.mock('@/features/media-library/deps/timeline-services', () => timelineServiceMocks)
-
 vi.mock('./background-media-work', async () => {
   const { createBackgroundMediaWorkMocks } =
     await import('../test-utils/background-media-work-test-mocks')
   return createBackgroundMediaWorkMocks(vi)
 })
-
-vi.mock('../stores/media-library-store', () => ({
-  useMediaLibraryStore: {
-    getState: mediaLibraryStoreMocks.getState,
-  },
-}))
 
 type MockStoredFile = {
   size: number
@@ -170,9 +148,6 @@ describe('proxyService.loadExistingProxies', () => {
     Object.defineProperty(URL, 'revokeObjectURL', {
       configurable: true,
       value: vi.fn(),
-    })
-    mediaLibraryStoreMocks.getState.mockReturnValue({
-      mediaById: {},
     })
   })
 
@@ -372,18 +347,17 @@ describe('proxyService.loadExistingProxies', () => {
       },
     })
 
-    mediaLibraryStoreMocks.getState.mockReturnValue({
-      mediaById: {
-        'video-4': {
-          id: 'video-4',
-          mimeType: 'video/mp4',
-          duration: 20,
-        },
-      },
-    })
-
     const { proxyService } = await import('./proxy-service')
     proxyService.setProxyKey('video-4', 'proxy-video-4')
+    proxyService.setFilmstripPrewarm(filmstripPrewarmMock)
+    proxyService.setMediaResolver((mediaId) =>
+      mediaId === 'video-4'
+        ? {
+            mimeType: 'video/mp4',
+            duration: 20,
+          }
+        : undefined,
+    )
 
     await (
       proxyService as unknown as {
@@ -391,14 +365,14 @@ describe('proxyService.loadExistingProxies', () => {
       }
     ).loadCompletedProxy('proxy-video-4')
 
-    expect(timelineServiceMocks.filmstripCache.prewarmPriorityWindow).toHaveBeenNthCalledWith(
+    expect(filmstripPrewarmMock).toHaveBeenNthCalledWith(
       1,
       'video-4',
       expect.objectContaining({ size: 1024 }),
       20,
       { startTime: 0, endTime: 1 },
     )
-    expect(timelineServiceMocks.filmstripCache.prewarmPriorityWindow).toHaveBeenNthCalledWith(
+    expect(filmstripPrewarmMock).toHaveBeenNthCalledWith(
       2,
       'video-4',
       expect.objectContaining({ size: 1024 }),

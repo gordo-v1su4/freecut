@@ -4,7 +4,6 @@
  */
 
 export { useSceneBrowserStore } from '@/features/scene-browser/stores/scene-browser-store'
-export { invalidateMediaCaptionThumbnails } from '@/features/scene-browser/utils/invalidate'
 
 export const importSceneBrowserPanel = () =>
   import('@/features/scene-browser/components/scene-browser-panel')
