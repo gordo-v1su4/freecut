@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { audioScrubPreview } from '@/features/timeline/deps/media-library-contract'
+import { audioScrubPreview } from '@/features/timeline/deps/media-library-audio-preview'
 import { importMediaLibraryService } from '@/features/timeline/deps/media-library-service'
 import { useMediaLibraryStore } from '@/features/timeline/deps/media-library-store'
 import {

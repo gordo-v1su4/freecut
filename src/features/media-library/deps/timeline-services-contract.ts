@@ -1,6 +1,6 @@
+export const importGifFrameCache = () => import('@/features/timeline/services/gif-frame-cache')
+export const importFilmstripCache = () => import('@/features/timeline/services/filmstrip-cache')
 export {
-  importGifFrameCache,
-  importFilmstripCache,
   IMPORT_FILMSTRIP_HUGE_FILE_BYTES,
   IMPORT_FILMSTRIP_LARGE_FILE_BYTES,
   IMPORT_FILMSTRIP_LARGE_TARGET_FRAMES,
@@ -13,6 +13,6 @@ export {
   IMPORT_FILMSTRIP_TINY_TARGET_FRAMES,
   IMPORT_FILMSTRIP_VERY_LONG_DURATION_SEC,
   MAX_FILMSTRIP_TARGET_FRAMES,
-  importWaveformCache,
-  schedulePreviewWork,
-} from './timeline-services-contract'
+} from '@/features/timeline/services/filmstrip-cache-config'
+export const importWaveformCache = () => import('@/features/timeline/services/waveform-cache')
+export { schedulePreviewWork } from '@/features/timeline/hooks/preview-work-budget'

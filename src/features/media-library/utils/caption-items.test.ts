@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vite-plus/test'
 
-vi.mock('../deps/timeline-contract', () => ({
+vi.mock('../deps/timeline-caption-utils-contract', () => ({
   DEFAULT_TRACK_HEIGHT: 100,
   timelineToSourceFrames: (
     timelineFrames: number,
@@ -89,7 +89,7 @@ import {
   isCaptionTrackCandidate,
   normalizeCaptionSegments,
 } from './caption-items'
-import { getTrackKind } from '../deps/timeline-contract'
+import { getTrackKind } from '../deps/timeline-caption-utils-contract'
 import type { TimelineItem, TimelineTrack, VideoItem } from '@/types/timeline'
 
 describe('caption-items', () => {

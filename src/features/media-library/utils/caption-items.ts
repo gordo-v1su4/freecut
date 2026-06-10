@@ -3,7 +3,8 @@ import {
   getEffectiveTrackKindForItem,
   getNextClassicTrackName,
   type TrackKind,
-} from '../deps/timeline-contract'
+  timelineToSourceFrames,
+} from '../deps/timeline-caption-utils-contract'
 import type { MediaTranscriptSegment } from '@/types/storage'
 import type { MediaCaption } from '@/infrastructure/analysis/media-tagger'
 import type { SubtitleCue, SubtitleFormat } from '@/shared/utils/subtitles'
@@ -16,7 +17,6 @@ import type {
   TimelineTrack,
   VideoItem,
 } from '@/types/timeline'
-import { timelineToSourceFrames } from '../deps/timeline-contract'
 import {
   CAPTION_STYLE_PRESETS,
   resolveCaptionStylePatch,

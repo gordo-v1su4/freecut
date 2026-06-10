@@ -1,9 +1,4 @@
 export {
-  deleteCompoundClips,
-  getCompoundClipDeletionImpact,
-  getMediaDeletionImpact,
-  removeProjectItems,
-  renameCompoundClip,
   useTimelineSettingsStore,
   useTimelineStore,
   useCompositionNavigationStore,
@@ -12,4 +7,11 @@ export {
   useItemsStore,
   getSynchronizedLinkedItems,
   wouldCreateCompositionCycle,
-} from './timeline-contract'
+} from './timeline-stores-contract'
+export {
+  deleteCompoundClips,
+  getCompoundClipDeletionImpact,
+  getMediaDeletionImpact,
+  removeProjectItems,
+  renameCompoundClip,
+} from './timeline-actions-contract'

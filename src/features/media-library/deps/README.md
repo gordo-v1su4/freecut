@@ -2,15 +2,21 @@
 
 Media-library-local adapters for external feature dependencies.
 
-- `timeline-contract.ts`: internal media-library->timeline seam binding. Other
-  timeline adapter files re-export from this contract to keep cross-feature
-  coupling centralized.
+- `timeline-contract.ts`: broader internal media-library->timeline seam binding
+  for modules that still need a mixed timeline surface.
+- `timeline-stores-contract.ts`: narrow internal media-library->timeline store
+  seam binding.
 - `timeline-stores.ts`: timeline stores/types used by media-library modules.
+- `timeline-actions-contract.ts`: narrow internal media-library->timeline action
+  seam binding.
 - `timeline-actions.ts`: timeline actions used by media-library modules.
+- `timeline-caption-utils-contract.ts`: narrow internal media-library->timeline
+  caption utility seam binding.
 - `timeline-utils.ts`: timeline utility helpers used by media-library modules.
-- `timeline-services.ts`: timeline services used by media-library modules.
-- `timeline.ts`: compatibility barrel that re-exports the timeline adapters
-  above. Prefer importing the more specific module directly in new code.
+- `timeline-services-contract.ts`: narrow internal media-library->timeline
+  service seam binding.
+- `timeline-services.ts`: narrow timeline service helpers used by
+  media-library modules.
 - `projects.ts`: the preferred entry point for media-library modules that need
   project metadata/state stores.
 - `storage.ts`: the preferred entry point for media-library modules that need
