@@ -30,5 +30,3 @@ export {
 } from './transition'
 
 export { renderItemGpuEffectsToTexture, renderPreviewVideoGpuEffectsToCanvas } from './gpu'
-
-export { calculateMediaDrawDimensions } from './media-draw'
