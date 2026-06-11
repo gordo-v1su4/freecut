@@ -10,7 +10,7 @@ import { createMediabunnyInputSource } from '@/infrastructure/browser/mediabunny
 import type { ObjectUrlSourceMetadata } from '@/infrastructure/browser/object-url-registry'
 import { ensureAc3DecoderRegistered, isAc3AudioCodec } from '@/shared/utils/ac3-decoder'
 
-export interface WaveformRequest {
+interface WaveformRequest {
   type: 'generate'
   requestId: string
   blobUrl: string
@@ -57,7 +57,7 @@ export interface WaveformErrorResponse {
   error: string
 }
 
-export type WaveformWorkerMessage = WaveformRequest | { type: 'abort'; requestId: string }
+type WaveformWorkerMessage = WaveformRequest | { type: 'abort'; requestId: string }
 export type WaveformWorkerResponse =
   | WaveformProgressResponse
   | WaveformInitResponse

@@ -23,19 +23,19 @@ export interface ExtractEmbeddedSubtitlesResult {
   trackLabel: string
 }
 
-export interface EmbeddedSubtitleScanResult {
+interface EmbeddedSubtitleScanResult {
   tracks: readonly EmbeddedSubtitleTrack[]
   scannedAt: number
   fromCache: boolean
 }
 
-export interface SubtitleScanProgressInfo {
+interface SubtitleScanProgressInfo {
   bytesRead: number
   totalBytes: number
   clusters: number
 }
 
-export interface SubtitleScanOptions {
+interface SubtitleScanOptions {
   onProgress?: (info: SubtitleScanProgressInfo) => void
   signal?: AbortSignal
 }

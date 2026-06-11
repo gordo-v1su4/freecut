@@ -19,7 +19,7 @@ export interface CornerPinValues {
   bottomLeft: [number, number]
 }
 
-export interface CornerPinEditorState {
+interface CornerPinEditorState {
   /** Whether corner pin editing is active */
   isEditing: boolean
   /** The item ID being edited */
@@ -32,7 +32,7 @@ export interface CornerPinEditorState {
   previewCornerPin: CornerPinValues | null
 }
 
-export interface CornerPinEditorActions {
+interface CornerPinEditorActions {
   startEditing: (itemId: string) => void
   stopEditing: () => void
   setDragging: (handle: CornerPinHandle | null) => void

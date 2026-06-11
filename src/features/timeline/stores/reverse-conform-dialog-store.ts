@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { TimelineItem, VideoItem } from '@/types/timeline'
 
-export interface ReverseConformDialogRequest {
+interface ReverseConformDialogRequest {
   id: string
   items: TimelineItem[]
   videoItems: VideoItem[]

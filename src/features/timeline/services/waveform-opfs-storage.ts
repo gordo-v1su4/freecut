@@ -82,7 +82,7 @@ export interface MultiResolutionWaveform {
   }[]
 }
 
-export interface WaveformRange {
+interface WaveformRange {
   duration: number
   channels: number
   sampleRate: number

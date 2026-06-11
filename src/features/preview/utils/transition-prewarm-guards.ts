@@ -1,4 +1,4 @@
-export type TransitionStartWindow = {
+type TransitionStartWindow = {
   startFrame: number
 }
 

@@ -4,7 +4,7 @@
  * '@/features/timeline/stores/actions/item-edit-actions'.
  */
 
-export type { RemoveSilenceRange, RemoveSilenceResult } from './edit/range-removal-actions'
+export type { RemoveSilenceResult } from './edit/range-removal-actions'
 export { removeSilenceFromItems, removeFillerWordsFromItems } from './edit/range-removal-actions'
 export {
   trimItemStart,

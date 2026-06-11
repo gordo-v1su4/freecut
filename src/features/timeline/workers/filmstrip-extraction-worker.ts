@@ -34,7 +34,7 @@ export interface ExtractRequest {
   maxParallelSaves?: number // Reserved for future worker-local throttling
 }
 
-export interface AbortRequest {
+interface AbortRequest {
   type: 'abort'
   requestId: string
 }
@@ -80,7 +80,7 @@ export interface ErrorResponse {
   error: string
 }
 
-export type WorkerRequest = ExtractRequest | AbortRequest | WarmRequest
+type WorkerRequest = ExtractRequest | AbortRequest | WarmRequest
 export type WorkerResponse = ProgressResponse | CompleteResponse | ErrorResponse | WarmedResponse
 
 // Track active requests for abort support

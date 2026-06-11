@@ -1,4 +1,4 @@
-export interface AudioScrubPreviewRequest {
+interface AudioScrubPreviewRequest {
   mediaId: string
   mediaUrl: string
   timeSeconds: number

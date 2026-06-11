@@ -69,7 +69,6 @@ import {
   type FilmstripMetricsSnapshot,
 } from './filmstrip-cache-metrics'
 
-export type { FilmstripMetricsSnapshot }
 export { THUMBNAIL_WIDTH }
 export type { FilmstripFrame }
 

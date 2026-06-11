@@ -4,7 +4,7 @@ import type { PaletteEntry } from '../deps/analysis'
 export type SceneBrowserSortMode = 'relevance' | 'time' | 'name'
 export type SceneBrowserViewMode = 'list' | 'grid'
 
-export interface SceneBrowserReference {
+interface SceneBrowserReference {
   /** Scene id whose palette is the reference — for dedupe and the clear chip. */
   sceneId: string
   /** Short human label (e.g. `"foo.mp4 · 0:12"`) shown in the chip. */

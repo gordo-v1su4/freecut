@@ -93,12 +93,6 @@ export type CaptionTextItemTemplate = Pick<
   | 'transform'
 >
 
-export interface CaptionableClipRange {
-  clip: AudioItem | VideoItem
-  startFrame: number
-  endFrame: number
-}
-
 export function normalizeCaptionSegments(
   segments: readonly MediaTranscriptSegment[],
 ): MediaTranscriptSegment[] {

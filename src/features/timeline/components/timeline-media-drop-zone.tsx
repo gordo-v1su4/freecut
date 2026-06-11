@@ -81,7 +81,7 @@ interface TimelineMediaDropZoneProps {
   anchorTrackId: string
 }
 
-export type GhostPreviewItem = NewTrackZoneGhostPreview
+type GhostPreviewItem = NewTrackZoneGhostPreview
 type PreviewGhostEntry = Pick<
   ExternalDragPreviewEntry,
   'label' | 'mediaType' | 'duration' | 'hasLinkedAudio'

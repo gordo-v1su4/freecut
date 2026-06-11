@@ -44,13 +44,13 @@ import { createLogger } from '@/shared/logging/logger'
 
 const logger = createLogger('MediaAnalysisService')
 
-export interface AnalyzeBatchResult {
+interface AnalyzeBatchResult {
   analyzed: number
   skipped: number
   failed: number
 }
 
-export interface AnalyzeBatchOptions {
+interface AnalyzeBatchOptions {
   /** When true, only analyze media that has no captions yet. Default: false (re-analyze everything). */
   onlyMissing?: boolean
   /** Optional filter for which media to consider (e.g. a single scope id). */

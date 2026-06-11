@@ -28,7 +28,7 @@ type ResolveMediaBatchResult = {
   failedIds: string[]
 }
 
-export interface PreviewPreloadPerfState {
+interface PreviewPreloadPerfState {
   preloadScanSamples: number
   preloadScanTotalMs: number
   preloadScanLastMs: number

@@ -8,7 +8,7 @@ import type { ItemKeyframes } from '@/types/keyframe'
  * Navigation breadcrumb entry for composition hierarchy.
  * Tracks which composition the user is currently editing.
  */
-export interface CompositionBreadcrumb {
+interface CompositionBreadcrumb {
   /** compositionId — null for root (main timeline) */
   compositionId: string | null
   /** Display label */

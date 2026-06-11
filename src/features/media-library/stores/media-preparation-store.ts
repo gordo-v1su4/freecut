@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 
-export type MediaPreparationTaskType = 'import' | 'filmstrip' | 'waveform'
-export type MediaPreparationTaskStatus = 'queued' | 'running' | 'error'
+type MediaPreparationTaskType = 'import' | 'filmstrip' | 'waveform'
+type MediaPreparationTaskStatus = 'queued' | 'running' | 'error'
 
-export interface MediaPreparationTask {
+interface MediaPreparationTask {
   id: string
   mediaId: string
   type: MediaPreparationTaskType

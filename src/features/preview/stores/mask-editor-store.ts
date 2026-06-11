@@ -15,7 +15,7 @@ function normalizeVertexSelection(vertexIndices: number[]): number[] {
   )
 }
 
-export interface MaskEditorState {
+interface MaskEditorState {
   /** Whether mask editing mode is active */
   isEditing: boolean
   /** The path shape item currently being edited */
@@ -58,7 +58,7 @@ export interface MaskEditorState {
   convertSelectedVertexRequestMode: 'corner' | 'bezier' | null
 }
 
-export interface MaskEditorActions {
+interface MaskEditorActions {
   /** Enter path editing mode for a specific item */
   startEditing: (itemId: string) => void
   /** Exit mask editing mode */

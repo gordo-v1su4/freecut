@@ -15,7 +15,7 @@ interface SubtitleScanProgressEntry {
   status: 'scanning' | 'done' | 'error'
 }
 
-export interface SubtitleScanProgressState {
+interface SubtitleScanProgressState {
   open: boolean
   /** Files in the current batch (single or multi-target). */
   entries: SubtitleScanProgressEntry[]
