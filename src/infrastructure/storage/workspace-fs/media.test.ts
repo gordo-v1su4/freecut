@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { MediaMetadata } from '@/types/storage'
 import { handlesMocks } from '../test-utils/storage-test-mocks'
 
+import * as fsPrimitives from './fs-primitives'
 import {
   createMedia,
   deleteMedia,
@@ -201,6 +202,60 @@ describe('workspace-fs media', () => {
 
     const all = await getAllMediaMetadata()
     expect(all.map((m) => m.id)).toEqual(['m1'])
+  })
+
+  it('getAllMedia preserves directory-listing order under parallel reads', async () => {
+    const root = createRoot()
+    setWorkspaceRoot(asHandle(root))
+    const ids = ['p1', 'p2', 'p3', 'p4', 'p5']
+    for (const id of ids) {
+      await createMedia(makeMedia(id))
+    }
+
+    // Intercept readJson and resolve in reverse order to prove index-preserving
+    // concurrency (mapWithConcurrency writes results by index, not by arrival)
+    const real = fsPrimitives.readJson.bind(fsPrimitives)
+    let callOrder = 0
+    const spy = vi.spyOn(fsPrimitives, 'readJson').mockImplementation(
+      async (root, segments) => {
+        const delay = (ids.length - callOrder++) * 2 // first call delays most
+        await new Promise((r) => setTimeout(r, delay))
+        return real(root, segments)
+      },
+    )
+
+    const all = await getAllMedia()
+    spy.mockRestore()
+
+    expect(all.map((m) => m.id)).toEqual(ids)
+  })
+
+  it('getAllMedia skips corrupt entries alongside valid ones under parallelism', async () => {
+    const root = createRoot()
+    setWorkspaceRoot(asHandle(root))
+    const ids = ['q1', 'q2', 'q3', 'q4']
+    for (const id of ids) {
+      await createMedia(makeMedia(id))
+    }
+    // Corrupt the second and fourth entries
+    await corruptFile(root, 'media', 'q2', 'metadata.json')
+    await corruptFile(root, 'media', 'q4', 'metadata.json')
+
+    const all = await getAllMedia()
+    expect(all.map((m) => m.id)).toEqual(['q1', 'q3'])
+  })
+
+  it('getAllMedia rejects with wrapped error when a non-corrupt readJson error occurs', async () => {
+    const root = createRoot()
+    setWorkspaceRoot(asHandle(root))
+    await createMedia(makeMedia('r1'))
+    await createMedia(makeMedia('r2'))
+
+    const boom = new Error('disk read error')
+    const spy = vi.spyOn(fsPrimitives, 'readJson').mockRejectedValueOnce(boom)
+
+    await expect(getAllMedia()).rejects.toThrow('Failed to load media from workspace')
+    spy.mockRestore()
   })
 })
 

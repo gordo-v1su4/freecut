@@ -10,6 +10,7 @@
 import type { MediaMetadata } from '@/types/storage'
 import { createLogger } from '@/shared/logging/logger'
 import { deleteHandle, getHandle, saveHandle } from '@/infrastructure/storage/handles-db'
+import { mapWithConcurrency } from '@/shared/utils/async-utils'
 
 import { requireWorkspaceRoot } from './root'
 import {
@@ -121,27 +122,54 @@ export async function validateMediaHandle(mediaId: string): Promise<MediaHandleV
   }
 }
 
+/* ──────────────────────── Parallel metadata read ────────────────────── */
+
+const METADATA_READ_CONCURRENCY = 8
+
+type MediaReadResult =
+  | { kind: 'ok'; serialized: SerializedMedia }
+  | { kind: 'skip' }
+  | { kind: 'error'; error: unknown }
+
+async function readAllSerializedMedia(
+  root: FileSystemDirectoryHandle,
+  context: string,
+): Promise<SerializedMedia[]> {
+  const dirs = await listDirectory(root, [MEDIA_DIR])
+  const directories = dirs.filter((entry) => entry.kind === 'directory')
+  const results = await mapWithConcurrency(
+    directories,
+    METADATA_READ_CONCURRENCY,
+    async (entry): Promise<MediaReadResult> => {
+      try {
+        const serialized = await readJson<SerializedMedia>(root, mediaMetadataPath(entry.name))
+        if (!serialized) return { kind: 'skip' }
+        return { kind: 'ok', serialized }
+      } catch (error) {
+        if (error instanceof WorkspaceFileCorruptError) {
+          logger.warn(`${context}: skipping corrupt metadata.json for ${entry.name}`, error)
+          return { kind: 'skip' }
+        }
+        return { kind: 'error', error }
+      }
+    },
+  )
+  const serialized: SerializedMedia[] = []
+  for (const result of results) {
+    if (!result) continue // mapWithConcurrency internal failure — already logged
+    if (result.kind === 'error') throw result.error
+    if (result.kind === 'ok') serialized.push(result.serialized)
+  }
+  return serialized
+}
+
 /* ────────────────────────────── Public API ───────────────────────────── */
 
 export async function getAllMedia(): Promise<MediaMetadata[]> {
   const root = requireWorkspaceRoot()
   try {
-    const dirs = await listDirectory(root, [MEDIA_DIR])
-    const media: MediaMetadata[] = []
-    for (const entry of dirs) {
-      if (entry.kind !== 'directory') continue
-      let serialized: SerializedMedia | null = null
-      try {
-        serialized = await readJson<SerializedMedia>(root, mediaMetadataPath(entry.name))
-      } catch (error) {
-        if (!(error instanceof WorkspaceFileCorruptError)) throw error
-        logger.warn(`getAllMedia: skipping corrupt metadata.json for ${entry.name}`, error)
-        continue
-      }
-      if (!serialized) continue
-      media.push(await restoreFileHandle(serialized))
-    }
-    return media
+    const serialized = await readAllSerializedMedia(root, 'getAllMedia')
+    return await Promise.all(serialized.map((s) => restoreFileHandle(s)))
   } catch (error) {
     logger.error('getAllMedia failed', error)
     throw new Error('Failed to load media from workspace')
@@ -151,22 +179,7 @@ export async function getAllMedia(): Promise<MediaMetadata[]> {
 export async function getAllMediaMetadata(): Promise<MediaMetadata[]> {
   const root = requireWorkspaceRoot()
   try {
-    const dirs = await listDirectory(root, [MEDIA_DIR])
-    const media: MediaMetadata[] = []
-    for (const entry of dirs) {
-      if (entry.kind !== 'directory') continue
-      let serialized: SerializedMedia | null = null
-      try {
-        serialized = await readJson<SerializedMedia>(root, mediaMetadataPath(entry.name))
-      } catch (error) {
-        if (!(error instanceof WorkspaceFileCorruptError)) throw error
-        logger.warn(`getAllMediaMetadata: skipping corrupt metadata.json for ${entry.name}`, error)
-        continue
-      }
-      if (!serialized) continue
-      media.push(serialized as MediaMetadata)
-    }
-    return media
+    return (await readAllSerializedMedia(root, 'getAllMediaMetadata')) as MediaMetadata[]
   } catch (error) {
     logger.error('getAllMediaMetadata failed', error)
     throw new Error('Failed to load media metadata from workspace')
