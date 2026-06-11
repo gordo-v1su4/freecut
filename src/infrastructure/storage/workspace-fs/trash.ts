@@ -28,7 +28,13 @@
 
 import { createLogger } from '@/shared/logging/logger'
 import { requireWorkspaceRoot } from './root'
-import { exists, listDirectory, readJson, writeJsonAtomic } from './fs-primitives'
+import {
+  exists,
+  listDirectory,
+  readJson,
+  writeJsonAtomic,
+  WorkspaceFileCorruptError,
+} from './fs-primitives'
 import { PROJECTS_DIR, projectJsonPath, projectTrashedMarkerPath } from './paths'
 import { writeWorkspaceIndex, type WorkspaceIndexEntry } from './workspace-index'
 import { withKeyLock } from './with-key-lock'
@@ -80,10 +86,17 @@ async function rebuildAndWriteIndex(root: FileSystemDirectoryHandle): Promise<vo
   for (const entry of entries) {
     if (entry.kind !== 'directory') continue
     if (await markerExists(root, entry.name)) continue
-    const project = await readJson<{ id: string; name: string; updatedAt: number }>(
-      root,
-      projectJsonPath(entry.name),
-    )
+    let project: { id: string; name: string; updatedAt: number } | null = null
+    try {
+      project = await readJson<{ id: string; name: string; updatedAt: number }>(
+        root,
+        projectJsonPath(entry.name),
+      )
+    } catch (error) {
+      if (!(error instanceof WorkspaceFileCorruptError)) throw error
+      logger.warn(`rebuildAndWriteIndex: skipping corrupt project.json for ${entry.name}`, error)
+      continue
+    }
     if (!project) continue
     indexEntries.push({
       id: project.id,
@@ -169,7 +182,26 @@ export async function listTrashedProjects(): Promise<TrashedProjectEntry[]> {
   const trashed: TrashedProjectEntry[] = []
   for (const entry of entries) {
     if (entry.kind !== 'directory') continue
-    const marker = await readMarker(root, entry.name)
+    let marker: TrashMarker | null = null
+    try {
+      marker = await readMarker(root, entry.name)
+    } catch (error) {
+      if (!(error instanceof WorkspaceFileCorruptError)) throw error
+      // The marker file exists (isTrashed returns true via markerExists) but is
+      // unreadable. Do NOT skip — a corrupt marker hides the project from the
+      // projects list AND from the trash list, making it invisible everywhere.
+      // Use Date.now() as deletedAt so sweepTrashOlderThan treats the project as
+      // freshly trashed rather than auto-purging it as if deleted in epoch 0.
+      logger.warn(
+        `listTrashedProjects: corrupt marker for ${entry.name}, using fallback entry`,
+        error,
+      )
+      trashed.push({
+        id: entry.name,
+        marker: { deletedAt: Date.now(), originalName: entry.name },
+      })
+      continue
+    }
     if (marker) {
       trashed.push({ id: entry.name, marker })
     }

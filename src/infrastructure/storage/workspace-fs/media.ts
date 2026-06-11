@@ -12,7 +12,13 @@ import { createLogger } from '@/shared/logging/logger'
 import { deleteHandle, getHandle, saveHandle } from '@/infrastructure/storage/handles-db'
 
 import { requireWorkspaceRoot } from './root'
-import { listDirectory, readJson, removeEntry, writeJsonAtomic } from './fs-primitives'
+import {
+  listDirectory,
+  readJson,
+  removeEntry,
+  writeJsonAtomic,
+  WorkspaceFileCorruptError,
+} from './fs-primitives'
 import { MEDIA_DIR, mediaDir, mediaMetadataPath } from './paths'
 
 const logger = createLogger('WorkspaceFS:Media')
@@ -124,7 +130,14 @@ export async function getAllMedia(): Promise<MediaMetadata[]> {
     const media: MediaMetadata[] = []
     for (const entry of dirs) {
       if (entry.kind !== 'directory') continue
-      const serialized = await readJson<SerializedMedia>(root, mediaMetadataPath(entry.name))
+      let serialized: SerializedMedia | null = null
+      try {
+        serialized = await readJson<SerializedMedia>(root, mediaMetadataPath(entry.name))
+      } catch (error) {
+        if (!(error instanceof WorkspaceFileCorruptError)) throw error
+        logger.warn(`getAllMedia: skipping corrupt metadata.json for ${entry.name}`, error)
+        continue
+      }
       if (!serialized) continue
       media.push(await restoreFileHandle(serialized))
     }
@@ -142,7 +155,14 @@ export async function getAllMediaMetadata(): Promise<MediaMetadata[]> {
     const media: MediaMetadata[] = []
     for (const entry of dirs) {
       if (entry.kind !== 'directory') continue
-      const serialized = await readJson<SerializedMedia>(root, mediaMetadataPath(entry.name))
+      let serialized: SerializedMedia | null = null
+      try {
+        serialized = await readJson<SerializedMedia>(root, mediaMetadataPath(entry.name))
+      } catch (error) {
+        if (!(error instanceof WorkspaceFileCorruptError)) throw error
+        logger.warn(`getAllMediaMetadata: skipping corrupt metadata.json for ${entry.name}`, error)
+        continue
+      }
       if (!serialized) continue
       media.push(serialized as MediaMetadata)
     }

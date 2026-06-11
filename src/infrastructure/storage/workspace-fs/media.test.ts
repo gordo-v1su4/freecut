@@ -12,7 +12,7 @@ import {
   validateMediaHandle,
 } from './media'
 import { setWorkspaceRoot } from './root'
-import { asHandle, createRoot, readFileText } from './__tests__/in-memory-handle'
+import { type MemDir, asHandle, createRoot, readFileText } from './__tests__/in-memory-handle'
 
 function makeMedia(id: string, overrides: Partial<MediaMetadata> = {}): MediaMetadata {
   return {
@@ -180,4 +180,39 @@ describe('workspace-fs media', () => {
       currentMtime: 2222,
     })
   })
+
+  it('getAllMedia skips a corrupt metadata.json and returns healthy entries', async () => {
+    const root = createRoot()
+    setWorkspaceRoot(asHandle(root))
+    await createMedia(makeMedia('m1'))
+    await createMedia(makeMedia('m2'))
+    await corruptFile(root, 'media', 'm2', 'metadata.json')
+
+    const all = await getAllMedia()
+    expect(all.map((m) => m.id)).toEqual(['m1'])
+  })
+
+  it('getAllMediaMetadata skips a corrupt metadata.json and returns healthy entries', async () => {
+    const root = createRoot()
+    setWorkspaceRoot(asHandle(root))
+    await createMedia(makeMedia('m1'))
+    await createMedia(makeMedia('m2'))
+    await corruptFile(root, 'media', 'm2', 'metadata.json')
+
+    const all = await getAllMediaMetadata()
+    expect(all.map((m) => m.id)).toEqual(['m1'])
+  })
 })
+
+/** Overwrite a file in the in-memory FS with arbitrary raw text. */
+async function corruptFile(dir: MemDir, ...segments: string[]): Promise<void> {
+  let current = dir
+  for (let i = 0; i < segments.length - 1; i++) {
+    current = await current.getDirectoryHandle(segments[i]!)
+  }
+  const filename = segments[segments.length - 1]!
+  const fh = await current.getFileHandle(filename, { create: true })
+  const writable = await fh.createWritable()
+  await writable.write('{not json')
+  await writable.close()
+}

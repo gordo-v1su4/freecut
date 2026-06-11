@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { Project } from '@/types/project'
 import { handlesMocks } from '../test-utils/storage-test-mocks'
 
@@ -11,7 +11,20 @@ import {
   sweepTrashOlderThan,
 } from './trash'
 import { setWorkspaceRoot } from './root'
-import { asHandle, createRoot, readFileText } from './__tests__/in-memory-handle'
+import { type MemDir, asHandle, createRoot, readFileText } from './__tests__/in-memory-handle'
+
+/** Overwrite a file in the in-memory FS with arbitrary raw text. */
+async function corruptFile(dir: MemDir, ...segments: string[]): Promise<void> {
+  let current = dir
+  for (let i = 0; i < segments.length - 1; i++) {
+    current = await current.getDirectoryHandle(segments[i]!)
+  }
+  const filename = segments[segments.length - 1]!
+  const fh = await current.getFileHandle(filename, { create: true })
+  const writable = await fh.createWritable()
+  await writable.write('{not json')
+  await writable.close()
+}
 
 function makeProject(id: string, name = 'Test', updatedAt = 1000): Project {
   return {
@@ -174,5 +187,67 @@ describe('workspace-fs trash', () => {
 
     expect(calls.sort()).toEqual(['a', 'b'])
     expect(result).toEqual(['b']) // only b successfully purged
+  })
+
+  it('softDeleteProject succeeds with a corrupt sibling project.json', async () => {
+    const root = createRoot()
+    setWorkspaceRoot(asHandle(root))
+    await createProject(makeProject('p1', 'Live'))
+    await createProject(makeProject('p2', 'Corrupt'))
+    await corruptFile(root, 'projects', 'p2', 'project.json')
+
+    await softDeleteProject('p1')
+
+    // index.json should contain neither p1 (trashed) nor p2 (corrupt, skipped).
+    const indexText = await readFileText(root, 'index.json')
+    const index = JSON.parse(indexText!)
+    expect(index.projects.map((p: { id: string }) => p.id)).not.toContain('p1')
+    expect(index.projects.map((p: { id: string }) => p.id)).not.toContain('p2')
+  })
+
+  it('restoreProject succeeds with a corrupt sibling project.json', async () => {
+    const root = createRoot()
+    setWorkspaceRoot(asHandle(root))
+    await createProject(makeProject('p1', 'Live'))
+    await createProject(makeProject('p2', 'Corrupt'))
+    await softDeleteProject('p1')
+    await corruptFile(root, 'projects', 'p2', 'project.json')
+
+    await restoreProject('p1')
+
+    const indexText = await readFileText(root, 'index.json')
+    const index = JSON.parse(indexText!)
+    const ids = index.projects.map((p: { id: string }) => p.id)
+    expect(ids).toContain('p1')
+    expect(ids).not.toContain('p2')
+  })
+
+  it('corrupt trash marker keeps project visible in the trash list', async () => {
+    const root = createRoot()
+    setWorkspaceRoot(asHandle(root))
+    await createProject(makeProject('p1', 'Live'))
+    await softDeleteProject('p1')
+    await corruptFile(root, 'projects', 'p1', '.freecut-trashed.json')
+
+    const trashed = await listTrashedProjects()
+    expect(trashed).toHaveLength(1)
+    expect(trashed[0]!.id).toBe('p1')
+    expect(typeof trashed[0]!.marker.deletedAt).toBe('number')
+    expect(trashed[0]!.marker.deletedAt).toBeGreaterThan(0)
+  })
+
+  it('corrupt trash marker does not trigger auto-purge on sweep', async () => {
+    const root = createRoot()
+    setWorkspaceRoot(asHandle(root))
+    await createProject(makeProject('p1', 'Live'))
+    await softDeleteProject('p1')
+    await corruptFile(root, 'projects', 'p1', '.freecut-trashed.json')
+
+    const onPurge = vi.fn()
+    // Use a very large TTL cutoff — a Date.now()-based fallback should NOT be older than this.
+    const result = await sweepTrashOlderThan(1000 * 60, onPurge)
+
+    expect(onPurge).not.toHaveBeenCalled()
+    expect(result).toEqual([])
   })
 })
