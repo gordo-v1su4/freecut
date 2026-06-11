@@ -11,7 +11,6 @@
 
 import type {
   TransitionDefinition,
-  TransitionCategory,
   WipeDirection,
   SlideDirection,
   FlipDirection,
@@ -82,13 +81,6 @@ export class TransitionRegistry {
   }
 
   /**
-   * Get a registry entry by ID.
-   */
-  get(id: string): TransitionRegistryEntry | undefined {
-    return this.entries.get(id)
-  }
-
-  /**
    * Get just the renderer for a transition ID.
    */
   getRenderer(id: string): TransitionRenderer | undefined {
@@ -110,26 +102,6 @@ export class TransitionRegistry {
   }
 
   /**
-   * Get all registered entries.
-   */
-  getAll(): Map<string, TransitionRegistryEntry> {
-    return new Map(this.entries)
-  }
-
-  /**
-   * Get all entries in a given category.
-   */
-  getByCategory(category: TransitionCategory): TransitionRegistryEntry[] {
-    const result: TransitionRegistryEntry[] = []
-    for (const entry of this.entries.values()) {
-      if (entry.definition.category === category) {
-        result.push(entry)
-      }
-    }
-    return result
-  }
-
-  /**
    * Get all definitions (for UI listing).
    */
   getDefinitions(): TransitionDefinition[] {
@@ -141,13 +113,6 @@ export class TransitionRegistry {
    */
   getIds(): string[] {
     return Array.from(this.entries.keys())
-  }
-
-  /**
-   * Clear all registered transitions.
-   */
-  clear(): void {
-    this.entries.clear()
   }
 
   /**

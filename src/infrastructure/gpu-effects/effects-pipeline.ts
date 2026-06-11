@@ -102,7 +102,6 @@ export class EffectsPipeline {
   private blitBindGroupPong: GPUBindGroup | null = null
   // GPU backpressure: count of frames still in-flight on the GPU queue
   private gpuFramesInFlight = 0
-  private static MAX_FRAMES_IN_FLIGHT = 2
   // Reusable offscreen canvas for applyEffectsToCanvas output (non-batch)
   private outputCanvas: OffscreenCanvas | null = null
   private outputCtx: GPUCanvasContext | null = null
@@ -402,151 +401,6 @@ export class EffectsPipeline {
         this.gpuFramesInFlight = Math.max(0, this.gpuFramesInFlight - 1)
       },
     )
-  }
-
-  /**
-   * Process a source through an effect chain and render to output canvas context.
-   * Accepts HTMLVideoElement for zero-copy GPU capture
-   * Returns false if skipped (GPU busy or no effects).
-   */
-  applyEffects(
-    source: OffscreenCanvas | HTMLCanvasElement | HTMLVideoElement,
-    effects: GpuEffectInstance[],
-    outputCtx: GPUCanvasContext,
-  ): boolean {
-    const enabled = effects.filter((e) => e.enabled)
-    if (enabled.length === 0) return false
-    if (!this.blitPipeline || !this.blitBindGroupLayout) return false
-
-    // Backpressure: skip if too many frames are already in-flight on the GPU
-    if (this.gpuFramesInFlight >= EffectsPipeline.MAX_FRAMES_IN_FLIGHT) return false
-
-    // Get dimensions — HTMLVideoElement uses videoWidth/videoHeight
-    const w = source instanceof HTMLVideoElement ? source.videoWidth : source.width
-    const h = source instanceof HTMLVideoElement ? source.videoHeight : source.height
-    if (w < 2 || h < 2) return false
-
-    this.ensurePingPong(w, h)
-    if (!this.pingTexture || !this.pongTexture) return false
-
-    // Upload source to ping texture
-    this.device.queue.copyExternalImageToTexture(
-      { source, flipY: false },
-      { texture: this.pingTexture },
-      { width: w, height: h },
-    )
-
-    const commandEncoder = this.device.createCommandEncoder()
-
-    // Run effect chain
-    const finalTex = this.runEffectChain(
-      commandEncoder,
-      enabled,
-      this.pingTexture,
-      this.pongTexture,
-      w,
-      h,
-    )
-
-    // Blit final result to output canvas (cached bind group for ping/pong input)
-    const isPingFinal = finalTex === this.pingTexture
-    const blitBindGroup = isPingFinal
-      ? (this.blitBindGroupPing ??= this.device.createBindGroup({
-          layout: this.blitBindGroupLayout!,
-          entries: [
-            { binding: 0, resource: this.sampler },
-            { binding: 1, resource: this.pingView! },
-          ],
-        }))
-      : (this.blitBindGroupPong ??= this.device.createBindGroup({
-          layout: this.blitBindGroupLayout!,
-          entries: [
-            { binding: 0, resource: this.sampler },
-            { binding: 1, resource: this.pongView! },
-          ],
-        }))
-
-    const outputPass = commandEncoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: outputCtx.getCurrentTexture().createView(),
-          loadOp: 'clear',
-          storeOp: 'store',
-        },
-      ],
-    })
-    outputPass.setPipeline(this.blitPipeline)
-    outputPass.setBindGroup(0, blitBindGroup)
-    outputPass.draw(6)
-    outputPass.end()
-
-    this.device.queue.submit([commandEncoder.finish()])
-
-    this.trackSubmittedWork()
-
-    return true
-  }
-
-  /**
-   * Apply effects chain and return result as ImageData (for export pipeline).
-   */
-  async applyEffectsToImageData(
-    imageData: ImageData,
-    effects: GpuEffectInstance[],
-  ): Promise<ImageData> {
-    const enabled = effects.filter((e) => e.enabled)
-    if (enabled.length === 0) return imageData
-
-    const w = imageData.width
-    const h = imageData.height
-    this.ensurePingPong(w, h)
-    if (!this.pingTexture || !this.pongTexture) return imageData
-
-    // Upload ImageData to ping texture
-    this.device.queue.writeTexture(
-      { texture: this.pingTexture },
-      imageData.data,
-      { bytesPerRow: w * 4 },
-      { width: w, height: h },
-    )
-
-    const commandEncoder = this.device.createCommandEncoder()
-
-    const finalTex = this.runEffectChain(
-      commandEncoder,
-      enabled,
-      this.pingTexture,
-      this.pongTexture,
-      w,
-      h,
-    )
-
-    // Read back result
-    const bytesPerRow = Math.ceil((w * 4) / 256) * 256 // align to 256
-    const readBuffer = this.device.createBuffer({
-      size: bytesPerRow * h,
-      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-    })
-    commandEncoder.copyTextureToBuffer(
-      { texture: finalTex },
-      { buffer: readBuffer, bytesPerRow },
-      { width: w, height: h },
-    )
-
-    this.device.queue.submit([commandEncoder.finish()])
-
-    await readBuffer.mapAsync(GPUMapMode.READ)
-    const mapped = new Uint8Array(readBuffer.getMappedRange())
-
-    // Copy with row stride handling
-    const resultData = new Uint8ClampedArray(w * h * 4)
-    for (let row = 0; row < h; row++) {
-      resultData.set(mapped.subarray(row * bytesPerRow, row * bytesPerRow + w * 4), row * w * 4)
-    }
-    readBuffer.unmap()
-    readBuffer.destroy()
-
-    return new ImageData(resultData, w, h)
   }
 
   /**
@@ -938,10 +792,6 @@ export class EffectsPipeline {
 
   getDevice(): GPUDevice {
     return this.device
-  }
-
-  getFormat(): GPUTextureFormat {
-    return this.format
   }
 
   destroy(): void {
