@@ -216,13 +216,11 @@ describe('workspace-fs media', () => {
     // concurrency (mapWithConcurrency writes results by index, not by arrival)
     const real = fsPrimitives.readJson.bind(fsPrimitives)
     let callOrder = 0
-    const spy = vi.spyOn(fsPrimitives, 'readJson').mockImplementation(
-      async (root, segments) => {
-        const delay = (ids.length - callOrder++) * 2 // first call delays most
-        await new Promise((r) => setTimeout(r, delay))
-        return real(root, segments)
-      },
-    )
+    const spy = vi.spyOn(fsPrimitives, 'readJson').mockImplementation(async (root, segments) => {
+      const delay = (ids.length - callOrder++) * 2 // first call delays most
+      await new Promise((r) => setTimeout(r, delay))
+      return real(root, segments)
+    })
 
     const all = await getAllMedia()
     spy.mockRestore()
