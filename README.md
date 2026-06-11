@@ -224,6 +224,7 @@ npm run check:boundaries            # Feature boundary architecture check
 npm run check:deps-contracts        # Enforce deps contract adapter routing
 npm run check:legacy-lib-imports    # Tripwire: block any "@/lib/*" import (layer removed)
 npm run check:deps-wrapper-health   # Fail on unused pass-through deps wrappers
+npm run check:changed-health        # Fail on newly introduced dead code, complexity, or duplication
 npm run check:edge-budgets          # Feature coupling budget check
 npm run report:feature-edges        # Human-readable feature edge report
 npm run report:feature-edges:json   # JSON feature edge report
@@ -234,6 +235,11 @@ npm run routes              # Regenerate TanStack Router route tree
 npm run changelog:append    # Append generated changelog data
 npm run changelog:rollup    # Roll changelog data into release notes
 ```
+
+`npm run verify` and the pre-push hook both include `check:changed-health`. The gate runs
+`fallow audit --base HEAD` by default and fails only on issues introduced by the current
+diff. Use `npm run check:changed-health -- --base <ref>` or set `FALLOW_AUDIT_BASE=<ref>`
+to compare against another branch or commit.
 
 ### Performance Checks
 
