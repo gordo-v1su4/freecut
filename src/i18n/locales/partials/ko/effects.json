@@ -39,6 +39,10 @@
     "multiPointHint": "{{channel}} 곡선을 클릭하면 포인트가 추가됩니다. 포인트를 더블 클릭하면 제거됩니다."
   },
   "wheels": {
+    "autoBalance": "자동 밸런스",
+    "pickWhiteBalance": "화이트 밸런스 스포이드",
+    "pickBlackPoint": "블랙 포인트 선택",
+    "pickWhitePoint": "화이트 포인트 선택",
     "resetWheel": "{{name}} 재설정",
     "shadows": "어두운 영역",
     "midtones": "중간톤",

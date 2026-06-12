@@ -39,6 +39,10 @@
     "multiPointHint": "{{channel}}カーブをクリックするとポイントを追加できます。ポイントをダブルクリックすると削除されます。"
   },
   "wheels": {
+    "autoBalance": "自動バランス",
+    "pickWhiteBalance": "ホワイトバランススポイト",
+    "pickBlackPoint": "ブラックポイントを選択",
+    "pickWhitePoint": "ホワイトポイントを選択",
     "resetWheel": "{{name}}をリセット",
     "shadows": "シャドウ",
     "midtones": "中間調",

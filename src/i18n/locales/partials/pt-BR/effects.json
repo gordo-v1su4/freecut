@@ -39,6 +39,10 @@
     "multiPointHint": "Clique na curva {{channel}} para adicionar um ponto. Clique duas vezes em um ponto para removê-lo."
   },
   "wheels": {
+    "autoBalance": "Balanço automático",
+    "pickWhiteBalance": "Conta-gotas de balanço de branco",
+    "pickBlackPoint": "Escolher ponto preto",
+    "pickWhitePoint": "Escolher ponto branco",
     "resetWheel": "Redefinir {{name}}",
     "shadows": "Sombras",
     "midtones": "Meios-tons",

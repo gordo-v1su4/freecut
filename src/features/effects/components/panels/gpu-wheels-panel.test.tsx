@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vite-plus/test'
 import { getGpuEffect, getGpuEffectDefaultParams } from '@/infrastructure/gpu-effects'
 import type { GpuEffect, ItemEffect } from '@/types/effects'
@@ -147,6 +147,30 @@ describe('GpuWheelsPanel', () => {
       shadowsAmount: 0,
       lift: 0,
     })
+  })
+
+  it('picks a black point with the eyedropper and commits the lift', async () => {
+    const windowWithEyeDropper = window as unknown as {
+      EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> }
+    }
+    windowWithEyeDropper.EyeDropper = class {
+      open() {
+        return Promise.resolve({ sRGBHex: '#808080' })
+      }
+    }
+    try {
+      const props = makeProps({ lift: 0 })
+      render(<GpuWheelsPanel {...props} layout="dock" />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Pick black point' }))
+
+      // 50% gray luma is ~0.502 — lift drops by that to map it to black
+      await waitFor(() => {
+        expect(props.onParamChange).toHaveBeenCalledWith('fx-wheels', 'lift', -0.502)
+      })
+    } finally {
+      delete windowWithEyeDropper.EyeDropper
+    }
   })
 
   it('omits the master chip on the Offset wheel like Resolve', () => {

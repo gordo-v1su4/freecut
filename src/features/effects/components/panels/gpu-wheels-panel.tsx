@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { useTranslation } from 'react-i18next'
-import { RotateCcw } from 'lucide-react'
+import { Pipette, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { usePreviewBridgeStore } from '@/shared/state/preview-bridge'
 import { KeyframeToggle } from '@/features/effects/deps/keyframes-contract'
 import { PropertyRow, SliderInput } from '@/shared/ui/property-controls'
 import { cn } from '@/shared/ui/cn'
@@ -12,6 +13,14 @@ import {
   wheelChannelsFromHueAmount,
   type WheelChannels,
 } from '@/features/effects/utils/wheel-channels'
+import {
+  autoBalanceFromFrame,
+  blackPointFromPick,
+  hexToRgb01,
+  luma601,
+  whiteBalanceFromPick,
+  whitePointFromPick,
+} from '@/features/effects/utils/wheel-pickers'
 import { EffectPanelHeaderRow } from './effect-panel-header-actions'
 import type { GpuKeyframePanelProps, GpuParamUpdates } from './panel-props'
 import type { GpuEffectDefinition } from '@/infrastructure/gpu-effects'
@@ -26,6 +35,28 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
+// Chrome's EyeDropper API (no lib.dom types yet) — used by the white
+// balance and black/white point pickers to sample the graded preview.
+interface EyeDropperApi {
+  open: () => Promise<{ sRGBHex: string }>
+}
+
+function getEyeDropperCtor(): (new () => EyeDropperApi) | null {
+  if (typeof window === 'undefined' || !('EyeDropper' in window)) return null
+  return (window as unknown as { EyeDropper: new () => EyeDropperApi }).EyeDropper
+}
+
+async function pickScreenColor(): Promise<{ r: number; g: number; b: number } | null> {
+  const EyeDropperCtor = getEyeDropperCtor()
+  if (!EyeDropperCtor) return null
+  try {
+    const { sRGBHex } = await new EyeDropperCtor().open()
+    return hexToRgb01(sRGBHex)
+  } catch {
+    return null // user cancelled the picker
+  }
+}
+
 const MAX_WHEEL_SIZE = 100
 const MAX_DOCK_WHEEL_SIZE = 200
 const MIN_WHEEL_SIZE = 64
@@ -36,12 +67,15 @@ const DOCK_WHEEL_GRID_GAP_PX = 28
 // header (20) + column gaps (2x8) + value chips with accents (24) + thumb wheel (16)
 const DOCK_WHEEL_EXTRAS_PX = 76
 const PUCK_RADIUS_PX = 4
-// Outer master ring (dock): a light segment that rotates with the thumb
-// wheel, like Resolve's master ring around each primaries wheel.
+// Outer master ring (dock): a fill gauge like Resolve's. A bright metallic
+// ring sits under a pure-black cover that is revealed clockwise from 12
+// o'clock proportionally to the master value — fully black at the range
+// minimum, the full ring at the maximum.
 const DOCK_RING_THICKNESS = 5
 const DOCK_RING_GAP = 3
 const DOCK_RING_INSET = DOCK_RING_THICKNESS + DOCK_RING_GAP
-const DOCK_RING_SEGMENT_DEG = 70
+const DOCK_RING_COVER_COLOR = '#060607'
+const DOCK_RING_METAL_GRADIENT = 'linear-gradient(180deg, #8b8b92 0%, #e4e4e9 55%, #f8f8fa 100%)'
 
 // Hue 0 sits on the +x axis to match getHueAmountFromClient's atan2 mapping.
 const WHEEL_HUE_CONIC =
@@ -72,8 +106,10 @@ interface WheelControlProps {
   compact?: boolean
   dock?: boolean
   dockFields?: React.ReactNode
-  /** Rotation (deg) of the outer master ring's light segment (dock only). */
-  masterRingRotation?: number
+  /** Master ring fill 0..1 — fraction of the bright ring revealed (dock only). */
+  masterRingFill?: number
+  /** Anchor angle (deg from 12 o'clock) where the ring reveal starts. */
+  masterRingFromDeg?: number
   onLiveChange: (hue: number, amount: number) => void
   onCommit: (hue: number, amount: number) => void
   onReset: () => void
@@ -217,7 +253,8 @@ const WheelControl = memo(function WheelControl({
   compact = false,
   dock = false,
   dockFields,
-  masterRingRotation = 0,
+  masterRingFill = 0,
+  masterRingFromDeg = 0,
   onLiveChange,
   onCommit,
   onReset,
@@ -358,10 +395,11 @@ const WheelControl = memo(function WheelControl({
     </button>
   )
 
-  // Donut mask leaves only the outer ring band visible; the light segment
-  // starts at the bottom and rotates with the master value.
+  // Donut mask leaves only the outer ring band visible. The black cover
+  // (top conic layer) shrinks as the fill grows, revealing the metallic
+  // ring clockwise from 12 o'clock.
   const ringMask = `radial-gradient(closest-side, transparent calc(100% - ${DOCK_RING_THICKNESS}px), #000 calc(100% - ${DOCK_RING_THICKNESS - 1}px))`
-  const ringFrom = 180 - DOCK_RING_SEGMENT_DEG / 2 + masterRingRotation
+  const revealDeg = clamp(masterRingFill, 0, 1) * 360
 
   return (
     <div
@@ -384,7 +422,7 @@ const WheelControl = memo(function WheelControl({
             aria-hidden="true"
             className="absolute inset-0 rounded-full"
             style={{
-              background: `conic-gradient(from ${ringFrom}deg, #e4e4e7 0deg ${DOCK_RING_SEGMENT_DEG}deg, #131316 ${DOCK_RING_SEGMENT_DEG}deg 360deg)`,
+              background: `conic-gradient(from ${masterRingFromDeg}deg, transparent 0deg ${Math.max(0, revealDeg - 2)}deg, ${DOCK_RING_COVER_COLOR} ${revealDeg}deg 360deg), ${DOCK_RING_METAL_GRADIENT}`,
               WebkitMask: ringMask,
               mask: ringMask,
             }}
@@ -443,6 +481,7 @@ const DOCK_WHEEL_DESCRIPTORS = [
     levelKey: 'lift',
     masterChip: true,
     display: { scale: 1, bias: 0, step: 0.01 },
+    ring: { min: -2, max: 2, fromDeg: 0 },
   },
   {
     labelKey: 'effects.params.gamma',
@@ -451,6 +490,7 @@ const DOCK_WHEEL_DESCRIPTORS = [
     levelKey: 'gamma',
     masterChip: true,
     display: { scale: 1, bias: -1, step: 0.01 },
+    ring: { min: 0, max: 2, fromDeg: 0 },
   },
   {
     labelKey: 'effects.params.gain',
@@ -459,6 +499,9 @@ const DOCK_WHEEL_DESCRIPTORS = [
     levelKey: 'gain',
     masterChip: true,
     display: { scale: 1, bias: 0, step: 0.01 },
+    // Resolve renders gain's gauge phase-flipped 180° relative to the
+    // other wheels — same half-ring at default, on the opposite side.
+    ring: { min: 0, max: 2, fromDeg: 180 },
   },
   // Resolve's Offset wheel shows only R/G/B chips — the master scalar is
   // still driven by the thumb wheel below.
@@ -469,6 +512,7 @@ const DOCK_WHEEL_DESCRIPTORS = [
     levelKey: 'offset',
     masterChip: false,
     display: { scale: 100, bias: 25, step: 0.25 },
+    ring: { min: -2, max: 2, fromDeg: 0 },
   },
 ] as const
 
@@ -840,17 +884,53 @@ export const GpuWheelsPanel = memo(function GpuWheelsPanel({
     return () => observer.disconnect()
   }, [isDock])
 
-  // Ring indicator: two full turns across the master's range, anchored at
-  // its default, like Resolve's endless master ring rotating under the wheel.
-  const getMasterRingRotation = (levelKey: string) => {
-    const levelParam = definition.params[levelKey]
-    if (!levelParam || levelParam.type !== 'number') return 0
-    const level = readNumberParam(definition, displayParams, levelKey)
-    const defaultValue = typeof levelParam.default === 'number' ? levelParam.default : 0
-    const min = typeof levelParam.min === 'number' ? levelParam.min : 0
-    const max = typeof levelParam.max === 'number' ? levelParam.max : 1
-    const range = max - min
-    return range > 0 ? ((level - defaultValue) / range) * 720 : 0
+  // Ring gauge over the wheel's practical working span (param space) —
+  // Resolve's rings reflect a per-wheel range, not the full field range,
+  // which is why lift/gamma/offset read half at default while gain reads
+  // ~2/3. Values past the span peg the ring full/empty.
+  const getMasterRingFill = (desc: DockWheelDescriptor) => {
+    const level = readNumberParam(definition, displayParams, desc.levelKey)
+    const range = desc.ring.max - desc.ring.min
+    return range > 0 ? clamp((level - desc.ring.min) / range, 0, 1) : 0
+  }
+
+  // Resolve-style primaries pickers. The eyedropper ones sample the graded
+  // preview straight off the screen; auto balance reads frame statistics
+  // from the preview capture bridge.
+  const eyeDropperSupported = getEyeDropperCtor() !== null
+  const readCurrent = (key: string) => readNumberParam(definition, displayParams, key)
+
+  const handlePickWhiteBalance = async () => {
+    const picked = await pickScreenColor()
+    if (!picked) return
+    const wb = whiteBalanceFromPick(picked, readCurrent('temperature'), readCurrent('tint'))
+    emitCommitBatch({ temperature: wb.temperature, tint: wb.tint })
+  }
+
+  const handlePickBlackPoint = async () => {
+    const picked = await pickScreenColor()
+    if (!picked) return
+    emitCommitParam('lift', blackPointFromPick(luma601(picked), readCurrent('lift')))
+  }
+
+  const handlePickWhitePoint = async () => {
+    const picked = await pickScreenColor()
+    if (!picked) return
+    emitCommitParam('gain', whitePointFromPick(luma601(picked), readCurrent('gain')))
+  }
+
+  const handleAutoBalance = async () => {
+    const capture = usePreviewBridgeStore.getState().captureFrameImageData
+    if (!capture) return
+    const imageData = await capture({ width: 96, height: 54 })
+    if (!imageData) return
+    const updates = autoBalanceFromFrame(imageData, {
+      lift: readCurrent('lift'),
+      gain: readCurrent('gain'),
+      temperature: readCurrent('temperature'),
+      tint: readCurrent('tint'),
+    })
+    emitCommitBatch({ ...updates })
   }
 
   const updateNumberParam = (key: string, rawValue: string, mode: 'live' | 'commit') => {
@@ -1071,8 +1151,70 @@ export const GpuWheelsPanel = memo(function GpuWheelsPanel({
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div
             className="grid shrink-0 items-center gap-x-3 border-b border-border/70 px-4 py-1.5"
-            style={{ gridTemplateColumns: `repeat(${DOCK_TOP_PARAMS.length}, minmax(0, 1fr))` }}
+            style={{
+              gridTemplateColumns: `auto repeat(${DOCK_TOP_PARAMS.length}, minmax(0, 1fr))`,
+            }}
           >
+            <div className="flex items-center gap-0.5 pr-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                disabled={!effect.enabled}
+                onClick={() => void handleAutoBalance()}
+                title={t('effects.wheels.autoBalance')}
+                aria-label={t('effects.wheels.autoBalance')}
+              >
+                <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-current text-[8px] font-semibold leading-none">
+                  A
+                </span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                disabled={!effect.enabled || !eyeDropperSupported}
+                onClick={() => void handlePickWhiteBalance()}
+                title={t('effects.wheels.pickWhiteBalance')}
+                aria-label={t('effects.wheels.pickWhiteBalance')}
+              >
+                <Pipette className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                disabled={!effect.enabled || !eyeDropperSupported}
+                onClick={() => void handlePickBlackPoint()}
+                title={t('effects.wheels.pickBlackPoint')}
+                aria-label={t('effects.wheels.pickBlackPoint')}
+              >
+                <span className="relative">
+                  <Pipette className="h-3.5 w-3.5" />
+                  <span
+                    aria-hidden="true"
+                    className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full border border-zinc-500 bg-black"
+                  />
+                </span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                disabled={!effect.enabled || !eyeDropperSupported}
+                onClick={() => void handlePickWhitePoint()}
+                title={t('effects.wheels.pickWhitePoint')}
+                aria-label={t('effects.wheels.pickWhitePoint')}
+              >
+                <span className="relative">
+                  <Pipette className="h-3.5 w-3.5" />
+                  <span
+                    aria-hidden="true"
+                    className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full border border-zinc-600 bg-white"
+                  />
+                </span>
+              </Button>
+            </div>
             {DOCK_TOP_PARAMS.map(renderDockNumberControl)}
           </div>
           <div ref={wheelGridRef} className="min-h-0 flex-1 overflow-hidden px-6 py-3">
@@ -1086,7 +1228,8 @@ export const GpuWheelsPanel = memo(function GpuWheelsPanel({
                   size={wheelSize}
                   disabled={!effect.enabled}
                   dock
-                  masterRingRotation={getMasterRingRotation(desc.levelKey)}
+                  masterRingFill={getMasterRingFill(desc)}
+                  masterRingFromDeg={desc.ring.fromDeg}
                   dockFields={renderDockWheelFields(desc, t(desc.labelKey))}
                   onLiveChange={(hue, amount) => {
                     emitLiveBatch({

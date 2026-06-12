@@ -39,6 +39,10 @@
     "multiPointHint": "Nokta eklemek için {{channel}} eğrisine tıklayın. Bir noktayı kaldırmak için üzerine çift tıklayın."
   },
   "wheels": {
+    "autoBalance": "Otomatik denge",
+    "pickWhiteBalance": "Beyaz dengesi damlalığı",
+    "pickBlackPoint": "Siyah nokta seç",
+    "pickWhitePoint": "Beyaz nokta seç",
     "resetWheel": "{{name}} sıfırla",
     "shadows": "Gölgeler",
     "midtones": "Orta tonlar",

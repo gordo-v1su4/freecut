@@ -40,6 +40,10 @@
   },
   "wheels": {
     "adjustWheel": "Adjust {{name}} wheel",
+    "autoBalance": "Auto balance",
+    "pickWhiteBalance": "White balance picker",
+    "pickBlackPoint": "Pick black point",
+    "pickWhitePoint": "Pick white point",
     "balance": "Balance",
     "primaries": "Primaries",
     "primariesColorWheels": "Primaries - Color Wheels",

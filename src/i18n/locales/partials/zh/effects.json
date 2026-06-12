@@ -39,6 +39,10 @@
     "multiPointHint": "点击 {{channel}} 曲线以添加控制点。双击控制点可将其删除。"
   },
   "wheels": {
+    "autoBalance": "自动平衡",
+    "pickWhiteBalance": "白平衡吸管",
+    "pickBlackPoint": "选取黑点",
+    "pickWhitePoint": "选取白点",
     "resetWheel": "重置 {{name}}",
     "shadows": "阴影",
     "midtones": "中间调",
