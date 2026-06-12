@@ -37,6 +37,10 @@ interface SharedReverseConformJob {
   promise: Promise<{ blob: Blob; opfsPath: string }>
   progressListeners: Set<(progress: number) => void>
   lastProgress: number
+  /** Cancels the underlying render once every waiter has aborted. */
+  controller: AbortController
+  /** Number of prepareVideo callers currently awaiting this job. */
+  waiterCount: number
 }
 
 function emitSharedProgress(job: SharedReverseConformJob, value: number): void {
@@ -342,11 +346,19 @@ export const reverseConformService = {
     const opfsPath = pathSegments.join('/')
 
     let sharedJob = inFlightByKey.get(key)
+    if (sharedJob?.controller.signal.aborted) {
+      // A fully-cancelled job is tearing down; wait for its finally() to
+      // remove it from the map so we can start a fresh render below.
+      await sharedJob.promise.catch(() => undefined)
+      sharedJob = inFlightByKey.get(key)
+    }
     if (!sharedJob) {
       const job: SharedReverseConformJob = {
         progressListeners: new Set<(progress: number) => void>(),
         lastProgress: 0,
         promise: undefined as unknown as Promise<{ blob: Blob; opfsPath: string }>,
+        controller: new AbortController(),
+        waiterCount: 0,
       }
       job.promise = (async () => {
         emitSharedProgress(job, 0)
@@ -365,6 +377,7 @@ export const reverseConformService = {
         const result = await renderComposition({
           composition,
           settings: buildConformSettings(item, timelineFps, quality),
+          signal: job.controller.signal,
           onProgress: (progress: RenderProgress) => {
             emitSharedProgress(job, Math.max(0, Math.min(0.99, scaleRenderProgress(progress))))
           },
@@ -385,10 +398,12 @@ export const reverseConformService = {
       sharedJob.progressListeners.add(onProgress)
       onProgress(sharedJob.lastProgress)
     }
+    sharedJob.waiterCount += 1
 
     return new Promise<ReverseConformResult>((resolve, reject) => {
       let settled = false
       const cleanup = () => {
+        sharedJob.waiterCount -= 1
         if (onProgress) {
           sharedJob.progressListeners.delete(onProgress)
         }
@@ -400,6 +415,11 @@ export const reverseConformService = {
         if (settled) return
         settled = true
         cleanup()
+        // Last waiter gone — stop the shared render instead of letting it
+        // run to completion as a ghost job nobody will consume.
+        if (sharedJob.waiterCount <= 0) {
+          sharedJob.controller.abort()
+        }
         reject(new DOMException('Reverse conform cancelled', 'AbortError'))
       }
       if (options.signal) {

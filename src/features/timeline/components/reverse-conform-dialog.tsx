@@ -31,6 +31,7 @@ export function ReverseConformDialog() {
   const close = useReverseConformDialogStore((state) => state.close)
   const useProxy = usePlaybackStore((state) => state.useProxy)
   const abortRef = useRef<AbortController | null>(null)
+  const userCancelledRef = useRef(false)
   const [progress, setProgress] = useState(0)
   const [clipIndex, setClipIndex] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -58,6 +59,7 @@ export function ReverseConformDialog() {
 
     const controller = new AbortController()
     abortRef.current = controller
+    userCancelledRef.current = false
     setProgress(0)
     setClipIndex(0)
     setError(null)
@@ -87,7 +89,13 @@ export function ReverseConformDialog() {
         close(request.id)
       } catch (caught) {
         if (isAbortError(caught) || controller.signal.aborted) {
-          close(request.id)
+          // Only dismiss the request when the user explicitly cancelled.
+          // Effect cleanup also aborts (e.g. StrictMode's mount→cleanup→mount
+          // cycle); closing here would tear down the request the replacement
+          // effect run is still working with.
+          if (userCancelledRef.current) {
+            close(request.id)
+          }
           return
         }
         log.warn('Reverse conform dialog failed', { error: caught })
@@ -107,6 +115,7 @@ export function ReverseConformDialog() {
 
   const handleCancel = () => {
     setIsCancelling(true)
+    userCancelledRef.current = true
     abortRef.current?.abort()
   }
 
