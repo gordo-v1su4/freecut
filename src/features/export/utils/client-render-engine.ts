@@ -794,7 +794,7 @@ export async function createCompositionRenderer(
           ([video, itemId]) =>
             new Promise<void>((resolve) => {
               const timeout = setTimeout(() => {
-                getLog().warn('Video load timeout', { itemId })
+                getLog().warn('Video load timeout', { itemId, src: video.currentSrc || video.src })
                 resolve()
               }, 10000)
 
@@ -814,7 +814,12 @@ export async function createCompositionRenderer(
                   'error',
                   () => {
                     clearTimeout(timeout)
-                    getLog().error('Video load error', { itemId })
+                    getLog().error('Video load error', {
+                      itemId,
+                      src: video.currentSrc || video.src,
+                      mediaErrorCode: video.error?.code,
+                      mediaErrorMessage: video.error?.message,
+                    })
                     resolve()
                   },
                   { once: true },
