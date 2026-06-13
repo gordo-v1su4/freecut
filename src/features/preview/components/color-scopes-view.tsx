@@ -20,6 +20,14 @@ const SAMPLE_HEIGHT_PLAYING = 144
 const GPU_INTERVAL = 66 // ~15fps
 const CPU_INTERVAL = 220
 const STACK_LAYOUT_STORAGE_KEY = 'timeline:scopes:stackLayout'
+// Resolve-style RGB parade: three roughly square waveform lanes side by side.
+const PARADE_SCOPE_ASPECT_RATIO = 10 / 3
+
+interface GpuCanvasContextCacheEntry {
+  ctx: GPUCanvasContext
+  width: number
+  height: number
+}
 
 type ScopeColorMatrix = 'bt709' | 'bt601'
 type ScopeRangeMode = 'full' | 'legal'
@@ -382,10 +390,9 @@ function useGpuCanvasResize(
     const container = containerRef.current
     const canvas = canvasRef.current
     if (!container || !canvas) return
-    const ro = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (!entry) return
-      const { width, height } = entry.contentRect
+
+    const resizeCanvas = (width: number, height: number) => {
+      if (width <= 0 || height <= 0) return
       const dpr = window.devicePixelRatio || 1
       let w = width
       let h = height
@@ -406,9 +413,24 @@ function useGpuCanvasResize(
         canvas.style.width = `${Math.round(w)}px`
         canvas.style.height = `${Math.round(h)}px`
       }
+    }
+
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      resizeCanvas(entry.contentRect.width, entry.contentRect.height)
     })
     ro.observe(container)
-    return () => ro.disconnect()
+
+    resizeCanvas(container.clientWidth, container.clientHeight)
+    const rafId = requestAnimationFrame(() => {
+      resizeCanvas(container.clientWidth, container.clientHeight)
+    })
+
+    return () => {
+      cancelAnimationFrame(rafId)
+      ro.disconnect()
+    }
   }, [aspectRatio, canvasRef, containerRef, enabled])
 }
 
@@ -452,7 +474,7 @@ export const ColorScopesView = memo(function ColorScopesView({
   const histogramContainerRef = useRef<HTMLDivElement>(null)
 
   const rendererRef = useRef<ScopeRenderer | null>(null)
-  const gpuCtxCacheRef = useRef(new Map<HTMLCanvasElement, GPUCanvasContext>())
+  const gpuCtxCacheRef = useRef(new Map<HTMLCanvasElement, GpuCanvasContextCacheEntry>())
   const gpuInitedRef = useRef(false)
   const gpuRenderInFlightRef = useRef(false)
   const cpuDrawInFlightRef = useRef(false)
@@ -481,7 +503,12 @@ export const ColorScopesView = memo(function ColorScopesView({
   // triggers: switching the stack scope picker unmounts/remounts sections,
   // and the effect must re-observe the fresh container element.
   useGpuCanvasResize(waveformCanvasRef, waveformContainerRef, undefined, showWaveform)
-  useGpuCanvasResize(paradeCanvasRef, paradeContainerRef, undefined, showParade)
+  useGpuCanvasResize(
+    paradeCanvasRef,
+    paradeContainerRef,
+    PARADE_SCOPE_ASPECT_RATIO,
+    showParade,
+  )
   useGpuCanvasResize(histogramCanvasRef, histogramContainerRef, undefined, showHistogram)
   useGpuCanvasResize(vectorscopeCanvasRef, vectorscopeContainerRef, 1, showVectorscope)
 
@@ -516,15 +543,23 @@ export const ColorScopesView = memo(function ColorScopesView({
     const renderer = rendererRef.current
     if (!renderer) return null
     const cache = gpuCtxCacheRef.current
-    let ctx = cache.get(canvas)
-    if (ctx) return ctx
+    const cached = cache.get(canvas)
+    if (cached && cached.width === canvas.width && cached.height === canvas.height) {
+      return cached.ctx
+    }
     // Scope switching unmounts canvases — drop their cached contexts so the
     // map doesn't pin detached elements forever.
     for (const cached of cache.keys()) {
       if (!cached.isConnected) cache.delete(cached)
     }
-    ctx = renderer.configureCanvas(canvas) ?? undefined
-    if (ctx) cache.set(canvas, ctx)
+    const ctx = renderer.configureCanvas(canvas) ?? undefined
+    if (ctx) {
+      cache.set(canvas, {
+        ctx,
+        width: canvas.width,
+        height: canvas.height,
+      })
+    }
     return ctx ?? null
   }, [])
 
@@ -978,7 +1013,7 @@ export const ColorScopesView = memo(function ColorScopesView({
                 <ScopeCanvasFrame
                   containerRef={paradeContainerRef}
                   kind="parade"
-                  className="min-h-0 flex-1"
+                  className="min-h-0 w-full aspect-[10/3]"
                 >
                   <canvas ref={paradeCanvasRef} className="w-full h-full" />
                 </ScopeCanvasFrame>
@@ -1051,7 +1086,7 @@ export const ColorScopesView = memo(function ColorScopesView({
                 <ScopeCanvasFrame
                   containerRef={paradeContainerRef}
                   kind="parade"
-                  className="flex-1 min-h-[160px]"
+                  className="w-full aspect-[10/3]"
                 >
                   <canvas ref={paradeCanvasRef} className="w-full h-full" />
                 </ScopeCanvasFrame>
