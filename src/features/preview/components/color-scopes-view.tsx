@@ -640,10 +640,10 @@ export const ColorScopesView = memo(function ColorScopesView({
             renderer.uploadFromCanvas(source)
           } else if (!isStale()) {
             // No source available — try ImageData fallback
-            await fallbackToImageData(renderer)
+            await fallbackToImageData(renderer, isStale)
           }
         } else {
-          await fallbackToImageData(renderer)
+          await fallbackToImageData(renderer, isStale)
         }
 
         if (isStale()) return
@@ -683,7 +683,7 @@ export const ColorScopesView = memo(function ColorScopesView({
       }
     }
 
-    const fallbackToImageData = async (r: ScopeRenderer) => {
+    const fallbackToImageData = async (r: ScopeRenderer, isStale?: () => boolean) => {
       const captureFn = usePreviewBridgeStore.getState().captureFrameImageData
       if (!captureFn) return
       const sampleW = isPlayingRef.current ? SAMPLE_WIDTH_PLAYING : SAMPLE_WIDTH_PAUSED
@@ -694,7 +694,7 @@ export const ColorScopesView = memo(function ColorScopesView({
         fresh: isPlayingRef.current,
         preferRenderedFrame: true,
       })
-      if (imageData) r.uploadFrame(imageData)
+      if (imageData && !isStale?.()) r.uploadFrame(imageData)
     }
 
     requestAnimationFrame(tick)
