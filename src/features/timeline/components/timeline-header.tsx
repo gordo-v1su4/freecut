@@ -25,7 +25,6 @@ import {
   Redo2,
   Flag,
   FlagOff,
-  Activity,
   Link2,
   Volume2,
 } from 'lucide-react'
@@ -52,10 +51,6 @@ interface TimelineHeaderProps {
   onZoomIn?: () => void
   onZoomOut?: () => void
   onZoomToFit?: () => void
-  /** Whether the color scopes tab is active in the bottom editor panel */
-  isScopesPanelOpen?: boolean
-  /** Callback to toggle/open the color scopes tab */
-  onToggleScopesPanel?: () => void
 }
 
 function TrimEditIcon({ className }: { className?: string }) {
@@ -82,8 +77,6 @@ export const TimelineHeader = memo(function TimelineHeader({
   onZoomIn,
   onZoomOut,
   onZoomToFit,
-  isScopesPanelOpen,
-  onToggleScopesPanel,
 }: TimelineHeaderProps) {
   const { t } = useTranslation()
   const hotkeys = useResolvedHotkeys()
@@ -555,29 +548,6 @@ export const TimelineHeader = memo(function TimelineHeader({
           </Button>
 
           <Separator orientation="vertical" className="h-5 mx-1.5" />
-
-          {/* Editor Panel Toggles */}
-          <Button
-            variant="ghost"
-            size="icon"
-            style={btnSize}
-            className={
-              isScopesPanelOpen ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''
-            }
-            onClick={onToggleScopesPanel}
-            aria-label={
-              isScopesPanelOpen
-                ? t('timeline.header.hideColorScopes')
-                : t('timeline.header.showColorScopes')
-            }
-            data-tooltip={
-              isScopesPanelOpen
-                ? t('timeline.header.hideColorScopesTooltip')
-                : t('timeline.header.showColorScopesTooltip')
-            }
-          >
-            <Activity className="w-3.5 h-3.5" />
-          </Button>
 
           <Button
             variant="ghost"

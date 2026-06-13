@@ -287,6 +287,7 @@ export const PreviewArea = memo(function PreviewArea({ project }: PreviewAreaPro
   const sourcePreviewMediaId = useEditorStore((s) => s.sourcePreviewMediaId)
   const colorScopesOpen = useEditorStore((s) => s.colorScopesOpen)
   const workspace = useEditorStore((s) => s.workspace)
+  const scopesPanelOpen = workspace === 'color' && colorScopesOpen
 
   const [sourceSplitPercent, setSourceSplitPercent] = useState(PREVIEW_SOURCE_SPLIT_DEFAULT_PERCENT)
   const [scopesSplitPercent, setScopesSplitPercent] = useState(PREVIEW_SCOPES_SPLIT_DEFAULT_PERCENT)
@@ -313,7 +314,7 @@ export const PreviewArea = memo(function PreviewArea({ project }: PreviewAreaPro
   }, [])
 
   // Scopes get their absolute percentage (clamped independently)
-  const displayedScopesSplitPercent = colorScopesOpen
+  const displayedScopesSplitPercent = scopesPanelOpen
     ? Math.max(
         PREVIEW_SIDE_PANEL_MIN_PERCENT,
         Math.min(PREVIEW_SIDE_PANEL_MAX_PERCENT, scopesSplitPercent),
@@ -355,7 +356,7 @@ export const PreviewArea = memo(function PreviewArea({ project }: PreviewAreaPro
         const rect = splitContainerRef.current.getBoundingClientRect()
         const absPercent = ((mouseEvent.clientX - rect.left) / rect.width) * 100
         // Convert absolute position to ratio of source+program space
-        const available = 100 - (colorScopesOpen ? displayedScopesSplitPercent : 0)
+        const available = 100 - (scopesPanelOpen ? displayedScopesSplitPercent : 0)
         pendingSourceSplitPercentRef.current =
           available > 0 ? Math.max(0, Math.min(100, (absPercent / available) * 100)) : 50
 
@@ -401,7 +402,7 @@ export const PreviewArea = memo(function PreviewArea({ project }: PreviewAreaPro
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
     },
-    [colorScopesOpen, displayedScopesSplitPercent],
+    [scopesPanelOpen, displayedScopesSplitPercent],
   )
 
   const handleScopesSplitDragStart = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -476,7 +477,7 @@ export const PreviewArea = memo(function PreviewArea({ project }: PreviewAreaPro
     }
   }, [])
 
-  const hasSidePanels = !!sourcePreviewMediaId || colorScopesOpen
+  const hasSidePanels = !!sourcePreviewMediaId || scopesPanelOpen
   const previewChrome: PreviewChrome = workspace === 'color' ? 'color' : 'edit'
   const programPanelPercent = Math.max(
     0,
@@ -690,7 +691,7 @@ export const PreviewArea = memo(function PreviewArea({ project }: PreviewAreaPro
         </div>
       </div>
 
-      {colorScopesOpen && (
+      {scopesPanelOpen && (
         <>
           <InteractionLockRegion locked={isMaskEditingActive} overlayClassName="rounded-none">
             <PreviewSplitHandle

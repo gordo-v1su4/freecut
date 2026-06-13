@@ -138,8 +138,6 @@ export const Timeline = memo(function Timeline({ duration }: TimelineProps) {
   const [trackRowsViewportHeight, setTrackRowsViewportHeight] = useState(0)
   const [sectionDividerPosition, setSectionDividerPosition] = useState<number | null>(null)
 
-  const colorScopesOpen = useEditorStore((s) => s.colorScopesOpen)
-  const toggleColorScopesOpen = useEditorStore((s) => s.toggleColorScopesOpen)
   const toggleKeyframeEditorOpen = useEditorStore((s) => s.toggleKeyframeEditorOpen)
   const setTimelineTracks = useTimelineStore((s) => s.setTracks)
 
@@ -843,8 +841,6 @@ export const Timeline = memo(function Timeline({ duration }: TimelineProps) {
         onZoomIn={zoomHandlers?.handleZoomIn}
         onZoomOut={zoomHandlers?.handleZoomOut}
         onZoomToFit={zoomHandlers?.handleZoomToFit}
-        isScopesPanelOpen={colorScopesOpen}
-        onToggleScopesPanel={toggleColorScopesOpen}
       />
 
       {/* Composition Breadcrumbs - shown when inside a sub-composition */}

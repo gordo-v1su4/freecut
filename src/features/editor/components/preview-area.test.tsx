@@ -110,10 +110,23 @@ describe('PreviewArea mask editor toolbar', () => {
     expect(useMaskEditorStore.getState().isEditing).toBe(false)
   })
 
+  it('does not show the color scopes panel in edit workspace', () => {
+    useEditorStore.setState({
+      colorScopesOpen: true,
+      workspace: 'edit',
+    })
+
+    render(<PreviewArea project={{ width: 1920, height: 1080, fps: 30 }} />)
+
+    expect(screen.queryByTestId('color-scopes-monitor')).not.toBeInTheDocument()
+    expect(screen.getByTestId('video-preview')).toBeInTheDocument()
+  })
+
   it('locks preview side panels during path edit mode', async () => {
     useEditorStore.setState({
       sourcePreviewMediaId: 'media-1',
       colorScopesOpen: true,
+      workspace: 'color',
     })
     useItemsStore.getState().setItems([
       {

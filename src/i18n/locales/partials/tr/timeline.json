@@ -20,6 +20,13 @@
       "gap": "Boşluk",
       "noItemsToArrange": "Düzenlenecek öğe yok",
       "padding": "Dolgu",
+      "presetAuto": "Otomatik",
+      "presetFocusSidebar": "Odak ve kenar çubuğu",
+      "presetGrid2": "2x2 Izgara",
+      "presetGrid3": "3x3 Izgara",
+      "presetPip": "Resim içinde resim",
+      "presetSideBySide": "Yan yana",
+      "presetStacked": "Üst üste",
       "presetNamePlaceholder": "Ön ayar adı",
       "saveAsPreset": "Ön ayar olarak kaydet",
       "title": "Bento düzeni"

@@ -20,6 +20,13 @@
       "gap": "ギャップ",
       "noItemsToArrange": "配置する項目がありません",
       "padding": "余白",
+      "presetAuto": "自動",
+      "presetFocusSidebar": "フォーカス + サイドバー",
+      "presetGrid2": "2x2 グリッド",
+      "presetGrid3": "3x3 グリッド",
+      "presetPip": "ピクチャーインピクチャー",
+      "presetSideBySide": "横並び",
+      "presetStacked": "縦積み",
       "presetNamePlaceholder": "プリセット名",
       "saveAsPreset": "プリセットとして保存",
       "title": "ベントーレイアウト"

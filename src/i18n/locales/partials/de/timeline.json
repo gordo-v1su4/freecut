@@ -20,6 +20,13 @@
       "gap": "Lucke",
       "noItemsToArrange": "Keine Elemente zu anordnen",
       "padding": "Abstand",
+      "presetAuto": "Auto",
+      "presetFocusSidebar": "Fokus mit Seitenleiste",
+      "presetGrid2": "2x2-Raster",
+      "presetGrid3": "3x3-Raster",
+      "presetPip": "Bild-in-Bild",
+      "presetSideBySide": "Nebeneinander",
+      "presetStacked": "Gestapelt",
       "presetNamePlaceholder": "Vorgabe Name Platzhalter",
       "saveAsPreset": "Speichern als Vorgabe",
       "title": "Bento-Layout"

@@ -20,6 +20,13 @@
       "gap": "Espacamento",
       "noItemsToArrange": "Nenhum item para organizar",
       "padding": "Preenchimento",
+      "presetAuto": "Auto",
+      "presetFocusSidebar": "Foco com barra lateral",
+      "presetGrid2": "Grade 2x2",
+      "presetGrid3": "Grade 3x3",
+      "presetPip": "Imagem sobre imagem",
+      "presetSideBySide": "Lado a lado",
+      "presetStacked": "Empilhado",
       "presetNamePlaceholder": "Nome da predefinicao",
       "saveAsPreset": "Salvar como predefinicao",
       "title": "Layout bento"

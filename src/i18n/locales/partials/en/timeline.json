@@ -20,6 +20,13 @@
       "gap": "Gap",
       "noItemsToArrange": "No Items To Arrange",
       "padding": "Padding",
+      "presetAuto": "Auto",
+      "presetFocusSidebar": "Focus sidebar",
+      "presetGrid2": "2x2 Grid",
+      "presetGrid3": "3x3 Grid",
+      "presetPip": "Picture-in-picture",
+      "presetSideBySide": "Side by side",
+      "presetStacked": "Stacked",
       "presetNamePlaceholder": "Preset Name Placeholder",
       "saveAsPreset": "Save As Preset",
       "title": "Bento layout"

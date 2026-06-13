@@ -20,6 +20,13 @@
       "gap": "Ecart",
       "noItemsToArrange": "Aucun elements a organiser",
       "padding": "Marge",
+      "presetAuto": "Auto",
+      "presetFocusSidebar": "Focus avec barre latérale",
+      "presetGrid2": "Grille 2x2",
+      "presetGrid3": "Grille 3x3",
+      "presetPip": "Image dans l'image",
+      "presetSideBySide": "Côte à côte",
+      "presetStacked": "Empilé",
       "presetNamePlaceholder": "Prereglage Nom indication",
       "saveAsPreset": "Enregistrer comme Prereglage",
       "title": "Mise en page bento"

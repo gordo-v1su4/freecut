@@ -20,6 +20,13 @@
       "gap": "간격",
       "noItemsToArrange": "정렬할 항목이 없습니다",
       "padding": "여백",
+      "presetAuto": "자동",
+      "presetFocusSidebar": "포커스와 사이드바",
+      "presetGrid2": "2x2 그리드",
+      "presetGrid3": "3x3 그리드",
+      "presetPip": "화면 속 화면",
+      "presetSideBySide": "나란히",
+      "presetStacked": "쌓기",
       "presetNamePlaceholder": "프리셋 이름",
       "saveAsPreset": "프리셋으로 저장",
       "title": "벤토 레이아웃"

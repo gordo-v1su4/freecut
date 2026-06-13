@@ -20,6 +20,13 @@
       "gap": "间隙",
       "noItemsToArrange": "没有可排列的项目",
       "padding": "内边距",
+      "presetAuto": "自动",
+      "presetFocusSidebar": "焦点侧栏",
+      "presetGrid2": "2x2 网格",
+      "presetGrid3": "3x3 网格",
+      "presetPip": "画中画",
+      "presetSideBySide": "并排",
+      "presetStacked": "堆叠",
       "presetNamePlaceholder": "预设名称",
       "saveAsPreset": "保存为预设",
       "title": "便当布局"

@@ -20,6 +20,13 @@
       "gap": "Espacio",
       "noItemsToArrange": "Sin elementos a ordenar",
       "padding": "Margen",
+      "presetAuto": "Auto",
+      "presetFocusSidebar": "Enfoque con barra lateral",
+      "presetGrid2": "Cuadrícula 2x2",
+      "presetGrid3": "Cuadrícula 3x3",
+      "presetPip": "Imagen en imagen",
+      "presetSideBySide": "Lado a lado",
+      "presetStacked": "Apilado",
       "presetNamePlaceholder": "Preajuste Nombre marcador",
       "saveAsPreset": "Guardar como Preajuste",
       "title": "Diseño bento"
