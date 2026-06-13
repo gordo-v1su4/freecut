@@ -3,6 +3,7 @@
  */
 
 export type {
+  FilmstripFrame,
   TimelineActions,
   TimelineState,
 } from '@/features/timeline/contracts/editor'
@@ -39,6 +40,7 @@ export {
   useBentoLayoutDialogStore,
   useCompositionsStore,
   useFillerRemovalDialogStore,
+  useFilmstrip,
   useItemsStore,
   useKeyframesStore,
   useReverseConformDialogStore,

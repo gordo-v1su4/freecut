@@ -1,7 +1,16 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useTranslation } from 'react-i18next'
+import {
+  importMediaLibraryService,
+  resolveMediaUrl,
+  useMediaLibraryStore,
+} from '@/features/editor/deps/media-library'
+import { useFilmstrip, type FilmstripFrame } from '@/features/editor/deps/timeline-hooks'
 import { useItemsStore, useTimelineStore } from '@/features/editor/deps/timeline-store'
+import type { GpuEffectInstance } from '@/infrastructure/gpu-effects'
+import type { GpuEffect, ItemEffect } from '@/types/effects'
+import { renderGradedTileFrame } from '@/features/editor/utils/color-grade-tile-renderer'
 import {
   createScrubThrottleState,
   shouldCommitScrubFrame,
@@ -19,16 +28,28 @@ import {
 import {
   resolveColorGradeThumbnailTreatment,
   type ColorGradeThumbnailTreatment,
-} from '../utils/color-grade-thumbnail-treatment'
+} from '@/features/editor/utils/color-grade-thumbnail-treatment'
 
 interface TimelineClip {
   id: string
+  type: TimelineItem['type']
   label: string
   trackId: string
   trackName: string
+  mediaId?: string
   from: number
   durationInFrames: number
+  // Source-native frame fields (see CLAUDE.md: source* are in source FPS, not
+  // project FPS). The film tile converts these to seconds with media metadata.
+  sourceStartFrames: number
+  sourceDurationFrames: number
+  sourceFps: number
+  trimStartFrames: number
   thumbnailUrl?: string
+  // Resolved effects (live-preview overrides win) used to bake the real GPU
+  // grade onto the tile frame; `gradeThumbnail` is the CSS-approximation
+  // fallback + the grade indicator.
+  effects: readonly ItemEffect[]
   gradeThumbnail: ColorGradeThumbnailTreatment
 }
 
@@ -312,6 +333,324 @@ const ColorTimelineAnnotations = memo(function ColorTimelineAnnotations({
   )
 })
 
+/**
+ * Resolve poster thumbnails (the per-media frame captured at import) for clips
+ * that carry no inline `thumbnailUrl`. This gives the Color page film tiles a
+ * real frame snapshot instead of a flat black/colored placeholder. The media
+ * library service caches and owns these blob URLs (revoking on media delete),
+ * so we only read them here — never revoke.
+ */
+function useMediaPosterUrls(mediaIds: readonly string[]): Map<string, string> {
+  const [posterUrls, setPosterUrls] = useState<Map<string, string>>(() => new Map())
+
+  // Reactive snapshot of which media have a poster available, so a clip painted
+  // before its thumbnail finishes generating re-resolves once it lands.
+  const thumbnailIds = useMediaLibraryStore(
+    useShallow((s) => {
+      const out: Record<string, string | undefined> = {}
+      for (const id of mediaIds) {
+        out[id] = s.mediaById[id]?.thumbnailId
+      }
+      return out
+    }),
+  )
+
+  useEffect(() => {
+    const missing = Object.entries(thumbnailIds)
+      .filter(([id, thumbnailId]) => thumbnailId && !posterUrls.has(id))
+      .map(([id]) => id)
+    if (missing.length === 0) return
+
+    let cancelled = false
+    void importMediaLibraryService().then(async ({ mediaLibraryService }) => {
+      if (cancelled) return
+      const entries = await Promise.all(
+        missing.map(async (id) => [id, await mediaLibraryService.getThumbnailBlobUrl(id)] as const),
+      )
+      if (cancelled) return
+      setPosterUrls((prev) => {
+        let changed = false
+        const next = new Map(prev)
+        for (const [id, url] of entries) {
+          if (url && !next.has(id)) {
+            next.set(id, url)
+            changed = true
+          }
+        }
+        return changed ? next : prev
+      })
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [thumbnailIds, posterUrls])
+
+  return posterUrls
+}
+
+/**
+ * Extract the frame at a video clip's actual start (DaVinci-style), reusing the
+ * shared filmstrip cache (1fps, worker-pooled, deduped per media, disk-cached).
+ * Returns null for non-video clips or until the frame lands — callers fall back
+ * to the import poster so a tile never flashes black.
+ */
+function useClipStartFrameUrl(clip: TimelineClip, projectFps: number): string | null {
+  const isVideo = clip.type === 'video' && Boolean(clip.mediaId)
+  const mediaId = clip.mediaId ?? ''
+
+  const mediaDuration = useMediaLibraryStore(
+    useCallback((s) => s.mediaById[mediaId]?.duration ?? 0, [mediaId]),
+  )
+  const mediaFps = useMediaLibraryStore(
+    useCallback((s) => s.mediaById[mediaId]?.fps ?? 0, [mediaId]),
+  )
+
+  // Tie the resolved URL to the media it belongs to so a tile reused for a new
+  // mediaId (same clip.id, relinked/replaced source) doesn't keep feeding the
+  // old blob URL into useFilmstrip — `blobUrl` falls back to null until the new
+  // media resolves.
+  const [resolved, setResolved] = useState<{ mediaId: string; url: string } | null>(null)
+  const blobUrl = resolved?.mediaId === mediaId ? resolved.url : null
+
+  useEffect(() => {
+    if (!isVideo || !mediaId || blobUrl) return
+    let cancelled = false
+    void resolveMediaUrl(mediaId)
+      .then((url) => {
+        if (!cancelled && url) setResolved({ mediaId, url })
+      })
+      .catch(() => {
+        /* extraction simply stays unavailable; poster fallback remains */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isVideo, mediaId, blobUrl])
+
+  // Source-frame -> seconds, mirroring clip-content's conversion. Prefer the
+  // media's real duration (duration-ratio) over source-fps division when known.
+  const sourceFps = clip.sourceFps > 0 ? clip.sourceFps : mediaFps > 0 ? mediaFps : 30
+  const sourceDurationSeconds =
+    mediaDuration > 0 ? mediaDuration : clip.sourceDurationFrames / sourceFps
+  const sourceStartSeconds =
+    mediaDuration > 0
+      ? (clip.sourceStartFrames / clip.sourceDurationFrames) * mediaDuration
+      : clip.sourceStartFrames / sourceFps
+  const startSeconds = Math.max(
+    0,
+    sourceStartSeconds + clip.trimStartFrames / Math.max(1, projectFps),
+  )
+  const startIndex = Math.floor(startSeconds)
+
+  const targetFrameIndices = useMemo(() => [startIndex], [startIndex])
+  const priorityWindow = useMemo(
+    () => ({ startTime: startSeconds, endTime: startSeconds + 1 }),
+    [startSeconds],
+  )
+
+  const { frames } = useFilmstrip({
+    mediaId,
+    blobUrl,
+    duration: sourceDurationSeconds,
+    isVisible: isVideo,
+    enabled: isVideo,
+    priorityWindow,
+    targetFrameIndices,
+  })
+
+  return useMemo(() => {
+    if (!frames || frames.length === 0) return null
+    let best: FilmstripFrame | null = null
+    for (const frame of frames) {
+      if (!best || Math.abs(frame.index - startIndex) < Math.abs(best.index - startIndex)) {
+        best = frame
+      }
+    }
+    return best?.url ?? null
+  }, [frames, startIndex])
+}
+
+// Largest source dimension to grade at — keeps the GPU pass + readback cheap
+// while leaving enough detail for the tile's object-cover crop.
+const GRADE_TILE_MAX_DIMENSION = 256
+// Coalesce live color-wheel drags into ~10fps GPU renders so a drag doesn't
+// queue a readback per pointer frame.
+const GRADE_RENDER_DEBOUNCE_MS = 100
+
+function toGpuEffectInstances(effects: readonly ItemEffect[]): GpuEffectInstance[] {
+  return effects
+    .filter((entry) => entry.enabled && entry.effect.type === 'gpu-effect')
+    .map((entry) => {
+      const gpu = entry.effect as GpuEffect
+      return {
+        id: entry.id,
+        type: gpu.gpuEffectType,
+        name: gpu.gpuEffectType,
+        enabled: true,
+        params: { ...gpu.params },
+      }
+    })
+}
+
+/**
+ * Bake the clip's real GPU grade onto `baseUrl`, returning a graded object URL
+ * (or undefined while rendering / when there is nothing to grade / no GPU).
+ * Re-renders are debounced so live color-wheel drags don't thrash the readback.
+ */
+function useGradedTileThumbnail(
+  baseUrl: string | undefined,
+  instances: GpuEffectInstance[],
+): string | undefined {
+  const signature = useMemo(() => JSON.stringify(instances), [instances])
+  const [gradedUrl, setGradedUrl] = useState<string | undefined>(undefined)
+
+  // Read the latest instances inside the effect without making its array
+  // identity a dependency — `signature` is the reactive digest that gates reruns.
+  const instancesRef = useRef(instances)
+  instancesRef.current = instances
+
+  useEffect(() => {
+    const current = instancesRef.current
+    // Drop any previously baked frame immediately so a stale grade/source frame
+    // isn't shown while the new one renders (the revoke effect frees its URL).
+    // During an active drag this surfaces the live CSS-approximation fallback,
+    // then snaps to the precise GPU grade once the debounce settles.
+    setGradedUrl(undefined)
+    if (!baseUrl || current.length === 0) {
+      return
+    }
+    let cancelled = false
+    const timer = setTimeout(() => {
+      void renderGradedTileFrame(baseUrl, current, GRADE_TILE_MAX_DIMENSION).then((blob) => {
+        if (cancelled || !blob) return
+        setGradedUrl(URL.createObjectURL(blob))
+      })
+    }, GRADE_RENDER_DEBOUNCE_MS)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [baseUrl, signature])
+
+  // Revoke the previous URL whenever it is replaced or on unmount.
+  useEffect(() => {
+    return () => {
+      if (gradedUrl) URL.revokeObjectURL(gradedUrl)
+    }
+  }, [gradedUrl])
+
+  return instances.length > 0 ? gradedUrl : undefined
+}
+
+interface ColorFilmTileProps {
+  clip: TimelineClip
+  index: number
+  selected: boolean
+  fps: number
+  posterUrl?: string
+  onSelect: (clip: TimelineClip) => void
+}
+
+const ColorFilmTile = memo(function ColorFilmTile({
+  clip,
+  index,
+  selected,
+  fps,
+  posterUrl,
+  onSelect,
+}: ColorFilmTileProps) {
+  const startFrameUrl = useClipStartFrameUrl(clip, fps)
+  const clipNumber = String(index + 1).padStart(2, '0')
+  // Prefer the clip's actual start frame; fall back to the import poster (or any
+  // stored thumbnail) so the tile shows real content immediately while the
+  // start frame extracts.
+  const baseUrl = startFrameUrl ?? clip.thumbnailUrl ?? posterUrl
+
+  const gradeInstances = useMemo(() => toGpuEffectInstances(clip.effects), [clip.effects])
+  const gradedUrl = useGradedTileThumbnail(baseUrl, gradeInstances)
+
+  // Real GPU grade baked into the frame wins. Until it lands (or when WebGPU is
+  // unavailable) show the base frame with the CSS-approximation grade so the
+  // tile is never blatantly ungraded.
+  const thumbnailUrl = gradedUrl ?? baseUrl
+  const showCssGradeFallback = !gradedUrl && clip.gradeThumbnail.hasGrade
+  const imageGradeStyle = showCssGradeFallback ? clip.gradeThumbnail.imageStyle : undefined
+
+  return (
+    <button
+      type="button"
+      data-testid="color-timeline-film-tile"
+      data-clip-id={clip.id}
+      className={`group grid shrink-0 grid-rows-[20px_1fr_16px] overflow-hidden rounded-[3px] border bg-[#17181d] text-left shadow-sm transition-colors ${
+        selected
+          ? 'border-orange-500 shadow-[0_0_0_1px_rgba(249,115,22,0.65)]'
+          : 'border-zinc-700 hover:border-zinc-500'
+      }`}
+      style={{ width: FILM_TILE_WIDTH, height: FILM_TILE_HEIGHT }}
+      onClick={() => {
+        onSelect(clip)
+      }}
+      onPointerDown={(event) => {
+        event.stopPropagation()
+        if (event.button !== 0) return
+        onSelect(clip)
+      }}
+      title={clip.label}
+    >
+      <span className="flex min-w-0 items-center gap-1 border-b border-black/40 bg-[#24252b] px-1.5 text-[10px] font-semibold text-zinc-200">
+        <span
+          className={`rounded-[2px] border px-1 leading-3 ${
+            selected
+              ? 'border-lime-300/80 bg-indigo-700 text-lime-200'
+              : 'border-indigo-400/70 bg-zinc-800 text-zinc-200'
+          }`}
+        >
+          {clipNumber}
+        </span>
+        <span className="font-mono">{formatNavigatorTimecode(clip.from, fps)}</span>
+        <span className="ml-auto text-[9px] text-zinc-400">{clip.trackName}</span>
+      </span>
+
+      <span className="relative block min-h-0 overflow-hidden bg-black">
+        {thumbnailUrl ? (
+          <img
+            src={thumbnailUrl}
+            alt=""
+            className="h-full w-full object-cover"
+            style={imageGradeStyle}
+            data-graded-thumbnail={clip.gradeThumbnail.hasGrade ? 'true' : undefined}
+            data-grade-source={gradedUrl ? 'gpu' : clip.gradeThumbnail.hasGrade ? 'css' : undefined}
+          />
+        ) : (
+          <span className="block h-full w-full bg-black" style={imageGradeStyle} />
+        )}
+        {showCssGradeFallback && clip.gradeThumbnail.overlayStyle ? (
+          <span
+            className="pointer-events-none absolute inset-0"
+            data-testid="color-timeline-grade-overlay"
+            style={clip.gradeThumbnail.overlayStyle}
+          />
+        ) : null}
+        {clip.gradeThumbnail.hasGrade ? (
+          <span
+            className="pointer-events-none absolute right-1 top-1 flex h-1.5 w-6 overflow-hidden rounded-full border border-black/45 shadow-sm"
+            aria-hidden="true"
+          >
+            <span className="h-full flex-1 bg-red-500" />
+            <span className="h-full flex-1 bg-lime-400" />
+            <span className="h-full flex-1 bg-sky-500" />
+          </span>
+        ) : null}
+      </span>
+
+      <span className="truncate border-t border-black/40 bg-[#202127] px-1.5 text-[10px] font-medium text-zinc-300">
+        {clip.label}
+      </span>
+    </button>
+  )
+})
+
 export const ColorTimelineNavigator = memo(function ColorTimelineNavigator() {
   const { t } = useTranslation()
   const { items, tracks } = useItemsStore(
@@ -364,19 +703,34 @@ export const ColorTimelineNavigator = memo(function ColorTimelineNavigator() {
         .filter(isVisualNavigatorItem)
         .map((item) => ({
           id: item.id,
+          type: item.type,
           label: getNavigatorLabel(item),
           trackId: item.trackId,
           trackName: trackNameById.get(item.trackId) ?? 'V1',
+          mediaId: item.mediaId,
           from: item.from,
           durationInFrames: item.durationInFrames,
+          sourceStartFrames: Math.max(0, item.sourceStart ?? 0),
+          sourceDurationFrames: Math.max(1, item.sourceDuration ?? item.durationInFrames),
+          sourceFps: item.sourceFps && item.sourceFps > 0 ? item.sourceFps : fps,
+          trimStartFrames: item.trimStart ?? 0,
           thumbnailUrl: getThumbnailUrl(item),
+          effects: livePreviewEdits?.[item.id]?.effects ?? item.effects ?? [],
           gradeThumbnail: resolveColorGradeThumbnailTreatment(
             livePreviewEdits?.[item.id]?.effects ?? item.effects,
           ),
         }))
         .sort((a, b) => a.from - b.from || a.trackId.localeCompare(b.trackId)),
-    [items, livePreviewEdits, trackNameById],
+    [items, livePreviewEdits, trackNameById, fps],
   )
+  const posterMediaIds = useMemo(
+    () =>
+      Array.from(
+        new Set(visualClips.map((clip) => clip.mediaId).filter((id): id is string => Boolean(id))),
+      ),
+    [visualClips],
+  )
+  const posterUrls = useMediaPosterUrls(posterMediaIds)
   const timelineMaxFrame = resolveTimelineMaxFrame({ items, markers, inPoint, outPoint })
   const annotationModel = useMemo(
     () => buildTimelineAnnotationModel({ markers, inPoint, outPoint, maxFrame: timelineMaxFrame }),
@@ -554,86 +908,6 @@ export const ColorTimelineNavigator = memo(function ColorTimelineNavigator() {
     )
   }
 
-  const renderFilmTile = (clip: TimelineClip, index: number) => {
-    const selected = selectedItemIdSet.has(clip.id)
-    const clipNumber = String(index + 1).padStart(2, '0')
-    return (
-      <button
-        key={`${clip.id}-film-tile`}
-        type="button"
-        data-testid="color-timeline-film-tile"
-        data-clip-id={clip.id}
-        className={`group grid shrink-0 grid-rows-[20px_1fr_16px] overflow-hidden rounded-[3px] border bg-[#17181d] text-left shadow-sm transition-colors ${
-          selected
-            ? 'border-orange-500 shadow-[0_0_0_1px_rgba(249,115,22,0.65)]'
-            : 'border-zinc-700 hover:border-zinc-500'
-        }`}
-        style={{ width: FILM_TILE_WIDTH, height: FILM_TILE_HEIGHT }}
-        onClick={() => {
-          seekToClip(clip)
-        }}
-        onPointerDown={(event) => {
-          event.stopPropagation()
-          if (event.button !== 0) return
-          seekToClip(clip)
-        }}
-        title={clip.label}
-      >
-        <span className="flex min-w-0 items-center gap-1 border-b border-black/40 bg-[#24252b] px-1.5 text-[10px] font-semibold text-zinc-200">
-          <span
-            className={`rounded-[2px] border px-1 leading-3 ${
-              selected
-                ? 'border-lime-300/80 bg-indigo-700 text-lime-200'
-                : 'border-indigo-400/70 bg-zinc-800 text-zinc-200'
-            }`}
-          >
-            {clipNumber}
-          </span>
-          <span className="font-mono">{formatNavigatorTimecode(clip.from, fps)}</span>
-          <span className="ml-auto text-[9px] text-zinc-400">{clip.trackName}</span>
-        </span>
-
-        <span className="relative block min-h-0 overflow-hidden bg-black">
-          {clip.thumbnailUrl ? (
-            <img
-              src={clip.thumbnailUrl}
-              alt=""
-              className="h-full w-full object-cover"
-              style={clip.gradeThumbnail.imageStyle}
-              data-graded-thumbnail={clip.gradeThumbnail.hasGrade ? 'true' : undefined}
-            />
-          ) : (
-            <span
-              className="block h-full w-full bg-black"
-              style={clip.gradeThumbnail.imageStyle}
-            />
-          )}
-          {clip.gradeThumbnail.overlayStyle ? (
-            <span
-              className="pointer-events-none absolute inset-0"
-              data-testid="color-timeline-grade-overlay"
-              style={clip.gradeThumbnail.overlayStyle}
-            />
-          ) : null}
-          {clip.gradeThumbnail.hasGrade ? (
-            <span
-              className="pointer-events-none absolute right-1 top-1 flex h-1.5 w-6 overflow-hidden rounded-full border border-black/45 shadow-sm"
-              aria-hidden="true"
-            >
-              <span className="h-full flex-1 bg-red-500" />
-              <span className="h-full flex-1 bg-lime-400" />
-              <span className="h-full flex-1 bg-sky-500" />
-            </span>
-          ) : null}
-        </span>
-
-        <span className="truncate border-t border-black/40 bg-[#202127] px-1.5 text-[10px] font-medium text-zinc-300">
-          {clip.label}
-        </span>
-      </button>
-    )
-  }
-
   return (
     <section
       className="panel-bg shrink-0 overflow-hidden border-y border-border bg-[#24252b]"
@@ -648,7 +922,17 @@ export const ColorTimelineNavigator = memo(function ColorTimelineNavigator() {
           style={{ height: FILM_TILE_STRIP_HEIGHT, paddingBottom: FILM_TILE_SCROLLBAR_GUTTER }}
         >
           {visualClips.length > 0 ? (
-            visualClips.map(renderFilmTile)
+            visualClips.map((clip, index) => (
+              <ColorFilmTile
+                key={`${clip.id}-film-tile`}
+                clip={clip}
+                index={index}
+                selected={selectedItemIdSet.has(clip.id)}
+                fps={fps}
+                posterUrl={clip.mediaId ? posterUrls.get(clip.mediaId) : undefined}
+                onSelect={seekToClip}
+              />
+            ))
           ) : (
             <div className="flex h-full items-center px-2 text-[10px] font-medium text-zinc-500">
               {t('editor.colorTimeline.noClip')}
