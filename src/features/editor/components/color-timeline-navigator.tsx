@@ -14,17 +14,30 @@ interface TimelineClip {
   id: string
   label: string
   trackId: string
+  trackName: string
   from: number
   durationInFrames: number
   thumbnailUrl?: string
 }
 
-const STRIP_HEIGHT = 72
-const TRACK_LANE_HEIGHT = 44
+const STRIP_HEIGHT = 164
+const FILM_TILE_WIDTH = 118
+const FILM_TILE_HEIGHT = 80
+const FILM_TILE_STRIP_HEIGHT = 88
+const MINI_TIMELINE_TRACK_AREA_HEIGHT = 52
+const MINI_TIMELINE_LABEL_WIDTH = 32
 const MIN_TIMELINE_FRAMES = 300
+const VIDEO_TRACK_NAME_REGEX = /^V\d+$/i
 
 function isVisualNavigatorItem(item: TimelineItem): boolean {
   return item.type !== 'audio' && item.type !== 'subtitle'
+}
+
+function isNavigatorVideoTrack(track: TimelineTrack): boolean {
+  if (track.isGroup) return false
+  if (track.kind === 'audio') return false
+  if (track.kind === 'video') return true
+  return VIDEO_TRACK_NAME_REGEX.test(track.name)
 }
 
 function getNavigatorLabel(item: TimelineItem): string {
@@ -54,14 +67,29 @@ function formatNavigatorTime(frame: number, fps: number): string {
   return [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':')
 }
 
+function formatNavigatorTimecode(frame: number, fps: number): string {
+  const safeFps = Math.max(1, Math.round(fps > 0 ? fps : 30))
+  const clampedFrame = Math.max(0, Math.round(frame))
+  const totalSeconds = Math.floor(clampedFrame / safeFps)
+  const frames = clampedFrame % safeFps
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return [hours, minutes, seconds, frames]
+    .map((part) => String(part).padStart(2, '0'))
+    .join(':')
+}
+
 function getDisplayFrame() {
   const playbackState = usePlaybackStore.getState()
   return playbackState.previewFrame ?? playbackState.currentFrame
 }
 
 const ColorTimelinePlayhead = memo(function ColorTimelinePlayhead({
+  timelineInsetPx,
   timelineMaxFrame,
 }: {
+  timelineInsetPx: number
   timelineMaxFrame: number
 }) {
   const playheadRef = useRef<HTMLDivElement>(null)
@@ -78,10 +106,11 @@ const ColorTimelinePlayhead = memo(function ColorTimelinePlayhead({
     if (containerWidthRef.current <= 0) {
       containerWidthRef.current = playhead.parentElement?.getBoundingClientRect().width ?? 0
     }
+    const contentWidth = Math.max(0, containerWidthRef.current - timelineInsetPx)
     const maxFrame = Math.max(MIN_TIMELINE_FRAMES, maxFrameRef.current, frame + 1)
     const ratio = maxFrame > 0 ? Math.max(0, Math.min(1, frame / maxFrame)) : 0
-    playhead.style.transform = `translate3d(${Math.round(containerWidthRef.current * ratio)}px, 0, 0)`
-  }, [])
+    playhead.style.transform = `translate3d(${Math.round(timelineInsetPx + contentWidth * ratio)}px, 0, 0)`
+  }, [timelineInsetPx])
 
   useEffect(() => {
     updatePosition(getDisplayFrame())
@@ -108,7 +137,7 @@ const ColorTimelinePlayhead = memo(function ColorTimelinePlayhead({
 
   useLayoutEffect(() => {
     updatePosition(getDisplayFrame())
-  }, [timelineMaxFrame, updatePosition])
+  }, [timelineInsetPx, timelineMaxFrame, updatePosition])
 
   return (
     <div
@@ -149,6 +178,18 @@ export const ColorTimelineNavigator = memo(function ColorTimelineNavigator() {
   const scrubRafRef = useRef<number | null>(null)
 
   const selectedItemIdSet = useMemo(() => new Set(selectedItemIds), [selectedItemIds])
+  const videoTrackRows = useMemo(
+    () => tracks.filter(isNavigatorVideoTrack).sort((a, b) => a.order - b.order),
+    [tracks],
+  )
+  const trackLaneIndexById = useMemo(
+    () => new Map(videoTrackRows.map((track, index) => [track.id, index])),
+    [videoTrackRows],
+  )
+  const trackNameById = useMemo(
+    () => new Map(tracks.map((track) => [track.id, track.name || track.id])),
+    [tracks],
+  )
   const visualClips = useMemo<TimelineClip[]>(
     () =>
       items
@@ -157,20 +198,13 @@ export const ColorTimelineNavigator = memo(function ColorTimelineNavigator() {
           id: item.id,
           label: getNavigatorLabel(item),
           trackId: item.trackId,
+          trackName: trackNameById.get(item.trackId) ?? 'V1',
           from: item.from,
           durationInFrames: item.durationInFrames,
           thumbnailUrl: getThumbnailUrl(item),
         }))
         .sort((a, b) => a.from - b.from || a.trackId.localeCompare(b.trackId)),
-    [items],
-  )
-  const videoTracks = useMemo<TimelineTrack[]>(
-    () =>
-      tracks
-        .filter((track) => track.kind !== 'audio')
-        .slice()
-        .sort((a, b) => b.order - a.order),
-    [tracks],
+    [items, trackNameById],
   )
   const timelineMaxFrame = resolveTimelineMaxFrame(items)
 
@@ -178,7 +212,11 @@ export const ColorTimelineNavigator = memo(function ColorTimelineNavigator() {
     (clientX: number): number | null => {
       const rect = scrubRectRef.current
       if (!rect || rect.width <= 0) return null
-      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+      const timelineWidth = Math.max(1, rect.width - MINI_TIMELINE_LABEL_WIDTH)
+      const ratio = Math.max(
+        0,
+        Math.min(1, (clientX - rect.left - MINI_TIMELINE_LABEL_WIDTH) / timelineWidth),
+      )
       return Math.round(ratio * timelineMaxFrame)
     },
     [timelineMaxFrame],
@@ -205,11 +243,12 @@ export const ColorTimelineNavigator = memo(function ColorTimelineNavigator() {
 
     const frame = clientXToFrame(clientX)
     if (frame !== null) {
-      const navigatorPixelsPerSecond = (rect.width * (fps > 0 ? fps : 30)) / timelineMaxFrame
+      const timelineWidth = Math.max(1, rect.width - MINI_TIMELINE_LABEL_WIDTH)
+      const navigatorPixelsPerSecond = (timelineWidth * (fps > 0 ? fps : 30)) / timelineMaxFrame
       if (
         shouldCommitScrubFrame({
           state: scrubThrottleRef.current,
-          pointerX: clientX - rect.left,
+          pointerX: clientX - rect.left - MINI_TIMELINE_LABEL_WIDTH,
           targetFrame: frame,
           pixelsPerSecond: navigatorPixelsPerSecond,
           nowMs: performance.now(),
@@ -233,7 +272,7 @@ export const ColorTimelineNavigator = memo(function ColorTimelineNavigator() {
       pausePlayback()
       pendingClientXRef.current = event.clientX
       scrubThrottleRef.current = createScrubThrottleState({
-        pointerX: event.clientX - scrubRectRef.current.left,
+        pointerX: event.clientX - scrubRectRef.current.left - MINI_TIMELINE_LABEL_WIDTH,
         frame,
         nowMs: performance.now(),
       })
@@ -285,29 +324,39 @@ export const ColorTimelineNavigator = memo(function ColorTimelineNavigator() {
 
   const seekToClip = useCallback(
     (clip: TimelineClip) => {
-      selectItems([clip.id])
-      setCurrentFrame(clip.from)
+      pausePlayback()
       setPreviewFrame(null)
+      setCurrentFrame(clip.from)
+      selectItems([clip.id])
     },
-    [selectItems, setCurrentFrame, setPreviewFrame],
+    [pausePlayback, selectItems, setCurrentFrame, setPreviewFrame],
   )
 
-  const renderClip = (clip: TimelineClip, compact = false) => {
+  const renderTimelineClip = (clip: TimelineClip) => {
     const selected = selectedItemIdSet.has(clip.id)
+    const rowCount = Math.max(1, videoTrackRows.length)
+    const rowHeight = MINI_TIMELINE_TRACK_AREA_HEIGHT / rowCount
+    const laneIndex = trackLaneIndexById.get(clip.trackId) ?? 0
+    const clipHeight =
+      rowHeight >= 10 ? Math.max(8, Math.min(16, rowHeight - 4)) : Math.max(4, rowHeight - 2)
+    const clipTop = laneIndex * rowHeight + Math.max(1, (rowHeight - clipHeight) / 2)
     return (
       <button
-        key={`${clip.id}-${compact ? 'strip' : 'lane'}`}
+        key={`${clip.id}-timeline`}
         type="button"
-        className={`absolute overflow-hidden rounded-[3px] border text-left transition-colors ${
+        data-testid="color-timeline-mini-clip"
+        data-track-id={clip.trackId}
+        className={`absolute overflow-hidden rounded-[2px] border text-left transition-colors ${
           selected
-            ? 'border-red-500 bg-red-500/10 shadow-[0_0_0_1px_rgba(239,68,68,0.55)]'
-            : 'border-sky-500/70 bg-sky-500/35 hover:border-sky-300'
+            ? 'border-orange-500 bg-orange-500/20 shadow-[0_0_0_1px_rgba(249,115,22,0.45)]'
+            : 'border-sky-500/70 bg-sky-500/45 hover:border-sky-300'
         }`}
         style={{
           left: `${(clip.from / timelineMaxFrame) * 100}%`,
           width: `${Math.max(0.6, (clip.durationInFrames / timelineMaxFrame) * 100)}%`,
-          top: compact ? 0 : 4,
-          height: compact ? 64 : 20,
+          minWidth: 16,
+          top: clipTop,
+          height: clipHeight,
         }}
         onClick={(event) => {
           event.stopPropagation()
@@ -315,96 +364,155 @@ export const ColorTimelineNavigator = memo(function ColorTimelineNavigator() {
         }}
         onPointerDown={(event) => event.stopPropagation()}
         title={clip.label}
+        aria-label={clip.label}
+      />
+    )
+  }
+
+  const renderFilmTile = (clip: TimelineClip, index: number) => {
+    const selected = selectedItemIdSet.has(clip.id)
+    const clipNumber = String(index + 1).padStart(2, '0')
+    return (
+      <button
+        key={`${clip.id}-film-tile`}
+        type="button"
+        data-testid="color-timeline-film-tile"
+        data-clip-id={clip.id}
+        className={`group grid shrink-0 grid-rows-[20px_1fr_16px] overflow-hidden rounded-[3px] border bg-[#17181d] text-left shadow-sm transition-colors ${
+          selected
+            ? 'border-orange-500 shadow-[0_0_0_1px_rgba(249,115,22,0.65)]'
+            : 'border-zinc-700 hover:border-zinc-500'
+        }`}
+        style={{ width: FILM_TILE_WIDTH, height: FILM_TILE_HEIGHT }}
+        onClick={() => {
+          seekToClip(clip)
+        }}
+        onPointerDown={(event) => {
+          event.stopPropagation()
+          if (event.button !== 0) return
+          seekToClip(clip)
+        }}
+        title={clip.label}
       >
-        {compact && (
-          <>
-            {clip.thumbnailUrl ? (
-              <img src={clip.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <span className="block h-full w-full bg-black" />
-            )}
-            <span className="absolute bottom-0 left-0 right-0 truncate bg-black/70 px-1 py-0.5 text-[10px] text-white">
-              {clip.label}
-            </span>
-          </>
-        )}
+        <span className="flex min-w-0 items-center gap-1 border-b border-black/40 bg-[#24252b] px-1.5 text-[10px] font-semibold text-zinc-200">
+          <span
+            className={`rounded-[2px] border px-1 leading-3 ${
+              selected
+                ? 'border-lime-300/80 bg-indigo-700 text-lime-200'
+                : 'border-indigo-400/70 bg-zinc-800 text-zinc-200'
+            }`}
+          >
+            {clipNumber}
+          </span>
+          <span className="font-mono">{formatNavigatorTimecode(clip.from, fps)}</span>
+          <span className="ml-auto text-[9px] text-zinc-400">{clip.trackName}</span>
+        </span>
+
+        <span className="relative block min-h-0 bg-black">
+          {clip.thumbnailUrl ? (
+            <img src={clip.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span className="block h-full w-full bg-black" />
+          )}
+        </span>
+
+        <span className="truncate border-t border-black/40 bg-[#202127] px-1.5 text-[10px] font-medium text-zinc-300">
+          {clip.label}
+        </span>
       </button>
     )
   }
 
-  const renderTrackRows = (rows: TimelineTrack[], prefix: string) =>
-    rows.map((track, index) => (
-      <div
-        key={track.id}
-        className="relative border-t border-border/70"
-        style={{ height: TRACK_LANE_HEIGHT }}
-      >
-        <span className="absolute left-1 top-1 text-[10px] font-semibold text-muted-foreground">
-          {track.name || `${prefix}${index + 1}`}
-        </span>
-        {visualClips.filter((clip) => clip.trackId === track.id).map((clip) => renderClip(clip))}
-      </div>
-    ))
-
   return (
     <section
-      className="panel-bg h-32 shrink-0 overflow-hidden border-y border-border"
+      className="panel-bg shrink-0 overflow-hidden border-y border-border bg-[#24252b]"
       aria-label={t('editor.colorTimeline.label')}
       data-testid="color-timeline-navigator"
       style={{ height: STRIP_HEIGHT }}
     >
-      <div className="flex h-full">
-        <div className="w-36 shrink-0 border-r border-border px-1.5 py-1">
-          <div className="relative h-11">
-            {visualClips.slice(0, 4).map((clip, index) => (
-              <button
-                key={clip.id}
-                type="button"
-                className={`absolute top-0 overflow-hidden rounded-[3px] border ${
-                  selectedItemIdSet.has(clip.id) ? 'border-red-500' : 'border-border'
-                } bg-black`}
-                style={{ left: index * 28, width: 26, height: 38 }}
-                onClick={() => {
-                  seekToClip(clip)
-                }}
-                onPointerDown={(event) => event.stopPropagation()}
-                title={clip.label}
-              >
-                {clip.thumbnailUrl && (
-                  <img src={clip.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-                )}
-              </button>
-            ))}
-          </div>
-          <div className="truncate text-[10px] font-medium text-muted-foreground">
-            {visualClips.find((clip) => selectedItemIdSet.has(clip.id))?.label ??
-              t('editor.colorTimeline.noClip')}
-          </div>
+      <div className="flex h-full flex-col">
+        <div
+          className="flex shrink-0 gap-1 overflow-x-auto overflow-y-hidden border-b border-black/40 px-1 py-1"
+          style={{ height: FILM_TILE_STRIP_HEIGHT }}
+        >
+          {visualClips.length > 0 ? (
+            visualClips.map(renderFilmTile)
+          ) : (
+            <div className="flex h-full items-center px-2 text-[10px] font-medium text-zinc-500">
+              {t('editor.colorTimeline.noClip')}
+            </div>
+          )}
         </div>
 
         <div
-          className="relative min-w-0 flex-1 cursor-ew-resize"
+          className="relative min-h-0 flex-1 cursor-ew-resize bg-[#1d1e23]"
           data-testid="color-timeline-scrub-surface"
           onPointerDown={handleScrubStart}
           onPointerMove={handleScrubMove}
           onPointerUp={finishScrub}
           onPointerCancel={cancelScrub}
         >
-          <div className="relative h-7 border-b border-border/70">
-            {[0, 0.25, 0.5, 0.75, 1].map((ratio) => (
-              <div
-                key={ratio}
-                className="absolute top-0 h-full border-l border-border/80 pl-1 text-[10px] text-muted-foreground"
-                style={{ left: `${ratio * 100}%` }}
-              >
-                {formatNavigatorTime(Math.round(ratio * timelineMaxFrame), fps)}
-              </div>
-            ))}
+          <div className="relative h-5 border-b border-black/40">
+            <div
+              className="absolute inset-y-0 right-0"
+              style={{ left: MINI_TIMELINE_LABEL_WIDTH }}
+            >
+              {[0, 0.25, 0.5, 0.75, 1].map((ratio) => (
+                <div
+                  key={ratio}
+                  className="absolute top-0 h-full border-l border-zinc-500/45 pl-1 pt-0.5 text-[10px] text-zinc-500"
+                  style={{ left: `${ratio * 100}%` }}
+                >
+                  {formatNavigatorTime(Math.round(ratio * timelineMaxFrame), fps)}
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="relative">
-            {renderTrackRows(videoTracks, 'V')}
+          <div className="relative" style={{ height: MINI_TIMELINE_TRACK_AREA_HEIGHT }}>
+            <div
+              className="absolute left-0 top-0 h-full border-r border-black/35 text-[9px] font-semibold text-zinc-400"
+              style={{ width: MINI_TIMELINE_LABEL_WIDTH }}
+            >
+              {videoTrackRows.length > 0 ? (
+                videoTrackRows.map((track, index) => {
+                  const rowCount = Math.max(1, videoTrackRows.length)
+                  const rowHeight = MINI_TIMELINE_TRACK_AREA_HEIGHT / rowCount
+                  return (
+                    <span
+                      key={track.id}
+                      className="absolute left-0 flex w-full items-center justify-center overflow-hidden leading-none"
+                      style={{ top: index * rowHeight, height: rowHeight }}
+                    >
+                      {track.name || `V${index + 1}`}
+                    </span>
+                  )
+                })
+              ) : (
+                <span className="flex h-full items-center justify-center">V1</span>
+              )}
+            </div>
+            <div
+              className="absolute inset-y-0 right-0"
+              style={{ left: MINI_TIMELINE_LABEL_WIDTH }}
+            >
+              {videoTrackRows.map((track, index) => {
+                const rowCount = Math.max(1, videoTrackRows.length)
+                const rowHeight = MINI_TIMELINE_TRACK_AREA_HEIGHT / rowCount
+                return (
+                  <div
+                    key={track.id}
+                    className="absolute left-0 right-0 border-t border-zinc-700/70"
+                    style={{ top: index * rowHeight }}
+                  />
+                )
+              })}
+              {visualClips.map(renderTimelineClip)}
+            </div>
           </div>
-          <ColorTimelinePlayhead timelineMaxFrame={timelineMaxFrame} />
+          <ColorTimelinePlayhead
+            timelineInsetPx={MINI_TIMELINE_LABEL_WIDTH}
+            timelineMaxFrame={timelineMaxFrame}
+          />
         </div>
       </div>
     </section>

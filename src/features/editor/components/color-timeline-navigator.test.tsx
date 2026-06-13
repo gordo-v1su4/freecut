@@ -19,6 +19,19 @@ const VIDEO_TRACK: TimelineTrack = {
   items: [],
 }
 
+const VIDEO_TRACK_2: TimelineTrack = {
+  id: 'v2',
+  name: 'V2',
+  kind: 'video',
+  height: 64,
+  locked: false,
+  visible: true,
+  muted: false,
+  solo: false,
+  order: 0,
+  items: [],
+}
+
 const AUDIO_TRACK: TimelineTrack = {
   id: 'a1',
   name: 'A1',
@@ -43,6 +56,14 @@ const VIDEO_ITEM: VideoItem = {
   thumbnailUrl: 'blob:thumb',
 }
 
+const VIDEO_ITEM_ON_V2: VideoItem = {
+  ...VIDEO_ITEM,
+  id: 'clip-2',
+  trackId: 'v2',
+  from: 168,
+  label: 'overlay.mp4',
+}
+
 describe('ColorTimelineNavigator', () => {
   beforeEach(() => {
     useItemsStore.getState().setTracks([VIDEO_TRACK, AUDIO_TRACK])
@@ -63,9 +84,36 @@ describe('ColorTimelineNavigator', () => {
     render(<ColorTimelineNavigator />)
 
     expect(screen.getByTestId('color-timeline-navigator')).toBeInTheDocument()
-    expect(screen.getByText('V1')).toBeInTheDocument()
+    expect(screen.getAllByText('V1').length).toBeGreaterThan(0)
+    expect(screen.getByText('01')).toBeInTheDocument()
+    expect(screen.getByText('00:00:02:00')).toBeInTheDocument()
+    expect(screen.getByText('shot-01.mp4')).toBeInTheDocument()
+    expect(screen.queryByText('MP4')).not.toBeInTheDocument()
     expect(screen.queryByText('A1')).not.toBeInTheDocument()
     expect(screen.getAllByTitle('shot-01.mp4').length).toBeGreaterThan(0)
+  })
+
+  it('places mini timeline segments on their matching video track rows', () => {
+    useItemsStore.getState().setTracks([VIDEO_TRACK_2, VIDEO_TRACK, AUDIO_TRACK])
+    useItemsStore.getState().setItems([VIDEO_ITEM, VIDEO_ITEM_ON_V2])
+
+    render(<ColorTimelineNavigator />)
+
+    const v1Segment = screen
+      .getAllByTestId('color-timeline-mini-clip')
+      .find((element) => element.getAttribute('data-track-id') === 'v1')
+    const v2Segment = screen
+      .getAllByTestId('color-timeline-mini-clip')
+      .find((element) => element.getAttribute('data-track-id') === 'v2')
+
+    expect(v1Segment).toBeDefined()
+    expect(v2Segment).toBeDefined()
+    expect(v1Segment?.style.top).not.toEqual(v2Segment?.style.top)
+    expect(Number.parseFloat(v2Segment?.style.top ?? '0')).toBeLessThan(
+      Number.parseFloat(v1Segment?.style.top ?? '0'),
+    )
+    expect(Number.parseFloat(v1Segment?.style.height ?? '0')).toBeGreaterThanOrEqual(8)
+    expect(v1Segment?.style.minWidth).toBe('16px')
   })
 
   it('selects a clip and seeks to its first frame', async () => {
@@ -73,10 +121,33 @@ describe('ColorTimelineNavigator', () => {
 
     render(<ColorTimelineNavigator />)
 
-    fireEvent.click(screen.getAllByTitle('shot-01.mp4')[0]!)
+    fireEvent.pointerDown(screen.getByTestId('color-timeline-film-tile'), {
+      button: 0,
+      pointerId: 1,
+    })
 
     expect(useSelectionStore.getState().selectedItemIds).toEqual(['clip-1'])
     expect(usePlaybackStore.getState().currentFrame).toBe(48)
+    expect(usePlaybackStore.getState().previewFrame).toBeNull()
+    expect(usePlaybackStore.getState().previewItemId).toBeNull()
+  })
+
+  it('selects the pressed film tile immediately even with a stale preview frame', () => {
+    useItemsStore.getState().setTracks([VIDEO_TRACK_2, VIDEO_TRACK, AUDIO_TRACK])
+    useItemsStore.getState().setItems([VIDEO_ITEM, VIDEO_ITEM_ON_V2])
+    usePlaybackStore.getState().setScrubFrame(12, 'stale-scrub')
+
+    render(<ColorTimelineNavigator />)
+
+    const secondTile = screen
+      .getAllByTestId('color-timeline-film-tile')
+      .find((element) => element.getAttribute('data-clip-id') === 'clip-2')
+
+    expect(secondTile).toBeDefined()
+    fireEvent.pointerDown(secondTile!, { button: 0, pointerId: 2 })
+
+    expect(useSelectionStore.getState().selectedItemIds).toEqual(['clip-2'])
+    expect(usePlaybackStore.getState().currentFrame).toBe(168)
     expect(usePlaybackStore.getState().previewFrame).toBeNull()
     expect(usePlaybackStore.getState().previewItemId).toBeNull()
   })
@@ -98,19 +169,19 @@ describe('ColorTimelineNavigator', () => {
       toJSON: () => ({}),
     })
 
-    fireEvent.pointerDown(scrubSurface, { button: 0, clientX: 120, pointerId: 1 })
+    fireEvent.pointerDown(scrubSurface, { button: 0, clientX: 146, pointerId: 1 })
     expect(usePlaybackStore.getState().isPlaying).toBe(false)
     expect(usePlaybackStore.getState().currentFrame).toBe(60)
     expect(usePlaybackStore.getState().previewFrame).toBe(60)
 
     // Move commits are rAF-batched — wait for the scheduled frame to land.
-    fireEvent.pointerMove(scrubSurface, { clientX: 300, pointerId: 1 })
+    fireEvent.pointerMove(scrubSurface, { clientX: 316, pointerId: 1 })
     await waitFor(() => {
       expect(usePlaybackStore.getState().currentFrame).toBe(150)
     })
     expect(usePlaybackStore.getState().previewFrame).toBe(150)
 
-    fireEvent.pointerUp(scrubSurface, { clientX: 300, pointerId: 1 })
+    fireEvent.pointerUp(scrubSurface, { clientX: 316, pointerId: 1 })
     expect(usePlaybackStore.getState().currentFrame).toBe(150)
     expect(usePlaybackStore.getState().previewFrame).toBeNull()
   })
