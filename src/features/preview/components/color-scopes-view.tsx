@@ -42,16 +42,15 @@ type ScopeRangeMode = 'full' | 'legal'
 const SCOPE_COLOR_MATRIX: ScopeColorMatrix = 'bt709'
 const SCOPE_RANGE_MODE: ScopeRangeMode = 'full'
 type ScopeViewMode = 'rgb' | 'r' | 'g' | 'b' | 'luma'
-// DaVinci-style scope picker: one scope at a time by default, 'all' opts
-// into the stacked view. Only the visible scopes mount and render.
-type StackScopeView = 'waveform' | 'parade' | 'vectorscope' | 'histogram' | 'all'
+// DaVinci-style scope picker: one scope at a time. Only the visible scope
+// mounts and renders.
+type StackScopeView = 'waveform' | 'parade' | 'vectorscope' | 'histogram'
 
 const STACK_SCOPE_VIEWS: ReadonlyArray<{ value: StackScopeView; label: string }> = [
   { value: 'waveform', label: 'Waveform' },
   { value: 'parade', label: 'Parade' },
   { value: 'vectorscope', label: 'Vectorscope' },
   { value: 'histogram', label: 'Histogram' },
-  { value: 'all', label: 'All' },
 ]
 
 const VIEW_MODE_NUM: Record<ScopeViewMode, number> = { rgb: 0, r: 1, g: 2, b: 3, luma: 4 }
@@ -462,7 +461,7 @@ export const ColorScopesView = memo(function ColorScopesView({
   const captureFrame = usePreviewBridgeStore((s) => s.captureFrame)
   const isEmbeddedStackLayout = embedded && embeddedLayout === 'stack'
   const stackShows = (scope: StackScopeView) =>
-    !isEmbeddedStackLayout || stackView === scope || stackView === 'all'
+    !isEmbeddedStackLayout || stackView === scope
   const showWaveform = stackShows('waveform')
   const showParade = embedded && stackShows('parade')
   const showVectorscope = stackShows('vectorscope')
@@ -1024,12 +1023,7 @@ export const ColorScopesView = memo(function ColorScopesView({
         embeddedLayout === 'stack' ? (
           <div className="h-[calc(100%-22px)] min-h-0 flex flex-col gap-2">
             {showWaveform && (
-              <div
-                className={cn(
-                  'flex min-h-0 flex-col',
-                  stackView === 'all' ? 'flex-[1.02]' : 'flex-1',
-                )}
-              >
+              <div className="flex min-h-0 flex-1 flex-col">
                 <div className="mb-1 flex items-center justify-between">
                   <div className="text-[10px] text-muted-foreground">Waveform</div>
                   {gpuReady && <ScopeModeBar mode={waveformMode} onChange={setWaveformMode} />}
@@ -1045,12 +1039,7 @@ export const ColorScopesView = memo(function ColorScopesView({
             )}
 
             {showParade && (
-              <div
-                className={cn(
-                  'flex min-h-0 flex-col',
-                  stackView === 'all' ? 'flex-[1.08]' : 'flex-1',
-                )}
-              >
+              <div className="flex min-h-0 flex-1 flex-col">
                 <div className="text-[10px] mb-1 text-muted-foreground">RGB Parade</div>
                 <ScopeCanvasFrame
                   containerRef={paradeContainerRef}
@@ -1063,20 +1052,12 @@ export const ColorScopesView = memo(function ColorScopesView({
             )}
 
             {showVectorscope && (
-              <div
-                className={cn(
-                  'flex min-h-0 min-w-0 flex-col',
-                  stackView === 'all' ? 'flex-[0.9]' : 'flex-1',
-                )}
-              >
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                 <div className="text-[10px] mb-1 text-muted-foreground">Vectorscope</div>
                 <ScopeCanvasFrame
                   containerRef={vectorscopeContainerRef}
                   kind="vectorscope"
-                  className={cn(
-                    'mx-auto flex min-h-0 min-w-0 w-full flex-1 items-center justify-center',
-                    stackView === 'all' ? 'max-w-[272px]' : 'max-w-[420px]',
-                  )}
+                  className="mx-auto flex min-h-0 min-w-0 w-full max-w-[420px] flex-1 items-center justify-center"
                 >
                   <canvas
                     ref={vectorscopeCanvasRef}
@@ -1087,12 +1068,7 @@ export const ColorScopesView = memo(function ColorScopesView({
             )}
 
             {showHistogram && (
-              <div
-                className={cn(
-                  'flex min-h-0 flex-col',
-                  stackView === 'all' ? 'flex-[0.88]' : 'flex-1',
-                )}
-              >
+              <div className="flex min-h-0 flex-1 flex-col">
                 <div className="mb-1 flex items-center justify-between">
                   <div className="text-[10px] text-muted-foreground">Histogram</div>
                   {gpuReady && <ScopeModeBar mode={histogramMode} onChange={setHistogramMode} />}
