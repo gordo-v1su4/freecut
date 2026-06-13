@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-![FreeCut Timeline Editor](./public/assets/landing/timeline.png)
+![FreeCut editor workspace](./public/assets/landing/main.png)
 
 FreeCut is a browser-based, multi-track video editor. No install, no uploads:
 projects and media stay local, while editing, preview, analysis, transcription,
@@ -16,6 +16,41 @@ Workers, OPFS, and the File System Access API.
 FreeCut writes projects, linked media metadata, thumbnails, waveforms, generated
 AI assets, transcripts, scene cuts, and caches as plain files inside a workspace
 folder you choose on disk.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%">
+      <strong>Timeline</strong><br />
+      <img src="./public/assets/landing/timeline.png" alt="FreeCut multi-track timeline" width="100%" />
+    </td>
+    <td width="50%">
+      <strong>Keyframes</strong><br />
+      <img src="./public/assets/landing/dopesheet.png" alt="FreeCut dopesheet keyframe editor" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>Semantic scene search</strong><br />
+      <img src="./public/assets/landing/semantic.png" alt="FreeCut semantic scene browser" width="100%" />
+    </td>
+    <td width="50%">
+      <strong>Export</strong><br />
+      <img src="./public/assets/landing/export.png" alt="FreeCut export dialog" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>Audio EQ</strong><br />
+      <img src="./public/assets/landing/eq.png" alt="FreeCut audio EQ controls" width="100%" />
+    </td>
+    <td width="50%">
+      <strong>Hotkeys</strong><br />
+      <img src="./public/assets/landing/hotkeys.png" alt="FreeCut hotkey editor" width="100%" />
+    </td>
+  </tr>
+</table>
 
 ## Features
 
