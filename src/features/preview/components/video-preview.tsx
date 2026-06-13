@@ -83,6 +83,8 @@ const VideoPreviewBase = memo(function VideoPreviewBase({
   const splitAfterInitPromiseRef = useRef<Promise<CompositionRendererInstance | null> | null>(null)
   const splitAfterCanvasRef = useRef<OffscreenCanvas | null>(null)
   const splitAfterRendererStructureKeyRef = useRef<string | null>(null)
+  const splitAfterRenderInFlightRef = useRef(false)
+  const splitAfterPendingFrameRef = useRef<number | null>(null)
   const {
     playerRef,
     scrubCanvasRef,
@@ -342,6 +344,8 @@ const VideoPreviewBase = memo(function VideoPreviewBase({
     splitAfterInitPromiseRef.current = null
     splitAfterRendererStructureKeyRef.current = null
     splitAfterCanvasRef.current = null
+    splitAfterPendingFrameRef.current = null
+    splitAfterRenderInFlightRef.current = false
     setSplitAfterRenderedFrame(null)
 
     const renderer = splitAfterRendererRef.current
@@ -635,30 +639,46 @@ const VideoPreviewBase = memo(function VideoPreviewBase({
     }
 
     let cancelled = false
-    setSplitAfterRenderedFrame(null)
+    splitAfterPendingFrameRef.current = comparisonTargetFrame
+    setSplitAfterRenderedFrame((frame) => (frame === comparisonTargetFrame ? frame : null))
 
-    const renderSplitAfter = async () => {
-      const renderer = await ensureSplitAfterRenderer()
-      const offscreen = splitAfterCanvasRef.current
-      const displayCanvas = gpuEffectsCanvasRef.current
-      if (cancelled || !renderer || !offscreen || !displayCanvas) return
+    const renderPendingSplitAfter = async () => {
+      if (splitAfterRenderInFlightRef.current) return
+      splitAfterRenderInFlightRef.current = true
 
       try {
-        renderer.invalidateFrameCache({ frames: [comparisonTargetFrame] })
-      } catch {
-        // Some renderer doubles do not support selective invalidation.
-      }
-      await renderer.renderFrame(comparisonTargetFrame)
-      if (cancelled) return
+        while (!cancelled && splitAfterPendingFrameRef.current !== null) {
+          const targetFrame = splitAfterPendingFrameRef.current
+          splitAfterPendingFrameRef.current = null
 
-      const displayCtx = displayCanvas.getContext('2d')
-      if (!displayCtx) return
-      displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height)
-      displayCtx.drawImage(offscreen, 0, 0, displayCanvas.width, displayCanvas.height)
-      setSplitAfterRenderedFrame(comparisonTargetFrame)
+          const renderer = await ensureSplitAfterRenderer()
+          const offscreen = splitAfterCanvasRef.current
+          const displayCanvas = gpuEffectsCanvasRef.current
+          if (cancelled || !renderer || !offscreen || !displayCanvas) return
+
+          try {
+            renderer.invalidateFrameCache({ frames: [targetFrame] })
+          } catch {
+            // Some renderer doubles do not support selective invalidation.
+          }
+          await renderer.renderFrame(targetFrame)
+          if (cancelled || splitAfterPendingFrameRef.current !== null) continue
+
+          const displayCtx = displayCanvas.getContext('2d')
+          if (!displayCtx) return
+          displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height)
+          displayCtx.drawImage(offscreen, 0, 0, displayCanvas.width, displayCanvas.height)
+          setSplitAfterRenderedFrame(targetFrame)
+        }
+      } finally {
+        splitAfterRenderInFlightRef.current = false
+        if (!cancelled && splitAfterPendingFrameRef.current !== null) {
+          void renderPendingSplitAfter()
+        }
+      }
     }
 
-    void renderSplitAfter()
+    void renderPendingSplitAfter()
 
     return () => {
       cancelled = true

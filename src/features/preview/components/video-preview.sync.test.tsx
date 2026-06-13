@@ -1534,7 +1534,7 @@ describe('VideoPreview sync behavior', () => {
     })
   })
 
-  it('shows graded after playback instead of before-only split playback', async () => {
+  it('falls back to graded after playback instead of before-only split playback', async () => {
     setSingleVideoItemAtFrame({
       id: 'item-graded',
       effects: [
@@ -1575,6 +1575,7 @@ describe('VideoPreview sync behavior', () => {
     })
 
     await waitFor(() => {
+      expect(usePlaybackStore.getState().isPlaying).toBe(true)
       expect(renderer.invalidateFrameCache).toHaveBeenCalled()
       expect(screen.queryByLabelText('Split grade comparison')).toBeNull()
       expect(container.querySelector('[data-grade-comparison-after-layer="true"]')).toBeNull()
