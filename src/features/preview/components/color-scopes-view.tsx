@@ -19,6 +19,10 @@ const SAMPLE_WIDTH_PLAYING = 256
 const SAMPLE_HEIGHT_PLAYING = 144
 const GPU_INTERVAL = 66 // ~15fps
 const CPU_INTERVAL = 220
+// Watchdog: if a render stays "in flight" past this, assume its capture await
+// wedged (e.g. cold-start scrub-lock contention whose `finally` never ran) and
+// force-clear the gate so the render loop recovers instead of freezing forever.
+const GPU_RENDER_STUCK_TIMEOUT_MS = 1000
 const STACK_LAYOUT_STORAGE_KEY = 'timeline:scopes:stackLayout'
 // Resolve-style RGB parade: three roughly square waveform lanes side by side.
 const PARADE_SCOPE_ASPECT_RATIO = 10 / 3
@@ -578,11 +582,24 @@ export const ColorScopesView = memo(function ColorScopesView({
 
     let cancelled = false
     let lastTime = 0
+    let inFlightSince = 0
+    // Clear any flag left wedged true by a render whose `finally` never ran on a
+    // prior mount — otherwise the loop would start gated and never capture.
+    gpuRenderInFlightRef.current = false
 
     const tick = (time: number) => {
       if (cancelled) return
+      // Self-heal a stuck in-flight render so a single hung capture can't
+      // freeze the scopes for the rest of the session.
+      if (
+        gpuRenderInFlightRef.current &&
+        time - inFlightSince >= GPU_RENDER_STUCK_TIMEOUT_MS
+      ) {
+        gpuRenderInFlightRef.current = false
+      }
       if (time - lastTime >= GPU_INTERVAL && !gpuRenderInFlightRef.current) {
         lastTime = time
+        inFlightSince = time
         void renderGpuFrame()
       }
       requestAnimationFrame(tick)
