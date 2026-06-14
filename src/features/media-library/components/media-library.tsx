@@ -25,6 +25,7 @@ import {
   FolderOpen,
   Link,
   Link2Off,
+  ChevronDown,
   ChevronRight,
   Film,
   ArrowLeft,
@@ -360,12 +361,20 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
     deleteMediaBatch,
   })
 
-  // Import files using file picker (instant, no copy)
+  // Import files by copying them into the workspace-backed media store.
   const handleImport = async () => {
     try {
-      await importMedia()
+      await importMedia({ storageMode: 'copy' })
     } catch (error) {
       logger.error('Import failed:', error)
+    }
+  }
+
+  const handleLinkImport = async () => {
+    try {
+      await importMedia({ storageMode: 'link' })
+    } catch (error) {
+      logger.error('Link import failed:', error)
     }
   }
 
@@ -566,22 +575,50 @@ export const MediaLibrary = memo(function MediaLibrary({ onMediaSelect }: MediaL
             className="flex flex-nowrap items-center gap-2 text-xs min-w-0 overflow-hidden"
           >
             {/* Import action */}
-            <HeaderActionTooltip label={t('media.library.importMediaFiles')}>
-              <button
-                onClick={handleImport}
-                disabled={!currentProjectId}
-                className="flex items-center gap-1.5 h-7 px-2.5 rounded-md shrink-0
-                  bg-primary text-primary-foreground
-                  hover:bg-primary/90
-                  disabled:opacity-40 disabled:cursor-not-allowed
-                  transition-colors duration-150"
-              >
-                <FolderOpen className="w-3.5 h-3.5" />
-                <span className={headerCompactLevel >= 4 ? 'hidden' : 'hidden @[260px]:inline'}>
-                  {t('media.library.import')}
-                </span>
-              </button>
-            </HeaderActionTooltip>
+            <div className="flex shrink-0">
+              <HeaderActionTooltip label={t('media.library.importMediaFiles')}>
+                <button
+                  onClick={handleImport}
+                  disabled={!currentProjectId}
+                  className="flex items-center gap-1.5 h-7 px-2.5 rounded-l-md
+                    bg-primary text-primary-foreground
+                    hover:bg-primary/90
+                    disabled:opacity-40 disabled:cursor-not-allowed
+                    transition-colors duration-150"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  <span className={headerCompactLevel >= 4 ? 'hidden' : 'hidden @[260px]:inline'}>
+                    {t('media.library.import')}
+                  </span>
+                </button>
+              </HeaderActionTooltip>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    disabled={!currentProjectId}
+                    className="flex h-7 w-7 items-center justify-center rounded-r-md border-l border-primary-foreground/20
+                      bg-primary text-primary-foreground
+                      hover:bg-primary/90
+                      disabled:opacity-40 disabled:cursor-not-allowed
+                      transition-colors duration-150"
+                    aria-label={t('media.library.importMoreOptions')}
+                    title={t('media.library.importMoreOptions')}
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  <DropdownMenuItem onSelect={handleImport}>
+                    <FolderOpen className="w-4 h-4 mr-2" />
+                    {t('media.library.importCopyToWorkspace')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={handleLinkImport}>
+                    <Link className="w-4 h-4 mr-2" />
+                    {t('media.library.importLinkOriginal')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
             <HeaderActionTooltip label={t('media.library.importMediaFromUrl')}>
               <button

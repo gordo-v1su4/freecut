@@ -17,6 +17,10 @@ FreeCut writes projects, linked media metadata, thumbnails, waveforms, generated
 AI assets, transcripts, scene cuts, and caches as plain files inside a workspace
 folder you choose on disk.
 
+## User Guide
+
+New to FreeCut? Start with the [user guide](https://freecut.net/docs).
+
 ## Screenshots
 
 <table>

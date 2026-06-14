@@ -16,7 +16,7 @@ import { createImportActions } from './media-import-actions'
 import { createDeleteActions } from './media-delete-actions'
 import { createRelinkingActions } from './media-relinking-actions'
 import { useMediaPreparationStore } from './media-preparation-store'
-import { getTranscriptMediaIds, validateMediaHandle } from '@/infrastructure/storage'
+import { getTranscriptMediaIds, hasMediaSource, validateMediaHandle } from '@/infrastructure/storage'
 import { scanWorkspaceMediaHealth } from '../utils/workspace-health'
 import { mergeTranscriptionProgress } from '@/shared/utils/transcription-progress'
 
@@ -241,7 +241,11 @@ const newStore: MediaLibraryStoreApi =
 
           set({ isScanningMediaHealth: true })
           try {
-            const summary = await scanWorkspaceMediaHealth(mediaItems, validateMediaHandle)
+            const summary = await scanWorkspaceMediaHealth(
+              mediaItems,
+              validateMediaHandle,
+              hasMediaSource,
+            )
             if (get().currentProjectId !== currentProjectId) {
               return
             }

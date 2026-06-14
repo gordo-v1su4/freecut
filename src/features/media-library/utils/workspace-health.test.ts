@@ -97,4 +97,23 @@ describe('workspace health helpers', () => {
       broken: [{ mediaId: 'missing', fileName: 'missing.mp4', errorType: 'file_missing' }],
     })
   })
+
+  it('treats media as healthy when a missing handle has workspace source bytes', async () => {
+    const checkedSourceIds: string[] = []
+
+    const summary = await scanWorkspaceMediaHealth(
+      [makeMedia('mirrored'), makeMedia('gone')],
+      async () => ({ kind: 'missing' }),
+      async (mediaId) => {
+        checkedSourceIds.push(mediaId)
+        return mediaId === 'mirrored'
+      },
+    )
+
+    expect(checkedSourceIds).toEqual(['mirrored', 'gone'])
+    expect(summary).toEqual({
+      healthyIds: ['mirrored'],
+      broken: [{ mediaId: 'gone', fileName: 'gone.mp4', errorType: 'file_missing' }],
+    })
+  })
 })

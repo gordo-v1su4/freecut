@@ -8,6 +8,7 @@ import {
   Download,
   FolderArchive,
   Github,
+  HelpCircle,
   Keyboard,
   ListVideo,
   Save,
@@ -216,6 +217,18 @@ export const Toolbar = memo(function Toolbar({
         {import.meta.env.DEV && import.meta.env.VITE_SHOW_DEBUG_PANEL !== 'false' && (
           <DebugPopover projectId={projectId} />
         )}
+        <Button variant="outline" size="icon" className="h-7 w-7" asChild>
+          <a
+            href="/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-tooltip="User Guide"
+            data-tooltip-side="bottom"
+            aria-label="User Guide"
+          >
+            <HelpCircle className="h-4 w-4" />
+          </a>
+        </Button>
         <Button
           variant="outline"
           size="icon"

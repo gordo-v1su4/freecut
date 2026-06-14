@@ -153,12 +153,18 @@ export async function persistGeneratedMediaAsset({
 
     await createMediaDB(mediaMetadata)
     metadataCreated = true
-    // Mirror source into the workspace folder so the bytes are visible to
-    // other origins (cross-origin debug) and external agents reading from
-    // disk. Fire-and-forget; errors logged, not propagated.
-    void writeMediaSource(mediaMetadata.id, file, mediaMetadata.fileName).catch((error) =>
-      logger.warn(`writeMediaSource(${mediaMetadata.id}) failed`, error),
-    )
+    // Mirror source into the workspace folder so the copied import is durable
+    // outside this browser origin. A mirror failure (e.g. expired folder
+    // permissions, quota) must not roll back the already-created asset — log it
+    // and let the import complete so the asset stays visible in the UI.
+    try {
+      await writeMediaSource(mediaMetadata.id, file, mediaMetadata.fileName)
+    } catch (mirrorError) {
+      logger.warn(
+        `Failed to mirror generated media source ${mediaMetadata.id} to the workspace folder:`,
+        mirrorError,
+      )
+    }
     await associateMediaWithProject(projectId, mediaMetadata.id)
     event.success({ projectId, mediaId: mediaMetadata.id })
     return mediaMetadata

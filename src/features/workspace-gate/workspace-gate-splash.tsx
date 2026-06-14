@@ -1,5 +1,5 @@
 import { Trans, useTranslation } from 'react-i18next'
-import { FolderOpen, FolderX, Loader2, RefreshCw, AlertTriangle } from 'lucide-react'
+import { FolderOpen, FolderX, Loader2, RefreshCw, AlertTriangle, BookOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FreeCutLogo } from '@/components/brand/freecut-logo'
 
@@ -45,6 +45,12 @@ export function WorkspaceGateSplash({ status, error, onPickFolder, onReconnect }
             <p className="text-sm text-muted-foreground">
               {t('projects.workspaceGate.unsupportedBrowserDescription')}
             </p>
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <a href="/docs/workspaces">
+                <BookOpen className="h-4 w-4" />
+                {t('projects.workspaceGate.workspaceGuide')}
+              </a>
+            </Button>
           </div>
         )}
 
@@ -58,10 +64,18 @@ export function WorkspaceGateSplash({ status, error, onPickFolder, onReconnect }
                 {t('projects.workspaceGate.pickDescription')}
               </p>
             </div>
-            <Button size="lg" className="gap-2" onClick={onPickFolder}>
-              <FolderOpen className="h-4 w-4" />
-              {t('projects.workspaceGate.chooseFolder')}
-            </Button>
+            <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
+              <Button size="lg" className="gap-2" onClick={onPickFolder}>
+                <FolderOpen className="h-4 w-4" />
+                {t('projects.workspaceGate.chooseFolder')}
+              </Button>
+              <Button asChild variant="outline" size="lg" className="gap-2">
+                <a href="/docs/workspaces">
+                  <BookOpen className="h-4 w-4" />
+                  {t('projects.workspaceGate.workspaceGuide')}
+                </a>
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">{t('projects.workspaceGate.pickTip')}</p>
           </div>
         )}
@@ -90,6 +104,12 @@ export function WorkspaceGateSplash({ status, error, onPickFolder, onReconnect }
                 {t('projects.workspaceGate.reconnect')}
               </Button>
             </div>
+            <Button asChild variant="ghost" size="sm" className="gap-2">
+              <a href="/docs/workspaces">
+                <BookOpen className="h-4 w-4" />
+                {t('projects.workspaceGate.workspaceGuide')}
+              </a>
+            </Button>
           </div>
         )}
       </div>

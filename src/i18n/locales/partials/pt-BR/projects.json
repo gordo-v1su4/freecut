@@ -183,6 +183,7 @@
       "pickTitle": "Escolha sua pasta de área de trabalho",
       "pickDescription": "O FreeCut armazena todos os seus projetos, mídias e caches como arquivos simples em uma pasta que você controla. Escolha qualquer pasta no disco — seus projetos viverão lá.",
       "chooseFolder": "Escolher pasta",
+      "workspaceGuide": "Guia do espaço de trabalho",
       "pickTip": "Dica: escolha uma pasta no Dropbox, iCloud ou Google Drive para sincronizar projetos entre dispositivos. Você pode movê-la depois.",
       "reconnectTitle": "Reconecte sua área de trabalho",
       "reconnectDescription": "Precisamos de permissão para acessar <code>{{name}}</code> novamente. Isso acontece automaticamente entre as sessões do navegador.",

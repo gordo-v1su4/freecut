@@ -13,6 +13,7 @@ export interface WorkspaceHealthScanSummary {
 }
 
 type ValidateMediaHandle = (mediaId: string) => Promise<MediaHandleValidation>
+type HasMediaSource = (mediaId: string) => Promise<boolean>
 
 export function buildBrokenMediaInfoFromValidation(
   media: MediaMetadata,
@@ -61,12 +62,22 @@ export function summarizeWorkspaceHealthScan(
 export async function scanWorkspaceMediaHealth(
   mediaItems: MediaMetadata[],
   validateMediaHandle: ValidateMediaHandle,
+  hasMediaSource?: HasMediaSource,
 ): Promise<WorkspaceHealthScanSummary> {
   const results = await Promise.all(
-    mediaItems.map(async (media) => ({
-      media,
-      validation: await validateMediaHandle(media.id),
-    })),
+    mediaItems.map(async (media) => {
+      const validation = await validateMediaHandle(media.id)
+
+      if (
+        hasMediaSource &&
+        (validation.kind === 'missing' || validation.kind === 'permission') &&
+        (await hasMediaSource(media.id))
+      ) {
+        return { media, validation: { kind: 'ok' } as const }
+      }
+
+      return { media, validation }
+    }),
   )
 
   return summarizeWorkspaceHealthScan(results)

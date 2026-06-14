@@ -31,17 +31,20 @@ interface CompletedImportTask extends ImportTask {
   metadata: ImportedMetadata
 }
 
+type ImportStorageMode = 'copy' | 'link'
+
 function buildOptimisticMediaItem(
   handle: FileSystemFileHandle,
   file: File,
   tempId: string,
+  storageMode: ImportStorageMode,
 ): MediaMetadata {
   const now = Date.now()
 
   return {
     id: tempId,
-    storageType: 'handle',
-    fileHandle: handle,
+    storageType: storageMode === 'link' ? 'handle' : 'opfs',
+    fileHandle: storageMode === 'link' ? handle : undefined,
     fileName: file.name,
     fileSize: file.size,
     fileLastModified: file.lastModified,
@@ -287,6 +290,7 @@ export function createImportActions(
 > {
   const createOptimisticImportTasks = async (
     handles: FileSystemFileHandle[],
+    storageMode: ImportStorageMode,
   ): Promise<ImportTask[]> => {
     const importTasks: ImportTask[] = []
 
@@ -304,7 +308,7 @@ export function createImportActions(
         continue
       }
 
-      const tempItem = buildOptimisticMediaItem(handle, file, tempId)
+      const tempItem = buildOptimisticMediaItem(handle, file, tempId, storageMode)
 
       set((state) => ({
         mediaItems: [tempItem, ...state.mediaItems],
@@ -323,6 +327,7 @@ export function createImportActions(
     importTasks: ImportTask[],
     projectId: string,
     serviceModulePromise: ReturnType<typeof loadMediaLibraryService>,
+    storageMode: ImportStorageMode,
   ): Promise<PromiseSettledResult<CompletedImportTask>[]> => {
     const results: PromiseSettledResult<CompletedImportTask>[] = new Array(importTasks.length)
     let nextIndex = 0
@@ -338,7 +343,9 @@ export function createImportActions(
 
         try {
           markImportPreparationRunning(task.tempId)
-          const metadata = await mediaLibraryService.importMediaWithHandle(task.handle, projectId)
+          const metadata = await mediaLibraryService.importMediaWithHandle(task.handle, projectId, {
+            storageMode,
+          })
           results[index] = {
             status: 'fulfilled',
             value: { metadata, tempId: task.tempId, file: task.file, handle: task.handle },
@@ -356,7 +363,11 @@ export function createImportActions(
 
   const importHandlesInternal = async (
     handles: FileSystemFileHandle[],
-    options?: { includeDuplicatesInResults?: boolean; waitForPreparation?: boolean },
+    options?: {
+      includeDuplicatesInResults?: boolean
+      waitForPreparation?: boolean
+      storageMode?: ImportStorageMode
+    },
   ): Promise<MediaMetadata[]> => {
     const { currentProjectId } = get()
 
@@ -373,9 +384,15 @@ export function createImportActions(
       fileCount: handles.length,
     })
 
+    const storageMode = options?.storageMode ?? 'copy'
     const serviceModulePromise = loadMediaLibraryService()
-    const importTasks = await createOptimisticImportTasks(handles)
-    const importResults = await runImportTasks(importTasks, currentProjectId, serviceModulePromise)
+    const importTasks = await createOptimisticImportTasks(handles, storageMode)
+    const importResults = await runImportTasks(
+      importTasks,
+      currentProjectId,
+      serviceModulePromise,
+      storageMode,
+    )
 
     const { results, importedCount, duplicateNames, unsupportedCodecFiles, failedCount } =
       processImportResults(importResults, importTasks, set, options)
@@ -398,7 +415,7 @@ export function createImportActions(
   }
 
   return {
-    importMedia: async () => {
+    importMedia: async (options) => {
       const { currentProjectId } = get()
 
       if (!currentProjectId) {
@@ -431,11 +448,13 @@ export function createImportActions(
 
         // Create optimistic placeholders for all files immediately
         const serviceModulePromise = loadMediaLibraryService()
-        const importTasks = await createOptimisticImportTasks(handles)
+        const storageMode = options?.storageMode ?? 'copy'
+        const importTasks = await createOptimisticImportTasks(handles, storageMode)
         const importResults = await runImportTasks(
           importTasks,
           currentProjectId,
           serviceModulePromise,
+          storageMode,
         )
 
         const { results, importedCount, duplicateNames, unsupportedCodecFiles, failedCount } =
@@ -542,14 +561,15 @@ export function createImportActions(
       }
     },
 
-    importHandles: async (handles: FileSystemFileHandle[]) => {
-      return importHandlesInternal(handles)
+    importHandles: async (handles: FileSystemFileHandle[], options) => {
+      return importHandlesInternal(handles, options)
     },
 
     importHandlesForPlacement: async (handles: FileSystemFileHandle[]) =>
       importHandlesInternal(handles, {
         includeDuplicatesInResults: true,
         waitForPreparation: true,
+        storageMode: 'copy',
       }),
   }
 }

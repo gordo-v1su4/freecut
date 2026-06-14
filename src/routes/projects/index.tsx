@@ -6,7 +6,7 @@ import { createLogger } from '@/shared/logging/logger'
 
 const logger = createLogger('ProjectsIndex')
 import { Button } from '@/components/ui/button'
-import { Plus, Upload, FolderOpen, File, Github } from 'lucide-react'
+import { Plus, Upload, FolderOpen, File, Github, BookOpen } from 'lucide-react'
 import { FreeCutLogo } from '@/components/brand/freecut-logo'
 import { ProjectList } from '@/features/projects/components/project-list'
 import { EditProjectForm } from '@/features/projects/components/project-form'
@@ -271,6 +271,12 @@ function ProjectsIndex() {
             <div className="flex items-center gap-3">
               <WorkspaceIndicator />
               <LanguageSwitcher size="md" align="end" side="bottom" />
+              <Button variant="outline" size="lg" className="gap-2" asChild>
+                <Link to="/docs">
+                  <BookOpen className="w-4 h-4" />
+                  Docs
+                </Link>
+              </Button>
               <Button variant="outline" size="icon" className="h-10 w-10" asChild>
                 <a
                   href="https://github.com/walterlow/freecut"

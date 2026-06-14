@@ -282,11 +282,30 @@ describe('createImportActions', () => {
       1,
       handles[0],
       'project-1',
+      { storageMode: 'copy' },
     )
     expect(mediaLibraryServiceMocks.importMediaWithHandle).toHaveBeenNthCalledWith(
       2,
       handles[1],
       'project-1',
+      { storageMode: 'copy' },
+    )
+  })
+
+  it('passes link mode through for advanced linked-file imports', async () => {
+    const file = new File(['video'], 'linked.mp4', { type: 'video/mp4' })
+    const handle = createHandle(file)
+    const imported = makeMedia({ id: 'linked-1', fileName: 'linked.mp4' })
+    mediaLibraryServiceMocks.importMediaWithHandle.mockResolvedValue(imported)
+
+    const harness = createImportActionsHarness()
+    const result = await harness.actions.importHandles([handle], { storageMode: 'link' })
+
+    expect(result).toEqual([imported])
+    expect(mediaLibraryServiceMocks.importMediaWithHandle).toHaveBeenCalledWith(
+      handle,
+      'project-1',
+      { storageMode: 'link' },
     )
   })
 

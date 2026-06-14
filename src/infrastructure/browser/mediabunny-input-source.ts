@@ -17,6 +17,10 @@ type MediabunnyInputSource =
   | InstanceType<MediabunnyModule['StreamSource']>
   | InstanceType<MediabunnyModule['UrlSource']>
 
+function isWorkerContext(): boolean {
+  return typeof self !== 'undefined' && typeof window === 'undefined'
+}
+
 function canUseDirectFileAccess(
   metadata: ObjectUrlSourceMetadata | null,
 ): metadata is ObjectUrlSourceMetadata &
@@ -91,6 +95,10 @@ export function createMediabunnyInputSource(
 
   if (registeredBlob) {
     return new mb.BlobSource(registeredBlob)
+  }
+
+  if (src.startsWith('blob:') && isWorkerContext()) {
+    throw new Error('Blob URL source is not registered in this worker')
   }
 
   return new mb.UrlSource(src)

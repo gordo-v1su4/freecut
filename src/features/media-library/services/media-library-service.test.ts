@@ -274,6 +274,51 @@ describe('MediaLibraryService', () => {
       expect(filmstripCacheMocks.prewarmPriorityWindow).not.toHaveBeenCalled()
     })
 
+    it('copies handle-picked media into app and workspace storage when requested', async () => {
+      const mockFile = new File(['data'], 'video.mp4', { type: 'video/mp4' })
+      const mockHandle = makeFileHandle(mockFile)
+
+      mediaProcessorMocks.processMedia.mockResolvedValue({
+        metadata: {
+          type: 'video',
+          duration: 10,
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          codec: 'avc1',
+          audioCodec: undefined,
+          audioCodecSupported: true,
+          bitrate: 5000,
+        },
+        thumbnail: new Blob(['thumb'], { type: 'image/webp' }),
+      })
+      mediaProcessorMocks.hasUnsupportedAudioCodec.mockReturnValue({ unsupported: false })
+      indexedDbMocks.getMediaForProject.mockResolvedValue([])
+
+      const result = await mediaLibraryService.importMediaWithHandle(mockHandle, 'project-1', {
+        storageMode: 'copy',
+      })
+
+      expect(result.storageType).toBe('opfs')
+      expect(result.fileHandle).toBeUndefined()
+      expect(result.fileName).toBe('video.mp4')
+      expect(opfsMocks.saveFile).toHaveBeenCalledTimes(1)
+      expect(indexedDbMocks.writeMediaSource).toHaveBeenCalledWith(
+        result.id,
+        mockFile,
+        'video.mp4',
+      )
+      expect(indexedDbMocks.createMedia).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: result.id,
+          storageType: 'opfs',
+          opfsPath: expect.any(String),
+          fileName: 'video.mp4',
+        }),
+      )
+      expect(indexedDbMocks.associateMediaWithProject).toHaveBeenCalledWith('project-1', result.id)
+    })
+
     it('does not queue filmstrip or waveform preparation during import', async () => {
       const mockFile = new File(['data'], 'video.mp4', { type: 'video/mp4' })
       const mockHandle = makeFileHandle(mockFile)

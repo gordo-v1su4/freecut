@@ -10,6 +10,7 @@ import {
   FileType,
   Loader2,
   FileText,
+  Link,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -19,6 +20,7 @@ import { getMediaType, formatDuration } from '../utils/validation'
 import { formatBytes } from '@/shared/utils/format-utils'
 import { mediaTranscriptionService } from '../services/media-transcription-service'
 import { getMediaTranscriptionModelLabel } from '../transcription/registry'
+import { hasMediaSource, validateMediaHandle } from '@/infrastructure/storage'
 
 function formatTimestamp(sec: number): string {
   const m = Math.floor(sec / 60)
@@ -34,6 +36,32 @@ interface MediaInfoPopoverProps {
   onSeekToCaption?: (timeSec: number) => void
 }
 
+type SourceStatus =
+  | 'checking'
+  | 'linked'
+  | 'workspace-copy'
+  | 'app-storage'
+  | 'needs-permission'
+  | 'unavailable'
+  | 'changed'
+
+async function resolveSourceStatus(media: MediaMetadata): Promise<SourceStatus> {
+  const hasWorkspaceCopy = await hasMediaSource(media.id)
+
+  if (media.storageType === 'handle') {
+    const validation = await validateMediaHandle(media.id)
+    if (validation.kind === 'ok') return 'linked'
+    if (hasWorkspaceCopy) return 'workspace-copy'
+    if (validation.kind === 'permission') return 'needs-permission'
+    if (validation.kind === 'changed') return 'changed'
+    return 'unavailable'
+  }
+
+  if (hasWorkspaceCopy) return 'workspace-copy'
+  if (media.storageType === 'opfs') return 'app-storage'
+  return 'unavailable'
+}
+
 export function MediaInfoPopover({
   media,
   triggerClassName,
@@ -43,6 +71,7 @@ export function MediaInfoPopover({
   const [open, setOpen] = useState(false)
   const [transcript, setTranscript] = useState<MediaTranscript | null>(null)
   const [transcriptLoading, setTranscriptLoading] = useState(false)
+  const [sourceStatus, setSourceStatus] = useState<SourceStatus>('checking')
   const mediaType = getMediaType(media.mimeType)
   const typeLabel =
     mediaType === 'video'
@@ -87,6 +116,11 @@ export function MediaInfoPopover({
     label: t('media.info.size'),
     value: formatBytes(media.fileSize),
   })
+  rows.push({
+    icon: <Link className="w-3 h-3" />,
+    label: t('media.info.source'),
+    value: t(`media.info.sourceStatus.${sourceStatus}`),
+  })
 
   if (mediaType === 'video' && media.fps > 0) {
     rows.push({
@@ -121,6 +155,31 @@ export function MediaInfoPopover({
       cancelled = true
     }
   }, [isTranscribable, media.id, open])
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    let cancelled = false
+    setSourceStatus('checking')
+
+    void resolveSourceStatus(media)
+      .then((status) => {
+        if (!cancelled) {
+          setSourceStatus(status)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSourceStatus('unavailable')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [media, open])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

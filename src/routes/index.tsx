@@ -1,6 +1,15 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Trans, useTranslation } from 'react-i18next'
-import { Layers, ArrowRight, Play, FolderOpen, Download, Star, ExternalLink } from 'lucide-react'
+import {
+  Layers,
+  ArrowRight,
+  Play,
+  FolderOpen,
+  Download,
+  Star,
+  ExternalLink,
+  BookOpen,
+} from 'lucide-react'
 import { FreeCutLogo } from '@/components/brand/freecut-logo'
 import { Button } from '@/components/ui/button'
 import {
@@ -167,6 +176,13 @@ function LandingPage() {
             </Button>
 
             <Button asChild variant="outline" size="lg" className="gap-2">
+              <Link to="/docs">
+                <BookOpen className="h-4 w-4" />
+                Docs
+              </Link>
+            </Button>
+
+            <Button asChild variant="outline" size="lg" className="gap-2">
               <a
                 href="https://github.com/walterlow/freecut"
                 target="_blank"
@@ -318,6 +334,13 @@ function LandingPage() {
               <Link to="/projects">
                 {t('projects.landing.startEditing')}
                 <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+
+            <Button asChild variant="outline" size="lg" className="gap-2">
+              <Link to="/docs">
+                <BookOpen className="h-4 w-4" />
+                Docs
               </Link>
             </Button>
 

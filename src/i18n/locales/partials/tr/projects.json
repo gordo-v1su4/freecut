@@ -254,6 +254,7 @@
       "pickTitle": "Çalışma alanı klasörünüzü seçin",
       "pickDescription": "FreeCut tüm projelerinizi, medyanızı ve önbelleklerinizi kontrol ettiğiniz bir klasörde düz dosyalar olarak saklar. Diskte herhangi bir klasör seçin; projeleriniz orada yaşar.",
       "chooseFolder": "Klasör seç",
+      "workspaceGuide": "Çalışma alanı kılavuzu",
       "pickTip": "İpucu: projeleri cihazlar arasında eşitlemek için Dropbox, iCloud veya Google Drive içinde bir klasör seçin. Daha sonra taşıyabilirsiniz.",
       "reconnectTitle": "Çalışma alanınızı yeniden bağlayın",
       "reconnectDescription": "<code>{{name}}</code> klasörüne tekrar erişim iznine ihtiyacımız var. Bu, tarayıcı oturumları arasında otomatik olarak olur.",

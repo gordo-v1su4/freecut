@@ -183,6 +183,7 @@
       "pickTitle": "Pick your workspace folder",
       "pickDescription": "FreeCut stores all your projects, media, and caches as plain files in a folder you control. Pick any folder on disk — your projects will live there.",
       "chooseFolder": "Choose folder",
+      "workspaceGuide": "Workspace guide",
       "pickTip": "Tip: pick a folder in Dropbox, iCloud, or Google Drive to sync projects across devices. You can move it later.",
       "reconnectTitle": "Reconnect your workspace",
       "reconnectDescription": "We need permission to access <code>{{name}}</code> again. This happens automatically between browser sessions.",

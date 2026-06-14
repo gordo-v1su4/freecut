@@ -138,4 +138,13 @@ describe('createMediabunnyInputSource', () => {
     expect(source).toBeInstanceOf(MockUrlSource)
     expect((source as unknown as MockUrlSource).url).toBe('https://example.com/video.mp4')
   })
+
+  it('rejects unregistered blob URLs in workers instead of routing them through UrlSource', () => {
+    vi.stubGlobal('self', {})
+    vi.stubGlobal('window', undefined)
+
+    expect(() => createMediabunnyInputSource(mockMediabunny, 'blob:http://localhost/media')).toThrow(
+      'Blob URL source is not registered in this worker',
+    )
+  })
 })
