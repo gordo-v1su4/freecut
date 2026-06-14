@@ -2731,6 +2731,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
       sheetPreviewFrames,
       handleKeyframePointerDown,
       setKeyframeButtonRef,
+      t,
     ],
   )
   const propertyColumnElements = useMemo(
