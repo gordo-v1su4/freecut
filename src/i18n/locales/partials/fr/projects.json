@@ -183,6 +183,7 @@
       "pickTitle": "Choisissez votre dossier d'espace de travail",
       "pickDescription": "FreeCut stocke tous vos projets, médias et caches sous forme de fichiers simples dans un dossier que vous contrôlez. Choisissez n'importe quel dossier sur le disque — vos projets y résideront.",
       "chooseFolder": "Choisir un dossier",
+      "workspaceGuide": "Guide de l'espace de travail",
       "pickTip": "Astuce : choisissez un dossier dans Dropbox, iCloud ou Google Drive pour synchroniser les projets entre appareils. Vous pourrez le déplacer plus tard.",
       "reconnectTitle": "Reconnectez votre espace de travail",
       "reconnectDescription": "Nous avons besoin de l'autorisation d'accéder à nouveau à <code>{{name}}</code>. Cela se produit automatiquement entre les sessions du navigateur.",

@@ -48,7 +48,7 @@ export function WorkspaceGateSplash({ status, error, onPickFolder, onReconnect }
             <Button asChild variant="outline" size="sm" className="gap-2">
               <a href="/docs/workspaces">
                 <BookOpen className="h-4 w-4" />
-                Workspace guide
+                {t('projects.workspaceGate.workspaceGuide')}
               </a>
             </Button>
           </div>
@@ -72,7 +72,7 @@ export function WorkspaceGateSplash({ status, error, onPickFolder, onReconnect }
               <Button asChild variant="outline" size="lg" className="gap-2">
                 <a href="/docs/workspaces">
                   <BookOpen className="h-4 w-4" />
-                  Workspace guide
+                  {t('projects.workspaceGate.workspaceGuide')}
                 </a>
               </Button>
             </div>
@@ -107,7 +107,7 @@ export function WorkspaceGateSplash({ status, error, onPickFolder, onReconnect }
             <Button asChild variant="ghost" size="sm" className="gap-2">
               <a href="/docs/workspaces">
                 <BookOpen className="h-4 w-4" />
-                Workspace guide
+                {t('projects.workspaceGate.workspaceGuide')}
               </a>
             </Button>
           </div>

@@ -183,6 +183,7 @@
       "pickTitle": "Wähle deinen Arbeitsbereich-Ordner",
       "pickDescription": "FreeCut speichert alle deine Projekte, Medien und Caches als einfache Dateien in einem Ordner, den du kontrollierst. Wähle einen beliebigen Ordner auf der Festplatte – deine Projekte werden dort gespeichert.",
       "chooseFolder": "Ordner auswählen",
+      "workspaceGuide": "Workspace-Anleitung",
       "pickTip": "Tipp: Wähle einen Ordner in Dropbox, iCloud oder Google Drive, um Projekte über Geräte hinweg zu synchronisieren. Du kannst ihn später verschieben.",
       "reconnectTitle": "Verbinde deinen Arbeitsbereich erneut",
       "reconnectDescription": "Wir benötigen erneut die Berechtigung, auf <code>{{name}}</code> zuzugreifen. Dies geschieht automatisch zwischen Browsersitzungen.",

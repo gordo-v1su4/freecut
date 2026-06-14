@@ -183,6 +183,7 @@
       "pickTitle": "ワークスペースフォルダを選択",
       "pickDescription": "FreeCutは、すべてのプロジェクト、メディア、キャッシュを、あなたが管理するフォルダ内のプレーンファイルとして保存します。ディスク上の任意のフォルダを選んでください。プロジェクトはそこに保存されます。",
       "chooseFolder": "フォルダを選択",
+      "workspaceGuide": "ワークスペースガイド",
       "pickTip": "ヒント: Dropbox、iCloud、Google Drive 内のフォルダを選ぶと、デバイス間でプロジェクトを同期できます。後で移動することもできます。",
       "reconnectTitle": "ワークスペースを再接続",
       "reconnectDescription": "<code>{{name}}</code>へ再びアクセスする許可が必要です。これはブラウザのセッション間で自動的に行われます。",

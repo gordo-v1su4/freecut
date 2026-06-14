@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Search } from 'lucide-react'
 import { FreeCutLogo } from '@/components/brand/freecut-logo'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/shared/ui/cn'
-import { DOC_GROUPS, DOC_PAGES, type DocPage } from './docs-content'
+import { DOC_GROUPS, DOC_PAGES, type DocCategory, type DocPage } from './docs-content'
 
 interface DocsShellProps {
   children: React.ReactNode
@@ -108,18 +108,20 @@ export function DocsHome() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">
-        {[
-          ['Start', 'Set up the browser, workspace, projects, and editor layout.'],
+        {(
           [
-            'Core Editing',
-            'Import media, cut on the timeline, preview, and adjust clip properties.',
-          ],
-          [
-            'Creative Tools',
-            'Use text, audio, effects, color, transitions, keyframes, scenes, and local AI.',
-          ],
-          ['Output', 'Export files from the browser and manage queued renders.'],
-        ].map(([title, description]) => (
+            ['Start', 'Set up the browser, workspace, projects, and editor layout.'],
+            [
+              'Core Editing',
+              'Import media, cut on the timeline, preview, and adjust clip properties.',
+            ],
+            [
+              'Creative Tools',
+              'Use text, audio, effects, color, transitions, keyframes, scenes, and local AI.',
+            ],
+            ['Output', 'Export files from the browser and manage queued renders.'],
+          ] satisfies [DocCategory, string][]
+        ).map(([title, description]) => (
           <div key={title} className="rounded-lg border border-border bg-card p-5">
             <h2 className="text-lg font-semibold">{title}</h2>
             <p className="mt-2 text-sm text-muted-foreground">{description}</p>
@@ -184,12 +186,12 @@ export function DocsArticle({ page }: { page: DocPage }) {
       </div>
 
       <div className="space-y-8 p-6 sm:p-8">
-        {page.sections.map((section) => (
-          <section key={section.title}>
+        {page.sections.map((section, sectionIndex) => (
+          <section key={sectionIndex}>
             <h2 className="text-xl font-semibold">{section.title}</h2>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
-              {section.items.map((item) => (
-                <li key={item}>{item}</li>
+              {section.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{item}</li>
               ))}
             </ul>
           </section>

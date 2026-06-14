@@ -183,6 +183,7 @@
       "pickTitle": "选择你的工作区文件夹",
       "pickDescription": "FreeCut 将你的所有项目、媒体和缓存作为普通文件存储在你控制的文件夹中。选择磁盘上的任意文件夹——你的项目将存放在那里。",
       "chooseFolder": "选择文件夹",
+      "workspaceGuide": "工作区指南",
       "pickTip": "提示：选择 Dropbox、iCloud 或 Google Drive 中的文件夹，可在多个设备间同步项目。你可以稍后移动它。",
       "reconnectTitle": "重新连接你的工作区",
       "reconnectDescription": "我们需要再次访问 <code>{{name}}</code> 的权限。这会在浏览器会话之间自动进行。",
