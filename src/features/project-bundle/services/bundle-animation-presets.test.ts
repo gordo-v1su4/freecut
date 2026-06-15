@@ -21,8 +21,7 @@ import { computeBundleManifestChecksum } from './pure-utils'
 
 const storageMocks = vi.hoisted(() => ({
   readAnimationPresets: vi.fn<(projectId: string) => Promise<AnimationPreset[]>>(),
-  saveAnimationPresets:
-    vi.fn<(projectId: string, presets: AnimationPreset[]) => Promise<void>>(),
+  saveAnimationPresets: vi.fn<(projectId: string, presets: AnimationPreset[]) => Promise<void>>(),
   getProject: vi.fn(),
   getProjectMediaIds: vi.fn(async () => [] as string[]),
   loadProjectThumbnail: vi.fn(async () => null),

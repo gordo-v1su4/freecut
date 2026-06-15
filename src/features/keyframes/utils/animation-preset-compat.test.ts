@@ -39,9 +39,7 @@ describe('captureAnimationFromItem', () => {
 
   it('returns null when the clip has no keyframes', () => {
     expect(captureAnimationFromItem(videoItem(), undefined)).toBeNull()
-    expect(
-      captureAnimationFromItem(videoItem(), { itemId: 'v1', properties: [] }),
-    ).toBeNull()
+    expect(captureAnimationFromItem(videoItem(), { itemId: 'v1', properties: [] })).toBeNull()
     expect(
       captureAnimationFromItem(videoItem(), {
         itemId: 'v1',

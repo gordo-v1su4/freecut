@@ -47,9 +47,7 @@ describe('applyAnimationPreset', () => {
     useItemsStore
       .getState()
       .setTracks([makeTimelineTrack({ id: 'track-v1', name: 'V1', kind: 'video', order: 0 })])
-    useItemsStore
-      .getState()
-      .setItems([makeTimelineVideoItem({ id: 'a', durationInFrames: 100 })])
+    useItemsStore.getState().setItems([makeTimelineVideoItem({ id: 'a', durationInFrames: 100 })])
     useTransitionsStore.getState().setTransitions([])
     useKeyframesStore.getState().setKeyframes([])
   })

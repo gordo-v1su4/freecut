@@ -149,7 +149,10 @@ describe('workspace animation presets storage', () => {
                   frame: 0,
                   value: 0,
                   easing: 'cubic-bezier',
-                  easingConfig: { type: 'cubic-bezier', bezier: { x1: 0.4, y1: 0, x2: 0.6, y2: 1 } },
+                  easingConfig: {
+                    type: 'cubic-bezier',
+                    bezier: { x1: 0.4, y1: 0, x2: 0.6, y2: 1 },
+                  },
                 },
               ],
             },

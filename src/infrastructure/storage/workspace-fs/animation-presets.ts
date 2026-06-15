@@ -125,9 +125,7 @@ export function sanitizeAnimationPresets(value: unknown): AnimationPreset[] {
       .filter((prop): prop is AnimationPresetProperty => prop !== null)
     if (properties.length === 0) return []
 
-    const effects = Array.isArray(candidate.effects)
-      ? candidate.effects.filter(isVisualEffect)
-      : []
+    const effects = Array.isArray(candidate.effects) ? candidate.effects.filter(isVisualEffect) : []
 
     return [
       {

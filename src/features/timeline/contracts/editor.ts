@@ -38,10 +38,7 @@ export { applyAnimationPreset } from '../stores/actions/preset-actions'
 export type { ApplyAnimationPresetResult } from '../stores/actions/preset-actions'
 export { updateKeyframes } from '../stores/actions/keyframe-actions'
 export { useKeyframeSelectionStore } from '../stores/keyframe-selection-store'
-export {
-  captureAnimationFromItem,
-  getPresetCompatibility,
-} from '../deps/keyframe-editors'
+export { captureAnimationFromItem, getPresetCompatibility } from '../deps/keyframe-editors'
 export type {
   CapturedAnimation,
   PresetCompatibility,
