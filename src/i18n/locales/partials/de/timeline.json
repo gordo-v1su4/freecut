@@ -199,6 +199,13 @@
     },
     "keyframeEditor": {
       "bezier": "Bezier-Kurve",
+      "bezierPreset": {
+        "soft": "Weich",
+        "easeOut": "Ausklang",
+        "easeIn": "Einklang",
+        "easeInOut": "Ein/Ausklang",
+        "overshoot": "Überschwingen"
+      },
       "custom": "Benutzerdefiniert",
       "dragHandlesHint": "Ziehe die Griffe, um die Kurve zu formen.",
       "graph": "Diagramm",

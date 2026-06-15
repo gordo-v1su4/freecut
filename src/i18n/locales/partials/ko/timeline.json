@@ -199,6 +199,13 @@
     },
     "keyframeEditor": {
       "bezier": "베지어",
+      "bezierPreset": {
+        "soft": "부드럽게",
+        "easeOut": "이즈 아웃",
+        "easeIn": "이즈 인",
+        "easeInOut": "이즈 인/아웃",
+        "overshoot": "오버슈트"
+      },
       "custom": "사용자 지정",
       "dragHandlesHint": "핸들을 드래그하여 곡선을 조정하세요.",
       "graph": "그래프",

@@ -199,6 +199,13 @@
     },
     "keyframeEditor": {
       "bezier": "ベジェ",
+      "bezierPreset": {
+        "soft": "ソフト",
+        "easeOut": "イーズアウト",
+        "easeIn": "イーズイン",
+        "easeInOut": "イーズイン/アウト",
+        "overshoot": "オーバーシュート"
+      },
       "custom": "カスタム",
       "dragHandlesHint": "ハンドルをドラッグしてカーブを調整します。",
       "graph": "グラフ",

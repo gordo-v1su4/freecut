@@ -199,6 +199,13 @@
     },
     "keyframeEditor": {
       "bezier": "Curva Bezier",
+      "bezierPreset": {
+        "soft": "Suave",
+        "easeOut": "Salida suave",
+        "easeIn": "Entrada suave",
+        "easeInOut": "Entrada/Salida",
+        "overshoot": "Rebote"
+      },
       "custom": "Personalizado",
       "dragHandlesHint": "Arrastra los puntos para dar forma a la curva.",
       "graph": "grafico",

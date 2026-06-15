@@ -203,6 +203,13 @@
     },
     "keyframeEditor": {
       "bezier": "Bezier",
+      "bezierPreset": {
+        "soft": "Soft",
+        "easeOut": "Ease Out",
+        "easeIn": "Ease In",
+        "easeInOut": "Ease In/Out",
+        "overshoot": "Overshoot"
+      },
       "custom": "Custom",
       "dragHandlesHint": "Drag the handles to shape the curve.",
       "mixedCurves": "Mixed Curves",

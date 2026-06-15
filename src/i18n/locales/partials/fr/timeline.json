@@ -199,6 +199,13 @@
     },
     "keyframeEditor": {
       "bezier": "Courbe Bezier",
+      "bezierPreset": {
+        "soft": "Doux",
+        "easeOut": "Sortie douce",
+        "easeIn": "Entrée douce",
+        "easeInOut": "Entrée/Sortie",
+        "overshoot": "Dépassement"
+      },
       "custom": "Personnalise",
       "dragHandlesHint": "Faites glisser les poignées pour modeler la courbe.",
       "graph": "graphe",

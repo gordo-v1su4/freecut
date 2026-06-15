@@ -199,6 +199,13 @@
     },
     "keyframeEditor": {
       "bezier": "Bezier",
+      "bezierPreset": {
+        "soft": "Yumuşak",
+        "easeOut": "Yavaşlayarak",
+        "easeIn": "Hızlanarak",
+        "easeInOut": "Yavaş/Hızlı",
+        "overshoot": "Aşma"
+      },
       "custom": "Özel",
       "dragHandlesHint": "Eğriyi şekillendirmek için tutamaçları sürükleyin.",
       "mixedCurves": "Karışık eğriler",
