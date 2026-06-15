@@ -208,10 +208,11 @@ export async function importProjectBundle(
     }
   }
 
-  // Step 7b: Restore animation presets if the bundle carries them. Absent
-  // file imports an empty set; a malformed file is sanitized, never crashes.
-  const presetsPath = manifest.animationPresets?.relativePath ?? 'animation-presets.json'
-  const presetsData = files[presetsPath]
+  // Step 7b: Restore animation presets only when the manifest declares them —
+  // an undeclared sidecar isn't covered by the manifest checksum, so it is not
+  // trusted. Absent → empty set; a malformed declared file is sanitized.
+  const presetsPath = manifest.animationPresets?.relativePath
+  const presetsData = presetsPath ? files[presetsPath] : undefined
   if (presetsData) {
     try {
       const parsed: unknown = JSON.parse(new TextDecoder().decode(presetsData))

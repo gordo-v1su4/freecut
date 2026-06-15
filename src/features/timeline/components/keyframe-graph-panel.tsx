@@ -1286,14 +1286,16 @@ export const KeyframeGraphPanel = memo(function KeyframeGraphPanel({
     t,
   ])
 
+  // In split view both panes are shown and the toggle is hidden; the mode
+  // hotkeys would otherwise silently flip the persisted single-pane mode.
   useHotkeys(
     hotkeys.KEYFRAME_EDITOR_GRAPH,
     (event) => {
       event.preventDefault()
       setEditorMode('graph')
     },
-    { ...HOTKEY_OPTIONS, enabled: isOpen },
-    [isOpen],
+    { ...HOTKEY_OPTIONS, enabled: isOpen && !splitView },
+    [isOpen, splitView],
   )
 
   useHotkeys(
@@ -1302,8 +1304,8 @@ export const KeyframeGraphPanel = memo(function KeyframeGraphPanel({
       event.preventDefault()
       setEditorMode('dopesheet')
     },
-    { ...HOTKEY_OPTIONS, enabled: isOpen },
-    [isOpen],
+    { ...HOTKEY_OPTIONS, enabled: isOpen && !splitView },
+    [isOpen, splitView],
   )
 
   useHotkeys(

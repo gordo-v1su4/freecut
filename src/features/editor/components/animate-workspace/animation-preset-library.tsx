@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -142,7 +142,9 @@ export const AnimationPresetLibrary = memo(function AnimationPresetLibrary() {
         return
       }
       const result = applyAnimationPreset(selectedItem.id, preset, 0)
-      if (result.incompatible || result.applied === 0) {
+      // Report failure only when nothing was committed. An effect can be added
+      // even if every keyframe clamped out — that still mutated the clip.
+      if (result.incompatible || (result.applied === 0 && result.addedEffects === 0)) {
         toast.warning(t('editor.animatePresets.applyFailed'))
         return
       }
@@ -180,16 +182,28 @@ export const AnimationPresetLibrary = memo(function AnimationPresetLibrary() {
     [selectedKeyframes],
   )
 
+  // Compatibility depends only on the presets and the target item, so compute
+  // it once per change rather than per preset on every render (the component
+  // also re-renders on keyframe-selection changes for the easing section).
+  const compatibilityByPresetId = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof getPresetCompatibility>>()
+    if (!selectedItem) return map
+    for (const preset of presets) {
+      map.set(preset.id, getPresetCompatibility(preset, selectedItem))
+    }
+    return map
+  }, [presets, selectedItem])
+
   const incompatibilityReason = useCallback(
     (preset: AnimationPreset): string | null => {
       if (!selectedItem) return t('editor.animatePresets.selectClipFirst')
-      const compatibility = getPresetCompatibility(preset, selectedItem)
-      if (compatibility.compatible) return null
+      const compatibility = compatibilityByPresetId.get(preset.id)
+      if (!compatibility || compatibility.compatible) return null
       return compatibility.reason === 'type-mismatch'
         ? t('editor.animatePresets.incompatibleType', { type: preset.sourceItemType })
         : t('editor.animatePresets.incompatibleProperty')
     },
-    [selectedItem, t],
+    [compatibilityByPresetId, selectedItem, t],
   )
 
   const easingApplyDisabled = selectedKeyframes.length === 0

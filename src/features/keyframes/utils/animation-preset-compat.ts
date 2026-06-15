@@ -64,6 +64,12 @@ export function captureAnimationFromItem(
   // Carry the effect definitions the effect-param keyframes animate so a target
   // missing the effect can have it added on apply. Dedupe by effect type — the
   // remap matches targets by `gpuEffectType`.
+  //
+  // Known v1 limitation: a source clip animating two *instances* of the same
+  // effect type collapses to one carried definition, and apply remaps both
+  // property groups onto a single target effect. Disambiguating same-type
+  // instances would need an instance-mapping scheme beyond the plan's
+  // by-`gpuEffectType` remap.
   const effects: VisualEffect[] = []
   const seenTypes = new Set<string>()
   for (const property of animated) {

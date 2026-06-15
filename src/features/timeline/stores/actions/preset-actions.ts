@@ -83,7 +83,11 @@ export function applyAnimationPreset(
   for (const type of typesNeeded) {
     if (effectIdByType.has(type)) continue
     const presetEffect = preset.effects.find((effect) => effect.gpuEffectType === type)
-    if (presetEffect) effectsToAdd.push(presetEffect)
+    // Clone so the applied clip never aliases the in-memory preset's params
+    // (a later in-place param edit would otherwise mutate the saved preset).
+    if (presetEffect) {
+      effectsToAdd.push({ ...presetEffect, params: { ...presetEffect.params } })
+    }
   }
 
   let addedEffects = 0
@@ -134,6 +138,10 @@ export function applyAnimationPreset(
     }
 
     for (const keyframe of property.keyframes) {
+      // Known v1 limitation: frames are clamped to the target duration, not
+      // retimed. Applying a preset to a clip shorter than its source can
+      // collapse trailing keyframes onto the last frame (retiming is deferred
+      // per the plan; `sourceDurationInFrames` is captured for a future pass).
       const frame = Math.max(0, Math.min(maxFrame, anchorFrame + keyframe.frame))
       if (!canAddKeyframeAtFrame(targetItemId, frame)) {
         skipped += 1
