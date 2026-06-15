@@ -2066,6 +2066,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
               inputMode="decimal"
               className={cn(
                 'h-[18px] border-border/70 bg-background/85 px-1 py-0 text-right text-[9px] leading-none tabular-nums md:text-[9px]',
+                '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
                 spacious ? 'w-[64px]' : 'w-[44px]',
               )}
               disabled={
@@ -2244,7 +2245,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
       const showGroupLeftClusterAtRest = curveVisible || allRowsLocked || groupAutoKeyEnabled
 
       return (
-        <div className="group flex h-full items-center gap-px bg-muted/40 pl-3 pr-0.5">
+        <div className="group flex h-full items-center gap-px border-y border-border/60 bg-muted/70 pl-3 pr-0.5">
           <div
             className={cn(
               'flex items-center gap-px self-stretch',
@@ -2394,7 +2395,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
                 )}
               />
             )}
-            <span className="truncate pl-px text-[9px] font-medium uppercase leading-none tracking-[0.06em] text-foreground/90">
+            <span className="truncate pl-px text-[9px] font-semibold uppercase leading-none tracking-[0.08em] text-foreground">
               {groupLabel}
             </span>
           </button>
