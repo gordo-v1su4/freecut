@@ -3,6 +3,7 @@ import { ErrorBoundary } from '@/app/error-boundary'
 import { KeyframeGraphPanel } from '@/features/editor/deps/timeline-contract'
 import { PreviewArea } from '../preview-area'
 import { AnimateTimelineStrip } from './animate-timeline-strip'
+import { AnimationPresetLibrary } from './animation-preset-library'
 
 interface AnimateLayoutProps {
   project: {
@@ -38,17 +39,22 @@ export const AnimateLayout = memo(function AnimateLayout({ project }: AnimateLay
         <AnimateTimelineStrip />
       </ErrorBoundary>
 
-      {/* Keyframe editing surface — dopesheet + curve editor shown together */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-border">
+      {/* Editing surface (dopesheet + curve editor) beside the preset library */}
+      <div className="flex min-h-0 flex-1 overflow-hidden border-t border-border">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <ErrorBoundary level="feature">
+            <KeyframeGraphPanel
+              isOpen
+              splitView
+              showCloseButton={false}
+              onToggle={noop}
+              onClose={noop}
+              placement="side"
+            />
+          </ErrorBoundary>
+        </div>
         <ErrorBoundary level="feature">
-          <KeyframeGraphPanel
-            isOpen
-            splitView
-            showCloseButton={false}
-            onToggle={noop}
-            onClose={noop}
-            placement="side"
-          />
+          <AnimationPresetLibrary />
         </ErrorBoundary>
       </div>
     </div>
