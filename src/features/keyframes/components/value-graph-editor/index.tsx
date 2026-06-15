@@ -63,8 +63,10 @@ interface ValueGraphEditorSharedProps {
   overlayProperties?: AnimatableProperty[]
   /** Selected keyframe IDs */
   selectedKeyframeIds?: Set<string>
-  /** Current playhead frame */
+  /** Current playhead frame (clip-relative) */
   currentFrame?: number
+  /** Absolute timeline frame where the edited item starts (for live playhead) */
+  itemFrom?: number
   /** Total duration in frames */
   totalFrames?: number
   /** Timeline FPS for time ruler formatting */
@@ -149,6 +151,7 @@ const ValueGraphEditorBase = memo(function ValueGraphEditorBase({
   overlayProperties,
   selectedKeyframeIds = new Set(),
   currentFrame = 0,
+  itemFrom = 0,
   totalFrames = 300,
   fps = 30,
   width = 600,
@@ -1228,6 +1231,7 @@ const ValueGraphEditorBase = memo(function ValueGraphEditorBase({
           {/* Playhead (rendered before keyframes so keyframes get click priority) */}
           <GraphPlayhead
             frame={currentFrame}
+            itemFrom={itemFrom}
             viewport={viewport}
             padding={padding}
             totalFrames={totalFrames}
@@ -1235,7 +1239,7 @@ const ValueGraphEditorBase = memo(function ValueGraphEditorBase({
             onScrubStart={handlePlayheadScrubStart}
             onScrubEnd={handlePlayheadScrubEnd}
             disabled={disabled}
-            visuals="hidden"
+            visuals="visible"
           />
 
           {/* Bezier handles (for selected keyframes with cubic-bezier easing) */}

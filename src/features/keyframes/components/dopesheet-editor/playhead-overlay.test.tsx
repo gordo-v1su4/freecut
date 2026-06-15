@@ -34,7 +34,7 @@ describe('DopesheetEditor playhead overlay', () => {
     expect(line).toHaveStyle({ left: '0px' })
   })
 
-  it('shows the shared ruler in graph mode', () => {
+  it('shows the shared ruler in graph mode and defers the playhead to the graph', () => {
     render(
       <DopesheetEditor
         itemId="item-1"
@@ -48,7 +48,9 @@ describe('DopesheetEditor playhead overlay', () => {
     )
 
     expect(screen.getByTestId('dopesheet-ruler')).toHaveClass('cursor-ew-resize')
-    expect(screen.getByTestId('dopesheet-playhead-line')).toBeInTheDocument()
+    // In graph mode the dopesheet overlay playhead is not rendered — the graph
+    // draws its own playhead (GraphPlayhead) in the graph's coordinate space.
+    expect(screen.queryByTestId('dopesheet-playhead-line')).not.toBeInTheDocument()
   })
 
   it('keeps the navigator in the right viewport column', () => {

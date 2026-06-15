@@ -39,6 +39,7 @@ interface DopesheetGraphPaneProps {
   graphVisibleProperties: AnimatableProperty[]
   selectedKeyframeIds: Set<string>
   currentFrame: number
+  itemFrom: number
   totalFrames: number
   fps: number
   onKeyframeMove?: (ref: KeyframeRef, newFrame: number, newValue: number) => void
@@ -85,6 +86,7 @@ export function DopesheetGraphPane({
   graphVisibleProperties,
   selectedKeyframeIds,
   currentFrame,
+  itemFrom,
   totalFrames,
   fps,
   onKeyframeMove,
@@ -137,6 +139,7 @@ export function DopesheetGraphPane({
             overlayProperties={graphVisibleProperties}
             selectedKeyframeIds={selectedKeyframeIds}
             currentFrame={currentFrame}
+            itemFrom={itemFrom}
             totalFrames={totalFrames}
             fps={fps}
             width={graphPaneSize.width}

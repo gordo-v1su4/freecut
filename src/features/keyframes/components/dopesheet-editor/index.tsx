@@ -2745,20 +2745,24 @@ export const DopesheetEditor = memo(function DopesheetEditor({
         )}
         onWheel={visualizationMode === 'dopesheet' ? handleWheel : undefined}
       >
-        <div
-          data-testid="dopesheet-playhead-clip"
-          className="absolute top-0 bottom-0 right-0 overflow-hidden pointer-events-none z-20"
-          style={{ left: PROPERTY_COLUMN_WIDTH }}
-        >
-          <DopesheetPlayheadLine
-            relativeFrame={currentFrame}
-            itemFrom={itemFrom}
-            totalFrames={totalFrames}
-            frameToX={frameToX}
-            maxLeft={effectiveTimelineWidth - 1}
-            className="absolute top-0 bottom-0 w-px bg-primary/80"
-          />
-        </div>
+        {/* Sheet mode only: the graph renders its own aligned playhead
+            (GraphPlayhead) using the graph's coordinate space. */}
+        {visualizationMode !== 'graph' && (
+          <div
+            data-testid="dopesheet-playhead-clip"
+            className="absolute top-0 bottom-0 right-0 overflow-hidden pointer-events-none z-20"
+            style={{ left: PROPERTY_COLUMN_WIDTH }}
+          >
+            <DopesheetPlayheadLine
+              relativeFrame={currentFrame}
+              itemFrom={itemFrom}
+              totalFrames={totalFrames}
+              frameToX={frameToX}
+              maxLeft={effectiveTimelineWidth - 1}
+              className="absolute top-0 bottom-0 w-px bg-primary/80"
+            />
+          </div>
+        )}
         {visualizationMode === 'graph' ? (
           <>
             <DopesheetRulerHeader
@@ -2790,6 +2794,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
               graphVisibleProperties={[...graphVisibleProperties]}
               selectedKeyframeIds={selectedKeyframeIds}
               currentFrame={currentFrame}
+              itemFrom={itemFrom}
               totalFrames={totalFrames}
               fps={fps}
               onKeyframeMove={onKeyframeMove}

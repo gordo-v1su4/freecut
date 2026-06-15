@@ -3,10 +3,11 @@
  * Renders interpolation curves between keyframes on the value graph.
  */
 
-import { memo, useMemo } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { GraphKeyframePoint, GraphViewport, GraphPadding } from './types'
 import type { EasingConfig } from '@/types/keyframe'
 import { applyEasingConfig } from '../../utils/easing'
+import { usePlaybackStore } from '@/shared/state/playback'
 
 interface GraphCurveProps {
   /** Start keyframe point */
@@ -197,6 +198,8 @@ export const GraphExtensionLines = memo(function GraphExtensionLines({
 
 interface GraphPlayheadProps {
   frame: number
+  /** Absolute timeline frame where the edited item starts (for live playback). */
+  itemFrom?: number
   viewport: GraphViewport
   padding: GraphPadding
   /** Total frames in the clip (for display) */
@@ -220,6 +223,7 @@ interface GraphPlayheadProps {
  */
 export const GraphPlayhead = memo(function GraphPlayhead({
   frame,
+  itemFrom = 0,
   viewport,
   padding,
   totalFrames,
@@ -236,9 +240,41 @@ export const GraphPlayhead = memo(function GraphPlayhead({
   const graphWidth = width - padding.left - padding.right
   const graphHeight = height - padding.top - padding.bottom
 
-  // Clamp playhead to visible graph area so it's always visible at the edges
-  const rawX = graphLeft + ((frame - startFrame) / (endFrame - startFrame)) * graphWidth
-  const x = Math.max(graphLeft, Math.min(graphLeft + graphWidth, rawX))
+  // Clip-relative frame → clamped x in the graph's own coordinate space.
+  const frameToGraphX = (relFrame: number): number => {
+    const rawX = graphLeft + ((relFrame - startFrame) / (endFrame - startFrame)) * graphWidth
+    return Math.max(graphLeft, Math.min(graphLeft + graphWidth, rawX))
+  }
+  const x = frameToGraphX(frame)
+
+  // The visuals are rendered at local x=0 inside a translated group so the
+  // playhead can be moved during playback by writing the group transform via
+  // ref — no React re-render of the graph (which is kept off the playback hot
+  // path). On scrub/seek/zoom the editor re-renders and the layout effect below
+  // repositions from the `frame` prop.
+  const groupRef = useRef<SVGGElement>(null)
+  const labelRef = useRef<SVGTextElement>(null)
+
+  useLayoutEffect(() => {
+    groupRef.current?.setAttribute('transform', `translate(${x}, 0)`)
+  })
+
+  useEffect(() => {
+    const update = () => {
+      const state = usePlaybackStore.getState()
+      if (!state.isPlaying) return
+      const lastFrame = totalFrames ? totalFrames - 1 : endFrame - 1
+      const rel = Math.max(0, Math.min(lastFrame, state.currentFrame - itemFrom))
+      groupRef.current?.setAttribute('transform', `translate(${frameToGraphX(rel)}, 0)`)
+      if (labelRef.current) {
+        labelRef.current.textContent = totalFrames
+          ? `F${Math.round(rel)}/${totalFrames - 1}`
+          : `F${Math.round(rel)}`
+      }
+    }
+    return usePlaybackStore.subscribe(update)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemFrom, totalFrames, startFrame, endFrame, graphLeft, graphWidth])
 
   // Convert screen X to frame (clamped to valid range)
   const screenXToFrame = (screenX: number): number => {
@@ -300,18 +336,19 @@ export const GraphPlayhead = memo(function GraphPlayhead({
 
   return (
     <g
+      ref={groupRef}
       className="graph-playhead"
       style={{
         pointerEvents: isInteractive ? 'auto' : 'none',
         cursor: isInteractive ? 'ew-resize' : 'default',
       }}
     >
-      {/* Invisible wider hit area for easier grabbing */}
+      {/* Invisible wider hit area for easier grabbing (local x=0; group is translated) */}
       {isInteractive && (
         <line
-          x1={x}
+          x1={0}
           y1={graphTop}
-          x2={x}
+          x2={0}
           y2={graphTop + graphHeight}
           stroke="transparent"
           strokeWidth={12}
@@ -322,9 +359,9 @@ export const GraphPlayhead = memo(function GraphPlayhead({
       {visuals === 'visible' && (
         <>
           <line
-            x1={x}
+            x1={0}
             y1={graphTop}
-            x2={x}
+            x2={0}
             y2={graphTop + graphHeight}
             stroke="#ef4444"
             strokeWidth={2}
@@ -333,13 +370,14 @@ export const GraphPlayhead = memo(function GraphPlayhead({
             style={{ cursor: isInteractive ? 'ew-resize' : 'default' }}
           />
           <path
-            d={`M ${x - 6} ${graphTop} L ${x + 6} ${graphTop} L ${x} ${graphTop + 8} Z`}
+            d={`M -6 ${graphTop} L 6 ${graphTop} L 0 ${graphTop + 8} Z`}
             fill="#ef4444"
             onPointerDown={isInteractive ? handlePointerDown : undefined}
             style={{ cursor: isInteractive ? 'ew-resize' : 'default' }}
           />
           <text
-            x={x}
+            ref={labelRef}
+            x={0}
             y={graphTop - 4}
             textAnchor="middle"
             fill="#ef4444"
