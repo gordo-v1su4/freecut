@@ -208,7 +208,6 @@
       },
       "custom": "Personnalise",
       "dragHandlesHint": "Faites glisser les poignées pour modeler la courbe.",
-      "easingControlsHint": "Sélectionnez une image clé pour ajuster son accélération.",
       "graph": "graphe",
       "mixedCurves": "mixte courbes",
       "mixedSpring": "mixte ressort",

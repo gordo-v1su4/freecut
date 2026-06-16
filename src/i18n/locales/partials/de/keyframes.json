@@ -4,6 +4,7 @@
       "title": "Keyframe-Editor",
       "graph": "Diagramm",
       "sheet": "Tabelle",
+      "split": "Geteilt",
       "selectItem": "Element auswählen, um Keyframes zu bearbeiten",
       "parameters": "Parameter",
       "parameterDisplayOptions": "Anzeigeoptionen für Parameter",

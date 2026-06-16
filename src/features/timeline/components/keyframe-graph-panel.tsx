@@ -110,13 +110,14 @@ interface KeyframeGraphPanelProps {
   /** Side-lane docks stay persistent and should not expose a close affordance. */
   showCloseButton?: boolean
   /**
-   * Render the dopesheet and curve/graph panes simultaneously (Animate
-   * workspace). The graph/sheet mode toggle is hidden since both are visible.
+   * Animate-workspace context: keeps the panel persistent/spacious and unlocks
+   * the third "split" view-mode option (sheet + graph stacked) in the toggle.
+   * The user still chooses sheet / graph / split; split is no longer forced.
    */
   splitView?: boolean
 }
 
-type KeyframeEditorMode = 'graph' | 'dopesheet'
+type KeyframeEditorMode = 'graph' | 'dopesheet' | 'split'
 const KEYFRAME_EDITOR_MODE_STORAGE_KEY = 'timeline:keyframeEditorMode'
 const EASING_OPTIONS: Array<{ value: EasingType; labelKey: string; defaultLabel: string }> = [
   { value: 'hold', labelKey: 'timeline.keyframeEditor.easing.hold', defaultLabel: 'Hold' },
@@ -371,16 +372,13 @@ function useKeyframeEditorPlaybackFrame(
 function loadKeyframeEditorMode(): KeyframeEditorMode {
   try {
     const value = localStorage.getItem(KEYFRAME_EDITOR_MODE_STORAGE_KEY)
-    if (value === 'graph' || value === 'dopesheet') {
+    if (value === 'graph' || value === 'dopesheet' || value === 'split') {
       return value
-    }
-    if (value === 'split') {
-      return 'dopesheet'
     }
   } catch {
     // ignore localStorage read errors
   }
-  return 'graph'
+  return 'dopesheet'
 }
 
 interface AdvancedEasingControlsProps {
@@ -503,11 +501,6 @@ function AdvancedEasingControls({
       className="mb-2 flex items-center overflow-x-auto rounded-md border border-border bg-secondary/20 px-2"
       style={{ height: ADVANCED_EASING_STRIP_HEIGHT }}
     >
-      {!selectedBezierPoints && !selectedSpringParameters && (
-        <span className="text-[11px] text-muted-foreground">
-          {t('timeline.keyframeEditor.easingControlsHint')}
-        </span>
-      )}
       {selectedBezierPoints && (
         <div className="flex w-max items-center gap-2 text-xs">
           <span className="font-medium text-foreground">{t('timeline.keyframeEditor.bezier')}</span>
@@ -803,6 +796,12 @@ export const KeyframeGraphPanel = memo(function KeyframeGraphPanel({
       // ignore localStorage write errors
     }
   }, [editorMode])
+
+  // "split" is only offered in the Animate workspace (`splitView`); the docked
+  // panel is too short to stack both panes, so a persisted "split" falls back
+  // to the dopesheet there.
+  const effectiveEditorMode: KeyframeEditorMode =
+    !splitView && editorMode === 'split' ? 'dopesheet' : editorMode
 
   useEffect(() => {
     if (!isOpen) {
@@ -1281,16 +1280,16 @@ export const KeyframeGraphPanel = memo(function KeyframeGraphPanel({
     t,
   ])
 
-  // In split view both panes are shown and the toggle is hidden; the mode
-  // hotkeys would otherwise silently flip the persisted single-pane mode.
+  // The view-mode toggle is always visible now, so the hotkeys map to it in
+  // every context (including the Animate workspace's split-capable toggle).
   useHotkeys(
     hotkeys.KEYFRAME_EDITOR_GRAPH,
     (event) => {
       event.preventDefault()
       setEditorMode('graph')
     },
-    { ...HOTKEY_OPTIONS, enabled: isOpen && !splitView },
-    [isOpen, splitView],
+    { ...HOTKEY_OPTIONS, enabled: isOpen },
+    [isOpen],
   )
 
   useHotkeys(
@@ -1299,8 +1298,8 @@ export const KeyframeGraphPanel = memo(function KeyframeGraphPanel({
       event.preventDefault()
       setEditorMode('dopesheet')
     },
-    { ...HOTKEY_OPTIONS, enabled: isOpen && !splitView },
-    [isOpen, splitView],
+    { ...HOTKEY_OPTIONS, enabled: isOpen },
+    [isOpen],
   )
 
   useHotkeys(
@@ -1529,6 +1528,13 @@ export const KeyframeGraphPanel = memo(function KeyframeGraphPanel({
   const editorWidth = Math.max(0, containerWidth - 16)
   const showBezierControls = selectedEditorEasing === 'cubic-bezier'
   const showSpringControls = selectedEditorEasing === 'spring'
+  // The easing strip only carries bezier/spring controls now — the old
+  // "select a keyframe" hint banner is dropped. Render (and reserve height for)
+  // the strip only when there are actual controls to show, so the editor
+  // reclaims that space the rest of the time.
+  const showEasingControls = Boolean(
+    (showBezierControls && selectedBezierPoints) || (showSpringControls && selectedSpringParameters),
+  )
   const advancedControlsKey = useMemo(
     () =>
       selectedEditorKeyframes
@@ -1544,10 +1550,10 @@ export const KeyframeGraphPanel = memo(function KeyframeGraphPanel({
         .join('|'),
     [selectedEditorKeyframes],
   )
-  // The easing strip is reserved at a constant height (rendered whenever an item
-  // is selected), so the editor area stays the same size regardless of which
-  // keyframe is selected — no layout shift.
-  const editorHeight = Math.max(0, resolvedContentHeight - 16 - ADVANCED_EASING_STRIP_RESERVED)
+  const editorHeight = Math.max(
+    0,
+    resolvedContentHeight - 16 - (showEasingControls ? ADVANCED_EASING_STRIP_RESERVED : 0),
+  )
   // Only render the docked editor when explicitly opened from the toolbar/hotkey.
   // Selecting a clip should not surface the docked panel by itself.
   if (!isOpen) {
@@ -1628,35 +1634,46 @@ export const KeyframeGraphPanel = memo(function KeyframeGraphPanel({
         </div>
 
         <div className="flex items-center gap-1">
-          {!splitView && (
-            <>
-              <Button
-                variant={editorMode === 'graph' ? 'secondary' : 'ghost'}
-                size="sm"
-                className="h-5 px-1.5 text-[10px]"
-                title={t('timeline.keyframeEditor.legend.graphMode')}
-                aria-label={t('timeline.keyframeEditor.legend.graphMode')}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setEditorMode('graph')
-                }}
-              >
-                {t('timeline.keyframeEditor.graph')}
-              </Button>
-              <Button
-                variant={editorMode === 'dopesheet' ? 'secondary' : 'ghost'}
-                size="sm"
-                className="h-5 px-1.5 text-[10px]"
-                title={t('timeline.keyframeEditor.legend.sheetMode')}
-                aria-label={t('timeline.keyframeEditor.legend.sheetMode')}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setEditorMode('dopesheet')
-                }}
-              >
-                {t('timeline.keyframeEditor.sheet')}
-              </Button>
-            </>
+          <Button
+            variant={effectiveEditorMode === 'dopesheet' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-5 px-1.5 text-[10px]"
+            title={t('timeline.keyframeEditor.legend.sheetMode')}
+            aria-label={t('timeline.keyframeEditor.legend.sheetMode')}
+            onClick={(e) => {
+              e.stopPropagation()
+              setEditorMode('dopesheet')
+            }}
+          >
+            {t('timeline.keyframeEditor.sheet')}
+          </Button>
+          <Button
+            variant={effectiveEditorMode === 'graph' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-5 px-1.5 text-[10px]"
+            title={t('timeline.keyframeEditor.legend.graphMode')}
+            aria-label={t('timeline.keyframeEditor.legend.graphMode')}
+            onClick={(e) => {
+              e.stopPropagation()
+              setEditorMode('graph')
+            }}
+          >
+            {t('timeline.keyframeEditor.graph')}
+          </Button>
+          {splitView && (
+            <Button
+              variant={effectiveEditorMode === 'split' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-5 px-1.5 text-[10px]"
+              title={t('timeline.keyframeEditor.split')}
+              aria-label={t('timeline.keyframeEditor.split')}
+              onClick={(e) => {
+                e.stopPropagation()
+                setEditorMode('split')
+              }}
+            >
+              {t('timeline.keyframeEditor.split')}
+            </Button>
           )}
           {showCloseButton && (
             <Button
@@ -1684,16 +1701,18 @@ export const KeyframeGraphPanel = memo(function KeyframeGraphPanel({
         >
           {selectedItemForEditor && containerWidth > 0 ? (
             <>
-              <AdvancedEasingControls
-                key={advancedControlsKey}
-                selectedBezierPoints={showBezierControls ? selectedBezierPoints : null}
-                selectedBezierPreset={selectedBezierPreset}
-                hasMixedBezierConfig={hasMixedBezierConfig}
-                selectedSpringParameters={showSpringControls ? selectedSpringParameters : null}
-                hasMixedSpringConfig={hasMixedSpringConfig}
-                applyBezier={applyBezierToSelection}
-                applySpring={applySpringToSelection}
-              />
+              {showEasingControls && (
+                <AdvancedEasingControls
+                  key={advancedControlsKey}
+                  selectedBezierPoints={showBezierControls ? selectedBezierPoints : null}
+                  selectedBezierPreset={selectedBezierPreset}
+                  hasMixedBezierConfig={hasMixedBezierConfig}
+                  selectedSpringParameters={showSpringControls ? selectedSpringParameters : null}
+                  hasMixedSpringConfig={hasMixedSpringConfig}
+                  applyBezier={applyBezierToSelection}
+                  applySpring={applySpringToSelection}
+                />
+              )}
               <ErrorBoundary level="component">
                 <DopesheetEditor
                   itemId={selectedItemForEditor.id}
@@ -1734,9 +1753,7 @@ export const KeyframeGraphPanel = memo(function KeyframeGraphPanel({
                   interpolationDisabled={selectedEditorKeyframes.length === 0}
                   onNavigateToKeyframe={handleNavigateToKeyframe}
                   transitionBlockedRanges={transitionBlockedRanges}
-                  visualizationMode={
-                    splitView ? 'split' : editorMode === 'graph' ? 'graph' : 'dopesheet'
-                  }
+                  visualizationMode={effectiveEditorMode}
                   spacious={splitView}
                 />
               </ErrorBoundary>

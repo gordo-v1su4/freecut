@@ -4,6 +4,7 @@
       "title": "Keyframe Editor",
       "graph": "Graph",
       "sheet": "Sheet",
+      "split": "Split",
       "selectItem": "Select an item to edit keyframes",
       "parameters": "Parameters",
       "parameterDisplayOptions": "Parameter display options",

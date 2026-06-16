@@ -1747,6 +1747,49 @@ export const DopesheetEditor = memo(function DopesheetEditor({
     [disabled, getFrameFromClientX, zoomAroundFrame, panFrames, effectiveTimelineWidth, frameRange],
   )
 
+  // Split-view sheet wheel. The two panes share one horizontal time axis but
+  // scroll differently on the vertical axis: the sheet scrolls property rows,
+  // the graph zooms its value axis. So over the sheet a plain vertical wheel
+  // must scroll rows (not hijack the shared time axis), while time zoom/pan
+  // stays reachable via Ctrl (zoom) and horizontal intent (Shift / trackpad
+  // swipe). Only when the rows can't travel further do we fall back to panning
+  // time, so the gesture never dead-ends.
+  const handleSplitSheetWheel = useCallback(
+    (event: React.WheelEvent<HTMLDivElement>) => {
+      if (disabled) return
+
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault()
+        const pivotFrame = getFrameFromClientX(event.clientX)
+        zoomAroundFrame(pivotFrame, event.deltaY > 0 ? ZOOM_OUT_FACTOR : ZOOM_IN_FACTOR)
+        return
+      }
+
+      const horizontalDelta =
+        event.deltaX !== 0 ? event.deltaX : event.shiftKey ? event.deltaY : 0
+      if (horizontalDelta !== 0) {
+        event.preventDefault()
+        panFrames(Math.round((horizontalDelta / effectiveTimelineWidth) * frameRange))
+        return
+      }
+
+      const node = scrollAreaRef.current
+      if (node && node.scrollHeight > node.clientHeight + 1) {
+        const atTop = node.scrollTop <= 0
+        const atBottom = node.scrollTop + node.clientHeight >= node.scrollHeight - 1
+        const pastBound = (event.deltaY < 0 && atTop) || (event.deltaY > 0 && atBottom)
+        if (!pastBound) {
+          // Let the inner overflow-auto scroll the rows natively.
+          return
+        }
+      }
+
+      event.preventDefault()
+      panFrames(Math.round((event.deltaY / effectiveTimelineWidth) * frameRange))
+    },
+    [disabled, getFrameFromClientX, zoomAroundFrame, panFrames, effectiveTimelineWidth, frameRange],
+  )
+
   const graphDisplayProperty = useMemo(() => {
     if (graphVisibleProperties.size === 0) return null
     if (activeSelectedProperty && graphVisibleProperties.has(activeSelectedProperty)) {
@@ -1900,7 +1943,10 @@ export const DopesheetEditor = memo(function DopesheetEditor({
         <div
           className={cn(
             'group h-full px-1 flex items-center gap-px bg-muted/8',
-            options?.indented && 'pl-3',
+            // Indent child property rows under their group header and draw a
+            // faint vertical spine so the column reads as a tree.
+            options?.indented &&
+              "relative pl-6 before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-border/40 before:content-['']",
             row.controls.hasKeyframeAtCurrentFrame && 'bg-primary/10',
             showGraphPane && graphVisibleProperties.has(row.property) && 'bg-accent/40',
             showGraphPane && !rowLocked && 'cursor-pointer',
@@ -2927,7 +2973,10 @@ export const DopesheetEditor = memo(function DopesheetEditor({
             {/* Sheet on top, curve/graph below, with ONE shared playhead line
                 ({splitPlayheadOverlayElement}) drawn over both panes so they
                 stay identical in position and appearance. */}
-            <div className="relative min-h-0 flex-1 overflow-hidden" onWheel={handleWheel}>
+            <div
+              className="relative min-h-0 flex-1 overflow-hidden"
+              onWheel={handleSplitSheetWheel}
+            >
               {sheetBodyElement}
             </div>
             <div className="min-h-0 flex-1 overflow-hidden border-t border-border/60">

@@ -208,7 +208,6 @@
       },
       "custom": "カスタム",
       "dragHandlesHint": "ハンドルをドラッグしてカーブを調整します。",
-      "easingControlsHint": "イージングを調整するキーフレームを選択してください。",
       "graph": "グラフ",
       "mixedCurves": "混在カーブ",
       "mixedSpring": "混在スプリング",
