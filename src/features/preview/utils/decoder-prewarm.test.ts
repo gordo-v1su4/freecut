@@ -28,7 +28,7 @@ class MockWorker {
   readonly addEventListener = vi.fn()
   readonly terminate = vi.fn()
   readonly postMessage = vi.fn((message: MockWorkerMessage) => {
-    if (message.type !== 'preseek') {
+    if (message.type !== 'preseek' || !autoRespondPreseek) {
       return
     }
 
@@ -49,11 +49,13 @@ class MockWorker {
 let createdWorkers: MockWorker[] = []
 let fetchMock: ReturnType<typeof vi.fn>
 let mockBitmap: ImageBitmap
+let autoRespondPreseek = true
 
 beforeEach(() => {
   createdWorkers = []
   mockBitmap = { close: vi.fn() } as unknown as ImageBitmap
   fetchMock = vi.fn()
+  autoRespondPreseek = true
 
   vi.stubGlobal('fetch', fetchMock)
   class WorkerStub extends MockWorker {
@@ -157,5 +159,46 @@ describe('decoder prewarm', () => {
     const spawnedCount = createdWorkers.length
     warmDecoderPrewarmWorkerPool()
     expect(createdWorkers.length).toBe(spawnedCount)
+  })
+
+  it('drops speculative preseek work when every worker is already busy', async () => {
+    autoRespondPreseek = false
+    warmDecoderPrewarmWorkerPool()
+
+    const poolSize = createdWorkers.length
+    expect(poolSize).toBeGreaterThan(0)
+
+    for (let index = 0; index < poolSize; index += 1) {
+      const src = `blob:busy-${index}`
+      registerObjectUrl(src, new Blob([`video-${index}`]))
+      void backgroundPreseek(src, index)
+    }
+
+    registerObjectUrl('blob:overflow', new Blob(['overflow']))
+    const overflowResult = await backgroundPreseek('blob:overflow', 999)
+
+    const preseekPosts = createdWorkers
+      .flatMap((worker) => worker.postMessage.mock.calls)
+      .map(([message]) => message as MockWorkerMessage)
+      .filter((message) => message.type === 'preseek')
+
+    expect(overflowResult).toBeNull()
+    expect(preseekPosts).toHaveLength(poolSize)
+  })
+
+  it('closes bitmaps from late worker replies after a request is no longer pending', () => {
+    warmDecoderPrewarmWorkerPool()
+
+    const worker = createdWorkers[0]!
+    worker.onmessage?.({
+      data: {
+        type: 'preseek_done',
+        id: 'missing-request',
+        success: true,
+        bitmap: mockBitmap,
+      },
+    } as MessageEvent)
+
+    expect(mockBitmap.close).toHaveBeenCalledTimes(1)
   })
 })
