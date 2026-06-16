@@ -67,9 +67,12 @@ export function DopesheetPlayheadLine({
 
   if (variant === 'flag') {
     // Flag handle that sits in the ruler — matches the animate timeline strip.
+    // The head sits at the top of the ruler; a line runs the full ruler height
+    // so it joins the body playhead line that starts just below the ruler.
     return (
       <div ref={ref} data-testid="dopesheet-playhead-flag" className={className}>
-        <span className="absolute bottom-0 left-0 h-3 w-2 -translate-x-1/2 rounded-b-[2px] border border-red-300/60 bg-red-500" />
+        <span className="absolute top-0 bottom-0 w-px -translate-x-1/2 bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.65)]" />
+        <span className="absolute top-0 left-0 h-3 w-2 -translate-x-1/2 rounded-b-[2px] border border-red-300/60 bg-red-500" />
       </div>
     )
   }
