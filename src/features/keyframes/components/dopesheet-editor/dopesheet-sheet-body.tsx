@@ -1,14 +1,17 @@
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { KeyframeMarqueeOverlay, type KeyframeMarqueeRect } from '../keyframe-marquee'
 import { PROPERTY_COLUMN_WIDTH, RULER_HEIGHT } from './dopesheet-constants'
+import { DopesheetEmptyState } from './dopesheet-empty-state'
 
 interface DopesheetSheetBodyProps {
   scrollAreaRef: React.RefObject<HTMLDivElement | null>
   hasRows: boolean
   emptyStateMessage: string
+  showEmptyGuidance: boolean
   rowElements: ReactNode
   marqueeRect: KeyframeMarqueeRect | null
   marqueeJustEnded: boolean
+  propertyColumnWidth?: number
   onTimelineBackgroundPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
 }
 
@@ -16,9 +19,11 @@ export function DopesheetSheetBody({
   scrollAreaRef,
   hasRows,
   emptyStateMessage,
+  showEmptyGuidance,
   rowElements,
   marqueeRect,
   marqueeJustEnded,
+  propertyColumnWidth = PROPERTY_COLUMN_WIDTH,
   onTimelineBackgroundPointerDown,
 }: DopesheetSheetBodyProps) {
   return (
@@ -28,15 +33,13 @@ export function DopesheetSheetBody({
       style={{ height: `calc(100% - ${RULER_HEIGHT}px)` }}
     >
       {!hasRows ? (
-        <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-          {emptyStateMessage}
-        </div>
+        <DopesheetEmptyState showGuidance={showEmptyGuidance} fallbackMessage={emptyStateMessage} />
       ) : (
         <div className="relative min-h-full">
           <div
             data-testid="dopesheet-selection-surface"
             className="absolute inset-y-0 right-0 z-0"
-            style={{ left: PROPERTY_COLUMN_WIDTH }}
+            style={{ left: propertyColumnWidth }}
             onPointerDown={onTimelineBackgroundPointerDown}
           />
           <div className="relative z-10">{rowElements}</div>
@@ -44,7 +47,7 @@ export function DopesheetSheetBody({
             <KeyframeMarqueeOverlay
               rect={{
                 ...marqueeRect,
-                x: PROPERTY_COLUMN_WIDTH + marqueeRect.x,
+                x: propertyColumnWidth + marqueeRect.x,
               }}
             />
           )}

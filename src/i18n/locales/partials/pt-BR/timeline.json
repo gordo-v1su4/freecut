@@ -199,6 +199,13 @@
     },
     "keyframeEditor": {
       "bezier": "Bézier",
+      "bezierPreset": {
+        "soft": "Suave",
+        "easeOut": "Saída suave",
+        "easeIn": "Entrada suave",
+        "easeInOut": "Entrada/Saída",
+        "overshoot": "Ultrapassagem"
+      },
       "custom": "Personalizado",
       "dragHandlesHint": "Arraste as alças para moldar a curva.",
       "graph": "Grafico",

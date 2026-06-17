@@ -1,6 +1,14 @@
 import type { TextItem } from '@/types/timeline'
 import type { AnimatableProperty, EasingConfig, EasingType, ItemKeyframes } from '@/types/keyframe'
 import type { ResolvedTransform } from '@/types/transform'
+import {
+  animationWindowFrames,
+  clamp,
+  EASE_IN_SOFT as SOFT_EASE_IN,
+  EASE_OUT_SOFT as SOFT_EASE_OUT,
+  SPRING_SETTLE as TITLE_SPRING,
+  type MotionThumbnail,
+} from '@/features/editor/deps/keyframes'
 
 export type TextAnimationPresetId =
   | 'fade'
@@ -18,11 +26,14 @@ export type TextAnimationPhase = 'intro' | 'outro'
 interface TextAnimationPreset {
   id: TextAnimationPresetId
   labelKey: string
+  /** Animated glyph shown on the preset button (reuses the motion thumbnails). */
+  thumbnail: MotionThumbnail
 }
 
 export interface TextAnimationPresetOption {
   id: TextAnimationPresetOptionId
   labelKey: string
+  thumbnail?: MotionThumbnail
 }
 
 export interface TextAnimationKeyframePayload {
@@ -35,14 +46,14 @@ export interface TextAnimationKeyframePayload {
 }
 
 const TEXT_ANIMATION_EFFECT_PRESETS: TextAnimationPreset[] = [
-  { id: 'fade', labelKey: 'fade' },
-  { id: 'rise', labelKey: 'rise' },
-  { id: 'drop', labelKey: 'drop' },
-  { id: 'left', labelKey: 'left' },
-  { id: 'right', labelKey: 'right' },
-  { id: 'tilt', labelKey: 'tilt' },
-  { id: 'pop', labelKey: 'pop' },
-  { id: 'swing', labelKey: 'swing' },
+  { id: 'fade', labelKey: 'fade', thumbnail: { kind: 'fade' } },
+  { id: 'rise', labelKey: 'rise', thumbnail: { kind: 'slide', angle: 270 } },
+  { id: 'drop', labelKey: 'drop', thumbnail: { kind: 'slide', angle: 90 } },
+  { id: 'left', labelKey: 'left', thumbnail: { kind: 'slide', angle: 0 } },
+  { id: 'right', labelKey: 'right', thumbnail: { kind: 'slide', angle: 180 } },
+  { id: 'tilt', labelKey: 'tilt', thumbnail: { kind: 'wobble' } },
+  { id: 'pop', labelKey: 'pop', thumbnail: { kind: 'bounce' } },
+  { id: 'swing', labelKey: 'swing', thumbnail: { kind: 'wobble' } },
 ]
 
 export const TEXT_ANIMATION_PRESETS: TextAnimationPresetOption[] = [
@@ -68,22 +79,6 @@ const TEXT_ANIMATION_DURATION_SECONDS = 0.45
 const DEFAULT_END_EASING: EasingType = 'linear'
 const ROTATION_OFFSET_DEGREES = 8
 const VALUE_EPSILON = 0.01
-const SOFT_EASE_OUT: EasingConfig = {
-  type: 'cubic-bezier',
-  bezier: { x1: 0.16, y1: 1, x2: 0.3, y2: 1 },
-}
-const SOFT_EASE_IN: EasingConfig = {
-  type: 'cubic-bezier',
-  bezier: { x1: 0.7, y1: 0, x2: 0.84, y2: 0 },
-}
-const TITLE_SPRING: EasingConfig = {
-  type: 'spring',
-  spring: { tension: 220, friction: 18, mass: 0.9 },
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value))
-}
 
 function buildOpacityPair(isIntro: boolean, endOpacity: number): AnimationValuePair {
   return {
@@ -122,14 +117,7 @@ function getKeyframeAtFrame(
 }
 
 export function getTextAnimationDurationFrames(itemDurationInFrames: number, fps: number): number {
-  if (itemDurationInFrames <= 1) {
-    return 0
-  }
-
-  return Math.max(
-    1,
-    Math.min(itemDurationInFrames - 1, Math.round(fps * TEXT_ANIMATION_DURATION_SECONDS)),
-  )
+  return animationWindowFrames(TEXT_ANIMATION_DURATION_SECONDS, itemDurationInFrames, fps)
 }
 
 export function getTextAnimationFrameRange(

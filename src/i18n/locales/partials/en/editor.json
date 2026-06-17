@@ -1,5 +1,70 @@
 {
   "editor": {
+    "animateTimeline": {
+      "label": "Animate timeline",
+      "noClip": "No clips to animate"
+    },
+    "animatePresets": {
+      "title": "Presets",
+      "animationsHeading": "Animations",
+      "saveButton": "Save",
+      "empty": "No saved animations yet",
+      "savedToast": "Saved “{{name}}”",
+      "appliedToast": "Applied “{{name}}”",
+      "applyFailed": "Could not apply preset",
+      "saveFailed": "Could not save preset",
+      "deleteLabel": "Delete preset",
+      "incompatibleType": "Needs a {{type}} clip",
+      "incompatibleProperty": "Target is missing an animated property",
+      "selectClipFirst": "Select a clip to apply",
+      "noAnimationToSave": "Select a clip with keyframes to save",
+      "dialog": {
+        "title": "Save animation preset",
+        "description": "Save this clip’s keyframes as a reusable preset for this project.",
+        "nameLabel": "Preset name",
+        "namePlaceholder": "My animation",
+        "duplicateWarning": "A preset with this name exists and will be overwritten.",
+        "save": "Save",
+        "overwrite": "Overwrite",
+        "cancel": "Cancel"
+      }
+    },
+    "motionPresets": {
+      "textIncompatible": "Not suited for text",
+      "categories": {
+        "entrance": "Entrance",
+        "exit": "Exit",
+        "emphasis": "Emphasis",
+        "loop": "Loop"
+      },
+      "items": {
+        "fadeIn": "Fade In",
+        "slideInLeft": "Slide In Left",
+        "slideInRight": "Slide In Right",
+        "slideInUp": "Slide In Up",
+        "slideInDown": "Slide In Down",
+        "popIn": "Pop In",
+        "zoomIn": "Zoom In",
+        "spinIn": "Spin In",
+        "bounceIn": "Bounce In",
+        "fadeOut": "Fade Out",
+        "slideOutLeft": "Slide Out Left",
+        "slideOutRight": "Slide Out Right",
+        "slideOutUp": "Slide Out Up",
+        "slideOutDown": "Slide Out Down",
+        "popOut": "Pop Out",
+        "zoomOut": "Zoom Out",
+        "pulse": "Pulse",
+        "shake": "Shake",
+        "wobble": "Wobble",
+        "flash": "Flash",
+        "float": "Float",
+        "sway": "Sway",
+        "breathe": "Breathe",
+        "spin": "Spin",
+        "wiggle": "Wiggle"
+      }
+    },
     "shortcutsDialog": {
       "title": "Keyboard Shortcuts",
       "description": "Edit keyboard shortcut bindings."

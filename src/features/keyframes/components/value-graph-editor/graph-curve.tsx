@@ -3,10 +3,12 @@
  * Renders interpolation curves between keyframes on the value graph.
  */
 
-import { memo, useMemo } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { GraphKeyframePoint, GraphViewport, GraphPadding } from './types'
 import type { EasingConfig } from '@/types/keyframe'
 import { applyEasingConfig } from '../../utils/easing'
+import { usePlaybackStore } from '@/shared/state/playback'
+import { useCoalescedScrub } from '../use-coalesced-scrub'
 
 interface GraphCurveProps {
   /** Start keyframe point */
@@ -197,10 +199,14 @@ export const GraphExtensionLines = memo(function GraphExtensionLines({
 
 interface GraphPlayheadProps {
   frame: number
+  /** Absolute timeline frame where the edited item starts (for live playback). */
+  itemFrom?: number
   viewport: GraphViewport
   padding: GraphPadding
   /** Total frames in the clip (for display) */
   totalFrames?: number
+  /** Timeline FPS used to scale scrub throttling by horizontal density */
+  fps?: number
   /** Callback when playhead is scrubbed (dragged) */
   onScrub?: (frame: number) => void
   /** Callback when scrubbing starts */
@@ -220,9 +226,11 @@ interface GraphPlayheadProps {
  */
 export const GraphPlayhead = memo(function GraphPlayhead({
   frame,
+  itemFrom = 0,
   viewport,
   padding,
   totalFrames,
+  fps = 30,
   onScrub,
   onScrubStart,
   onScrubEnd,
@@ -235,16 +243,53 @@ export const GraphPlayhead = memo(function GraphPlayhead({
   const graphTop = padding.top
   const graphWidth = width - padding.left - padding.right
   const graphHeight = height - padding.top - padding.bottom
+  const frameRange = Math.max(1, endFrame - startFrame)
+  const graphPixelsPerSecond = (graphWidth / frameRange) * fps
 
-  // Clamp playhead to visible graph area so it's always visible at the edges
-  const rawX = graphLeft + ((frame - startFrame) / (endFrame - startFrame)) * graphWidth
-  const x = Math.max(graphLeft, Math.min(graphLeft + graphWidth, rawX))
+  // Clip-relative frame → clamped x in the graph's own coordinate space.
+  const frameToGraphX = (relFrame: number): number => {
+    const rawX = graphLeft + ((relFrame - startFrame) / frameRange) * graphWidth
+    return Math.max(graphLeft, Math.min(graphLeft + graphWidth, rawX))
+  }
+  const x = frameToGraphX(frame)
+
+  // The visuals are rendered at local x=0 inside a translated group so the
+  // playhead can be moved during playback by writing the group transform via
+  // ref — no React re-render of the graph (which is kept off the playback hot
+  // path). During active editor scrubs the parent intentionally avoids pushing
+  // every frame through React, so this group also follows the scrub store
+  // directly. On settled seek/zoom the editor re-renders and the layout effect
+  // below repositions from the `frame` prop.
+  const groupRef = useRef<SVGGElement>(null)
+  const {
+    startScrub: startPlayheadScrub,
+    queueScrub: queuePlayheadScrub,
+    flushPendingScrub: flushPendingPlayheadScrub,
+  } = useCoalescedScrub(onScrub)
+
+  useLayoutEffect(() => {
+    groupRef.current?.setAttribute('transform', `translate(${x}, 0)`)
+  })
+
+  useEffect(() => {
+    const update = () => {
+      const state = usePlaybackStore.getState()
+      const isPreviewing = state.previewFrame !== null
+      if (!state.isPlaying && !isPreviewing) return
+      const lastFrame = totalFrames ? totalFrames - 1 : endFrame - 1
+      const frame = state.previewFrame ?? state.currentFrame
+      const rel = Math.max(0, Math.min(lastFrame, frame - itemFrom))
+      groupRef.current?.setAttribute('transform', `translate(${frameToGraphX(rel)}, 0)`)
+    }
+    return usePlaybackStore.subscribe(update)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemFrom, totalFrames, startFrame, endFrame, graphLeft, graphWidth])
 
   // Convert screen X to frame (clamped to valid range)
   const screenXToFrame = (screenX: number): number => {
     const relativeX = screenX - graphLeft
     const normalizedX = Math.max(0, Math.min(1, relativeX / graphWidth))
-    const calculatedFrame = Math.round(startFrame + normalizedX * (endFrame - startFrame))
+    const calculatedFrame = Math.round(startFrame + normalizedX * frameRange)
     // Clamp to valid frame range [0, totalFrames - 1] (last valid frame is totalFrames - 1)
     // This prevents scrubbing past the clip boundary which would deselect the clip
     const maxValidFrame = totalFrames ? totalFrames - 1 : endFrame - 1
@@ -278,15 +323,23 @@ export const GraphPlayhead = memo(function GraphPlayhead({
         return
       }
       lastScrubbedFrame = newFrame
-      onScrub(newFrame)
+      queuePlayheadScrub({
+        frame: newFrame,
+        pointerX: localX,
+        pixelsPerSecond: graphPixelsPerSecond,
+      })
     }
 
+    // Also handles pointercancel — a system-interrupted gesture (capture lost,
+    // touch cancelled) must clean up exactly like a normal release.
     const handlePointerUp = (e: PointerEvent) => {
       e.preventDefault()
       e.stopPropagation()
       svg.releasePointerCapture(event.pointerId)
       svg.removeEventListener('pointermove', handlePointerMove)
       svg.removeEventListener('pointerup', handlePointerUp)
+      svg.removeEventListener('pointercancel', handlePointerUp)
+      flushPendingPlayheadScrub(true)
 
       // Notify scrub end
       onScrubEnd?.()
@@ -294,24 +347,31 @@ export const GraphPlayhead = memo(function GraphPlayhead({
 
     svg.addEventListener('pointermove', handlePointerMove)
     svg.addEventListener('pointerup', handlePointerUp)
+    svg.addEventListener('pointercancel', handlePointerUp)
+    startPlayheadScrub({
+      frame,
+      pointerX: x,
+      pixelsPerSecond: graphPixelsPerSecond,
+    })
   }
 
   const isInteractive = !disabled && !!onScrub
 
   return (
     <g
+      ref={groupRef}
       className="graph-playhead"
       style={{
         pointerEvents: isInteractive ? 'auto' : 'none',
         cursor: isInteractive ? 'ew-resize' : 'default',
       }}
     >
-      {/* Invisible wider hit area for easier grabbing */}
+      {/* Invisible wider hit area for easier grabbing (local x=0; group is translated) */}
       {isInteractive && (
         <line
-          x1={x}
+          x1={0}
           y1={graphTop}
-          x2={x}
+          x2={0}
           y2={graphTop + graphHeight}
           stroke="transparent"
           strokeWidth={12}
@@ -321,35 +381,21 @@ export const GraphPlayhead = memo(function GraphPlayhead({
       )}
       {visuals === 'visible' && (
         <>
+          {/* Red playhead line — matches the dopesheet body line; the flag
+              handle is rendered once in the shared ruler. */}
           <line
-            x1={x}
+            x1={0}
             y1={graphTop}
-            x2={x}
+            x2={0}
             y2={graphTop + graphHeight}
             stroke="#ef4444"
-            strokeWidth={2}
-            strokeOpacity={0.9}
+            strokeWidth={1}
             onPointerDown={isInteractive ? handlePointerDown : undefined}
-            style={{ cursor: isInteractive ? 'ew-resize' : 'default' }}
+            style={{
+              filter: 'drop-shadow(0 0 5px rgba(239, 68, 68, 0.65))',
+              cursor: isInteractive ? 'ew-resize' : 'default',
+            }}
           />
-          <path
-            d={`M ${x - 6} ${graphTop} L ${x + 6} ${graphTop} L ${x} ${graphTop + 8} Z`}
-            fill="#ef4444"
-            onPointerDown={isInteractive ? handlePointerDown : undefined}
-            style={{ cursor: isInteractive ? 'ew-resize' : 'default' }}
-          />
-          <text
-            x={x}
-            y={graphTop - 4}
-            textAnchor="middle"
-            fill="#ef4444"
-            fontSize={9}
-            fontFamily="monospace"
-            fontWeight="bold"
-            style={{ pointerEvents: 'none' }}
-          >
-            {totalFrames ? `F${Math.round(frame)}/${totalFrames - 1}` : `F${Math.round(frame)}`}
-          </text>
         </>
       )}
     </g>

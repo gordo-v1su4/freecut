@@ -1,5 +1,70 @@
 {
   "editor": {
+    "animateTimeline": {
+      "label": "动画时间线",
+      "noClip": "没有可动画的片段"
+    },
+    "animatePresets": {
+      "title": "预设",
+      "animationsHeading": "动画",
+      "saveButton": "保存",
+      "empty": "尚无已保存的动画",
+      "savedToast": "已保存“{{name}}”",
+      "appliedToast": "已应用“{{name}}”",
+      "applyFailed": "无法应用预设",
+      "saveFailed": "无法保存预设",
+      "deleteLabel": "删除预设",
+      "incompatibleType": "需要 {{type}} 片段",
+      "incompatibleProperty": "目标缺少可动画的属性",
+      "selectClipFirst": "选择要应用的片段",
+      "noAnimationToSave": "选择带有关键帧的片段以保存",
+      "dialog": {
+        "title": "保存动画预设",
+        "description": "将此片段的关键帧保存为可在本项目中重复使用的预设。",
+        "nameLabel": "预设名称",
+        "namePlaceholder": "我的动画",
+        "duplicateWarning": "已存在同名预设，将被覆盖。",
+        "save": "保存",
+        "overwrite": "覆盖",
+        "cancel": "取消"
+      }
+    },
+    "motionPresets": {
+      "textIncompatible": "不适用于文本",
+      "categories": {
+        "entrance": "入场",
+        "exit": "出场",
+        "emphasis": "强调",
+        "loop": "循环"
+      },
+      "items": {
+        "fadeIn": "淡入",
+        "slideInLeft": "从左滑入",
+        "slideInRight": "从右滑入",
+        "slideInUp": "从下滑入",
+        "slideInDown": "从上滑入",
+        "popIn": "弹入",
+        "zoomIn": "放大进入",
+        "spinIn": "旋转进入",
+        "bounceIn": "弹跳进入",
+        "fadeOut": "淡出",
+        "slideOutLeft": "向左滑出",
+        "slideOutRight": "向右滑出",
+        "slideOutUp": "向上滑出",
+        "slideOutDown": "向下滑出",
+        "popOut": "弹出",
+        "zoomOut": "缩小退出",
+        "pulse": "脉冲",
+        "shake": "抖动",
+        "wobble": "摇摆",
+        "flash": "闪烁",
+        "float": "漂浮",
+        "sway": "摆动",
+        "breathe": "呼吸",
+        "spin": "旋转",
+        "wiggle": "扭动"
+      }
+    },
     "shortcutsDialog": {
       "title": "键盘快捷键",
       "description": "编辑键盘快捷键绑定。"

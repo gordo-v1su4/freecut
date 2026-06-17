@@ -6,4 +6,7 @@ export {
   DopesheetEditor,
   getAnimatablePropertiesForItem,
   getEffectPropertyBaseValue,
+  captureAnimationFromItem,
+  getPresetCompatibility,
 } from './keyframes-contract'
+export type { PresetIncompatibilityReason } from './keyframes-contract'

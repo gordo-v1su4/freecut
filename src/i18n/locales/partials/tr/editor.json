@@ -1,5 +1,70 @@
 {
   "editor": {
+    "animateTimeline": {
+      "label": "Animasyon zaman çizelgesi",
+      "noClip": "Animasyon için klip yok"
+    },
+    "animatePresets": {
+      "title": "Hazır ayarlar",
+      "animationsHeading": "Animasyonlar",
+      "saveButton": "Kaydet",
+      "empty": "Henüz kaydedilmiş animasyon yok",
+      "savedToast": "“{{name}}” kaydedildi",
+      "appliedToast": "“{{name}}” uygulandı",
+      "applyFailed": "Hazır ayar uygulanamadı",
+      "saveFailed": "Hazır ayar kaydedilemedi",
+      "deleteLabel": "Hazır ayarı sil",
+      "incompatibleType": "{{type}} türünde bir klip gerekiyor",
+      "incompatibleProperty": "Hedefte animasyonlu bir özellik eksik",
+      "selectClipFirst": "Uygulamak için bir klip seçin",
+      "noAnimationToSave": "Kaydetmek için anahtar kareleri olan bir klip seçin",
+      "dialog": {
+        "title": "Animasyon hazır ayarını kaydet",
+        "description": "Bu klibin anahtar karelerini bu proje için yeniden kullanılabilir bir hazır ayar olarak kaydedin.",
+        "nameLabel": "Hazır ayar adı",
+        "namePlaceholder": "Animasyonum",
+        "duplicateWarning": "Bu ada sahip bir hazır ayar mevcut ve üzerine yazılacak.",
+        "save": "Kaydet",
+        "overwrite": "Üzerine yaz",
+        "cancel": "İptal"
+      }
+    },
+    "motionPresets": {
+      "textIncompatible": "Metin için uygun değil",
+      "categories": {
+        "entrance": "Giriş",
+        "exit": "Çıkış",
+        "emphasis": "Vurgu",
+        "loop": "Döngü"
+      },
+      "items": {
+        "fadeIn": "Belirme",
+        "slideInLeft": "Soldan kaydır",
+        "slideInRight": "Sağdan kaydır",
+        "slideInUp": "Aşağıdan kaydır",
+        "slideInDown": "Yukarıdan kaydır",
+        "popIn": "Sıçrayarak gir",
+        "zoomIn": "Yakınlaştır",
+        "spinIn": "Dönerek gir",
+        "bounceIn": "Zıplayarak gir",
+        "fadeOut": "Kaybolma",
+        "slideOutLeft": "Sola kaydır",
+        "slideOutRight": "Sağa kaydır",
+        "slideOutUp": "Yukarı kaydır",
+        "slideOutDown": "Aşağı kaydır",
+        "popOut": "Sıçrayarak çık",
+        "zoomOut": "Uzaklaştır",
+        "pulse": "Nabız",
+        "shake": "Sallama",
+        "wobble": "Yalpalama",
+        "flash": "Parlama",
+        "float": "Süzülme",
+        "sway": "Sallanma",
+        "breathe": "Nefes alma",
+        "spin": "Dönme",
+        "wiggle": "Titreşme"
+      }
+    },
     "shortcutsDialog": {
       "title": "Klavye Kısayolları",
       "description": "Klavye kısayol atamalarını düzenleyin."

@@ -8,6 +8,9 @@ export type {
   TimelineState,
 } from '@/features/timeline/contracts/editor'
 export {
+  applyAnimationPreset,
+  captureAnimationFromItem,
+  getPresetCompatibility,
   captureSnapshot,
   createClassicTrack,
   createDefaultAdjustmentItem,
@@ -18,6 +21,7 @@ export {
   executeTimelineCommand,
   findCompatibleTrackForItemType,
   findNearestAvailableSpace,
+  getDefaultActiveTrackId,
   getDefaultGeneratedLayerDurationInFrames,
   getMaxTransitionDurationForHandles,
   getTrackKind,

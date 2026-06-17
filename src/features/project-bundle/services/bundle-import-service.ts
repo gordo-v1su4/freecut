@@ -24,6 +24,8 @@ import {
   saveProjectThumbnail,
   associateMediaWithProject,
   updateProject,
+  saveAnimationPresets,
+  sanitizeAnimationPresets,
 } from '@/infrastructure/storage'
 import { generateThumbnail } from '@/features/project-bundle/deps/media-library'
 import { createLogger } from '@/shared/logging/logger'
@@ -206,6 +208,24 @@ export async function importProjectBundle(
     }
   }
 
+  // Step 7b: Restore animation presets only when the manifest declares them —
+  // an undeclared sidecar isn't covered by the manifest checksum, so it is not
+  // trusted. Absent → empty set; a malformed declared file is sanitized.
+  const presetsPath = manifest.animationPresets?.relativePath
+  const presetsData = presetsPath ? files[presetsPath] : undefined
+  if (presetsData) {
+    try {
+      const parsed: unknown = JSON.parse(new TextDecoder().decode(presetsData))
+      const presets = sanitizeAnimationPresets(parsed)
+      if (presets.length > 0) {
+        await saveAnimationPresets(newProjectId, presets)
+      }
+    } catch (err) {
+      // Malformed presets file must not abort the import.
+      logger.warn('Could not restore animation presets:', err)
+    }
+  }
+
   // Step 8: Associate all imported media with the project
   onProgress?.({ percent: 95, stage: 'linking' })
 
@@ -283,6 +303,13 @@ async function validateBundle(file: File): Promise<{
       if (!files[media.relativePath]) {
         errors.push(`Missing media file: ${media.fileName}`)
       }
+    }
+
+    // Check the animation presets sidecar exists when referenced. A malformed
+    // file is tolerated on import (sanitized), but a referenced-yet-absent file
+    // signals a corrupt bundle.
+    if (manifest.animationPresets && !files[manifest.animationPresets.relativePath]) {
+      errors.push('Missing animation presets file')
     }
 
     return {

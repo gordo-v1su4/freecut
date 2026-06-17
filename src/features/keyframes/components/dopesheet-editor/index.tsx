@@ -39,14 +39,19 @@ import { DopesheetRulerHeader } from './dopesheet-ruler-header'
 import { DopesheetSheetBody } from './dopesheet-sheet-body'
 import { DopesheetInterpolationButtons } from './dopesheet-interpolation-buttons'
 import { DopesheetParameterMenu } from './dopesheet-parameter-menu'
+import { DopesheetLegendPopover } from './dopesheet-legend-popover'
 import { DopesheetViewOptionsMenu } from './dopesheet-view-options-menu'
 import { KeyframeTimingStrip } from './keyframe-timing-strip'
 import { setPointerCaptureSafely } from './dopesheet-utils'
 import {
   arePreviewFramesEqual,
   buildGroupedPropertyRows,
+  buildGroupedPropertyStructure,
   getNiceTickStep,
 } from './dopesheet-helpers'
+import type { DopesheetPropertyGroupStructure } from './dopesheet-helpers'
+import { GroupTimelineCell, PropertyTimelineCell } from './dopesheet-timeline-cells'
+import { DopesheetPlayheadLine } from './dopesheet-playhead-line'
 import {
   DRAG_THRESHOLD,
   EMPTY_AUTO_KEY_ENABLED_BY_PROPERTY,
@@ -54,7 +59,9 @@ import {
   MINI_ICON_BUTTON_CLASS,
   MINI_ICON_CLASS,
   PROPERTY_COLUMN_WIDTH,
+  SPACIOUS_PROPERTY_COLUMN_WIDTH,
   ROW_HEIGHT,
+  RULER_HEIGHT,
   SNAP_THRESHOLD_PX,
   ZOOM_IN_FACTOR,
   ZOOM_OUT_FACTOR,
@@ -86,11 +93,11 @@ import {
   getRemovableGroupCurrentKeyframes,
   removeSelectionIds,
 } from './row-action-helpers'
-import { getDisplayedGroupFrameGroups as getDisplayedGroupFrameGroupsState } from './sheet-preview-frame-groups'
 import {
   getKeyframeGroupLabel,
   getKeyframePropertyLabel,
 } from '@/features/keyframes/utils/property-i18n'
+import { useCoalescedScrub } from '../use-coalesced-scrub'
 
 interface DopesheetEditorProps {
   /** Shared time viewport when split mode needs synchronized frame zoom/pan */
@@ -109,6 +116,8 @@ interface DopesheetEditorProps {
   currentFrame?: number
   /** Global timeline frame for the same playhead position */
   globalFrame?: number | null
+  /** Absolute timeline frame where the edited item starts (for live playhead) */
+  itemFrom?: number
   /** Total duration in frames */
   totalFrames?: number
   /** Timeline FPS used for ruler display */
@@ -129,6 +138,8 @@ interface DopesheetEditorProps {
   onActivePropertyChange?: (property: AnimatableProperty) => void
   /** Callback when playhead is scrubbed (frame is clip-relative) */
   onScrub?: (frame: number) => void
+  /** Callback when scrubbing starts */
+  onScrubStart?: () => void
   /** Callback when scrubbing ends */
   onScrubEnd?: () => void
   /** Callback when drag starts (for undo batching) */
@@ -177,11 +188,23 @@ interface DopesheetEditorProps {
   transitionBlockedRanges?: BlockedFrameRange[]
   /** Whether the editor is disabled */
   disabled?: boolean
-  /** Which visualization to render on the right side */
-  visualizationMode?: 'dopesheet' | 'graph'
+  /** Which visualization to render on the right side. `split` shows both the
+   *  sheet body and the curve/graph pane at once (Animate workspace placement),
+   *  sharing a single frame viewport and playhead so they cannot desync. */
+  visualizationMode?: 'dopesheet' | 'graph' | 'split'
+  /** Use the wider property column + value inputs (Animate workspace, where
+   *  there is room). Defaults to the compact sidebar sizing. */
+  spacious?: boolean
   /** Additional class name */
   className?: string
 }
+
+type StructureRow = { property: AnimatableProperty; keyframes: Keyframe[] }
+
+// Stable empty fallbacks so memoized timeline cells don't see fresh `[]` refs.
+const EMPTY_KEYFRAMES: Keyframe[] = []
+const EMPTY_STRUCTURE_ROWS: StructureRow[] = []
+const EMPTY_FRAME_GROUPS: DopesheetPropertyGroupStructure<StructureRow>['frameGroups'] = []
 
 export const DopesheetEditor = memo(function DopesheetEditor({
   frameViewport,
@@ -192,6 +215,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
   selectedKeyframeIds = new Set(),
   currentFrame = 0,
   globalFrame = null,
+  itemFrom = 0,
   totalFrames = 300,
   fps = 30,
   width = 600,
@@ -202,6 +226,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
   onPropertyChange,
   onActivePropertyChange,
   onScrub,
+  onScrubStart,
   onScrubEnd,
   onDragStart,
   onDragEnd,
@@ -224,9 +249,18 @@ export const DopesheetEditor = memo(function DopesheetEditor({
   transitionBlockedRanges = [],
   disabled = false,
   visualizationMode = 'dopesheet',
+  spacious = false,
   className,
 }: DopesheetEditorProps) {
   const { t } = useTranslation()
+  // `split` shows both panes at once. Derive per-pane visibility so the many
+  // mode branches below read intent ("is the graph showing?") rather than an
+  // exact mode, and the exclusive `dopesheet`/`graph` modes stay unchanged.
+  const showSheetPane = visualizationMode !== 'graph'
+  const showGraphPane = visualizationMode !== 'dopesheet'
+  const isSplitView = visualizationMode === 'split'
+  // Wider property column + value inputs when there is room (Animate workspace).
+  const columnWidth = spacious ? SPACIOUS_PROPERTY_COLUMN_WIDTH : PROPERTY_COLUMN_WIDTH
   const timelineRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const graphPaneRef = useRef<HTMLDivElement>(null)
@@ -252,7 +286,6 @@ export const DopesheetEditor = memo(function DopesheetEditor({
   const { viewport, updateViewport, normalizeViewport, contentFrameMax, minViewportFrames } =
     useDopesheetViewport({
       totalFrames,
-      selectedProperty,
       frameViewport,
       onFrameViewportChange,
     })
@@ -338,39 +371,56 @@ export const DopesheetEditor = memo(function DopesheetEditor({
   const hasPropertyFilters =
     showKeyframedOnly || allPropertyGroups.some((group) => visibleGroups[group.id] === false)
 
-  const sheetRows = useMemo<DopesheetPropertyRow[]>(
+  // Frame-independent keyframe data. These references only change when the
+  // properties or keyframes change — NOT when the playhead moves — so the
+  // memoized timeline grid cells can skip re-rendering during scrubs.
+  const sheetKeyframesByProperty = useMemo(() => {
+    const map = new Map<AnimatableProperty, Keyframe[]>()
+    for (const property of visibleProperties) {
+      map.set(
+        property,
+        (keyframesByProperty[property] ?? []).toSorted((a, b) => a.frame - b.frame),
+      )
+    }
+    return map
+  }, [visibleProperties, keyframesByProperty])
+
+  const sheetRowsStructure = useMemo(
     () =>
       visibleProperties.map((property) => ({
         property,
-        keyframes: (keyframesByProperty[property] ?? []).toSorted((a, b) => a.frame - b.frame),
-        controls: getDopesheetRowControlState(
-          (keyframesByProperty[property] ?? []).toSorted((a, b) => a.frame - b.frame),
-          currentFrame,
-        ),
+        keyframes: sheetKeyframesByProperty.get(property) ?? [],
       })),
-    [visibleProperties, keyframesByProperty, currentFrame],
+    [visibleProperties, sheetKeyframesByProperty],
   )
 
-  const propertyRows = useMemo<DopesheetPropertyRow[]>(
+  // Stable, frame-independent group structure keyed by group id — used to feed
+  // the memoized group timeline cells.
+  const groupTimelineById = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof buildGroupedPropertyStructure>[number]>()
+    for (const group of buildGroupedPropertyStructure(sheetRowsStructure)) {
+      map.set(group.id, group)
+    }
+    return map
+  }, [sheetRowsStructure])
+
+  // Playhead-dependent rows (carry the per-frame `controls`). `propertyColumnProperties`
+  // is the same list as `visibleProperties`, so the column/sheet rows are identical.
+  const sheetRows = useMemo<DopesheetPropertyRow[]>(
     () =>
-      propertyColumnProperties.map((property) => ({
-        property,
-        keyframes: (keyframesByProperty[property] ?? []).toSorted((a, b) => a.frame - b.frame),
-        controls: getDopesheetRowControlState(
-          (keyframesByProperty[property] ?? []).toSorted((a, b) => a.frame - b.frame),
-          currentFrame,
-        ),
+      sheetRowsStructure.map((row) => ({
+        ...row,
+        controls: getDopesheetRowControlState(row.keyframes, currentFrame),
       })),
-    [propertyColumnProperties, keyframesByProperty, currentFrame],
+    [sheetRowsStructure, currentFrame],
   )
+
+  const propertyRows = sheetRows
   const groupedSheetRows = useMemo(
     () => buildGroupedPropertyRows(sheetRows, currentFrame),
     [currentFrame, sheetRows],
   )
-  const groupedPropertyRows = useMemo(
-    () => buildGroupedPropertyRows(propertyRows, currentFrame),
-    [currentFrame, propertyRows],
-  )
+  const groupedPropertyRows = groupedSheetRows
   const propertyRowByProperty = useMemo(
     () => new Map(propertyRows.map((row) => [row.property, row])),
     [propertyRows],
@@ -394,7 +444,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
   }, [allPropertyGroups, setAllGroupsExpanded, setShowKeyframedOnly, setVisibleGroups])
 
   const graphPaneSize = useElementSize(graphPaneRef, {
-    enabled: visualizationMode === 'graph',
+    enabled: showGraphPane,
     deps: [visualizationMode, propertyRows.length],
   })
 
@@ -424,23 +474,17 @@ export const DopesheetEditor = memo(function DopesheetEditor({
       return changed ? nextDrafts : prev
     })
   }, [propertyColumnProperties, propertyValues, editingValueProperty, formatPropertyValue])
-  const rowKeyframesByProperty = useMemo(() => {
-    const map = new Map<AnimatableProperty, Keyframe[]>()
-    for (const row of sheetRows) {
-      map.set(row.property, row.keyframes)
-    }
-    return map
-  }, [sheetRows])
+  const rowKeyframesByProperty = sheetKeyframesByProperty
 
   const keyframeMetaById = useMemo(() => {
     const map = new Map<string, KeyframeMeta>()
-    for (const row of sheetRows) {
+    for (const row of sheetRowsStructure) {
       for (const keyframe of row.keyframes) {
         map.set(keyframe.id, { property: row.property, keyframe })
       }
     }
     return map
-  }, [sheetRows])
+  }, [sheetRowsStructure])
 
   const keyframeMetaByIdRef = useRef(keyframeMetaById)
   keyframeMetaByIdRef.current = keyframeMetaById
@@ -500,7 +544,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
   }, [keyframeMetaById, selectedKeyframeIds])
 
   useEffect(() => {
-    if (visualizationMode !== 'graph' || !selectedCurveProperty) {
+    if (!showGraphPane || !selectedCurveProperty) {
       return
     }
 
@@ -513,7 +557,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
     onPropertyChange,
     selectedCurveProperty,
     selectedProperty,
-    visualizationMode,
+    showGraphPane,
   ])
 
   const visibleKeyframes = useMemo(
@@ -566,8 +610,12 @@ export const DopesheetEditor = memo(function DopesheetEditor({
     () => Math.max(1, graphBaseValueSpan / graphMinZoomValueSpan),
     [graphBaseValueSpan, graphMinZoomValueSpan],
   )
-  const fallbackTimelineWidth = Math.max(width - PROPERTY_COLUMN_WIDTH, 1)
+  const fallbackTimelineWidth = Math.max(width - columnWidth, 1)
   const effectiveTimelineWidth = Math.max(timelineWidth || fallbackTimelineWidth, 1)
+  const timelinePixelsPerSecond = useMemo(
+    () => (effectiveTimelineWidth / frameRange) * fps,
+    [effectiveTimelineWidth, frameRange, fps],
+  )
 
   const frameToX = useCallback(
     (frame: number) => getFrameAxisX(frame, viewport, effectiveTimelineWidth),
@@ -641,7 +689,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
   )
   const renderedKeyframeXById = useMemo(() => {
     const positions = new Map<string, number>()
-    for (const row of sheetRows) {
+    for (const row of sheetRowsStructure) {
       for (const keyframe of row.keyframes) {
         const x = getRenderedKeyframeX(keyframe.frame)
         if (x !== null) {
@@ -650,7 +698,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
       }
     }
     return positions
-  }, [sheetRows, getRenderedKeyframeX])
+  }, [sheetRowsStructure, getRenderedKeyframeX])
   const renderedSheetEntries = useMemo(() => {
     const entries: RenderedSheetEntry[] = []
     let top = 0
@@ -763,8 +811,8 @@ export const DopesheetEditor = memo(function DopesheetEditor({
   }, [viewport.startFrame, viewport.endFrame, frameRange])
 
   const propertyGridStyle = useMemo(() => {
-    return { gridTemplateColumns: `${PROPERTY_COLUMN_WIDTH}px 1fr` }
-  }, [])
+    return { gridTemplateColumns: `${columnWidth}px 1fr` }
+  }, [columnWidth])
 
   const selectedRefs = useMemo(() => {
     const refs: KeyframeRef[] = []
@@ -1032,12 +1080,12 @@ export const DopesheetEditor = memo(function DopesheetEditor({
 
   const activateProperty = useCallback(
     (property: AnimatableProperty) => {
-      if (visualizationMode === 'graph') {
+      if (showGraphPane) {
         onPropertyChange?.(property)
       }
       onActivePropertyChange?.(property)
     },
-    [onActivePropertyChange, onPropertyChange, visualizationMode],
+    [onActivePropertyChange, onPropertyChange, showGraphPane],
   )
 
   const removeKeyframesForRows = useCallback(
@@ -1490,17 +1538,6 @@ export const DopesheetEditor = memo(function DopesheetEditor({
       selectedKeyframeIds,
     ],
   )
-  const getDisplayedGroupFrameGroups = useCallback(
-    (group: DopesheetPropertyGroup) => {
-      return getDisplayedGroupFrameGroupsState({
-        group,
-        sheetPreviewFrames,
-        sheetPreviewDuplicateKeyframeIds,
-      })
-    },
-    [sheetPreviewDuplicateKeyframeIds, sheetPreviewFrames],
-  )
-
   const handleRowPointerDown = useCallback(
     (property: AnimatableProperty, event: React.PointerEvent<HTMLDivElement>) => {
       if (disabled) return
@@ -1622,6 +1659,11 @@ export const DopesheetEditor = memo(function DopesheetEditor({
 
   const scrubPointerIdRef = useRef<number | null>(null)
   const lastScrubbedFrameRef = useRef<number | null>(null)
+  const {
+    startScrub: startRulerScrub,
+    queueScrub: queueRulerScrub,
+    flushPendingScrub: flushPendingRulerScrub,
+  } = useCoalescedScrub(onScrub)
   const handleRulerPointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (disabled) return
@@ -1630,9 +1672,21 @@ export const DopesheetEditor = memo(function DopesheetEditor({
       setPointerCaptureSafely(event.currentTarget, event.pointerId)
       const frame = getFrameFromClientX(event.clientX)
       lastScrubbedFrameRef.current = frame
-      onScrub?.(frame)
+      onScrubStart?.()
+      startRulerScrub({
+        frame,
+        pointerX: getTimelineXFromClientX(event.clientX),
+        pixelsPerSecond: timelinePixelsPerSecond,
+      })
     },
-    [disabled, onScrub, getFrameFromClientX],
+    [
+      disabled,
+      getFrameFromClientX,
+      getTimelineXFromClientX,
+      onScrubStart,
+      startRulerScrub,
+      timelinePixelsPerSecond,
+    ],
   )
 
   const handleRulerPointerMove = useCallback(
@@ -1642,9 +1696,19 @@ export const DopesheetEditor = memo(function DopesheetEditor({
       const frame = getFrameFromClientX(event.clientX)
       if (frame === lastScrubbedFrameRef.current) return
       lastScrubbedFrameRef.current = frame
-      onScrub?.(frame)
+      queueRulerScrub({
+        frame,
+        pointerX: getTimelineXFromClientX(event.clientX),
+        pixelsPerSecond: timelinePixelsPerSecond,
+      })
     },
-    [disabled, onScrub, getFrameFromClientX],
+    [
+      disabled,
+      getFrameFromClientX,
+      getTimelineXFromClientX,
+      queueRulerScrub,
+      timelinePixelsPerSecond,
+    ],
   )
 
   const handleRulerPointerUp = useCallback(
@@ -1657,9 +1721,10 @@ export const DopesheetEditor = memo(function DopesheetEditor({
       }
       scrubPointerIdRef.current = null
       lastScrubbedFrameRef.current = null
+      flushPendingRulerScrub(true)
       onScrubEnd?.()
     },
-    [onScrubEnd],
+    [flushPendingRulerScrub, onScrubEnd],
   )
 
   const handleWheel = useCallback(
@@ -1682,7 +1747,49 @@ export const DopesheetEditor = memo(function DopesheetEditor({
     [disabled, getFrameFromClientX, zoomAroundFrame, panFrames, effectiveTimelineWidth, frameRange],
   )
 
-  const playheadLeft = Math.max(0, Math.min(effectiveTimelineWidth - 1, frameToX(currentFrame)))
+  // Split-view sheet wheel. The two panes share one horizontal time axis but
+  // scroll differently on the vertical axis: the sheet scrolls property rows,
+  // the graph zooms its value axis. So over the sheet a plain vertical wheel
+  // must scroll rows (not hijack the shared time axis), while time zoom/pan
+  // stays reachable via Ctrl (zoom) and horizontal intent (Shift / trackpad
+  // swipe). Only when the rows can't travel further do we fall back to panning
+  // time, so the gesture never dead-ends.
+  const handleSplitSheetWheel = useCallback(
+    (event: React.WheelEvent<HTMLDivElement>) => {
+      if (disabled) return
+
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault()
+        const pivotFrame = getFrameFromClientX(event.clientX)
+        zoomAroundFrame(pivotFrame, event.deltaY > 0 ? ZOOM_OUT_FACTOR : ZOOM_IN_FACTOR)
+        return
+      }
+
+      const horizontalDelta =
+        event.deltaX !== 0 ? event.deltaX : event.shiftKey ? event.deltaY : 0
+      if (horizontalDelta !== 0) {
+        event.preventDefault()
+        panFrames(Math.round((horizontalDelta / effectiveTimelineWidth) * frameRange))
+        return
+      }
+
+      const node = scrollAreaRef.current
+      if (node && node.scrollHeight > node.clientHeight + 1) {
+        const atTop = node.scrollTop <= 0
+        const atBottom = node.scrollTop + node.clientHeight >= node.scrollHeight - 1
+        const pastBound = (event.deltaY < 0 && atTop) || (event.deltaY > 0 && atBottom)
+        if (!pastBound) {
+          // Let the inner overflow-auto scroll the rows natively.
+          return
+        }
+      }
+
+      event.preventDefault()
+      panFrames(Math.round((event.deltaY / effectiveTimelineWidth) * frameRange))
+    },
+    [disabled, getFrameFromClientX, zoomAroundFrame, panFrames, effectiveTimelineWidth, frameRange],
+  )
+
   const graphDisplayProperty = useMemo(() => {
     if (graphVisibleProperties.size === 0) return null
     if (activeSelectedProperty && graphVisibleProperties.has(activeSelectedProperty)) {
@@ -1726,7 +1833,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
     [disabled, graphDisplayPropertyLocked, nudgeSelectedKeyframes, onRemoveKeyframes, selectedRefs],
   )
   const timingStripMarkers = useMemo(() => {
-    if (visualizationMode === 'graph') {
+    if (showGraphPane) {
       if (!activeSelectedProperty) {
         return []
       }
@@ -1755,7 +1862,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
     selectedKeyframeIds,
     selectedRefIds,
     visibleKeyframes,
-    visualizationMode,
+    showGraphPane,
   ])
   const constrainGraphFrameDelta = useCallback(
     (deltaFrames: number, draggedKeyframeIds: string[]) =>
@@ -1783,15 +1890,16 @@ export const DopesheetEditor = memo(function DopesheetEditor({
     commitSelectionFramePreview,
   })
 
-  // Mirror timing-strip preview into the dopesheet-mode drag preview
+  // Mirror timing-strip preview into the sheet drag preview. The sheet shows in
+  // both `dopesheet` and `split`, so mirror whenever the sheet pane is visible.
   useEffect(() => {
-    if (visualizationMode !== 'dopesheet') {
+    if (!showSheetPane) {
       scheduleDragPreviewFrames(null)
       return
     }
 
     scheduleDragPreviewFrames(timingStripPreviewFrames)
-  }, [scheduleDragPreviewFrames, timingStripPreviewFrames, visualizationMode])
+  }, [scheduleDragPreviewFrames, timingStripPreviewFrames, showSheetPane])
   const formatRulerTick = useCallback(
     (frame: number): string => {
       if (graphRulerUnit === 'frames' || !fps || fps <= 0) {
@@ -1828,26 +1936,31 @@ export const DopesheetEditor = memo(function DopesheetEditor({
       const rowLocked = isPropertyLocked(row.property)
       const curveVisible = graphVisibleProperties.has(row.property)
       const rowLabel = getKeyframePropertyLabel(t, row.property)
+      const showLeftClusterAtRest =
+        (autoKeyEnabledByProperty[row.property] ?? false) || rowLocked || curveVisible
 
       return (
         <div
           className={cn(
-            'h-full px-1 flex items-center gap-px bg-muted/8',
-            options?.indented && 'pl-3',
+            'group h-full px-1 flex items-center gap-px bg-muted/8',
+            // Indent child property rows under their group header and draw a
+            // faint vertical spine so the column reads as a tree.
+            options?.indented &&
+              "relative pl-6 before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-border/40 before:content-['']",
             row.controls.hasKeyframeAtCurrentFrame && 'bg-primary/10',
-            visualizationMode === 'graph' &&
-              graphVisibleProperties.has(row.property) &&
-              'bg-accent/40',
-            visualizationMode === 'graph' && !rowLocked && 'cursor-pointer',
+            showGraphPane && graphVisibleProperties.has(row.property) && 'bg-accent/40',
+            showGraphPane && !rowLocked && 'cursor-pointer',
             rowLocked && 'opacity-70',
           )}
-          onClick={
-            visualizationMode === 'graph' && !rowLocked
-              ? () => activateProperty(row.property)
-              : undefined
-          }
+          onClick={showGraphPane && !rowLocked ? () => activateProperty(row.property) : undefined}
         >
-          <div className="flex items-center gap-px self-stretch">
+          <div
+            className={cn(
+              'flex items-center gap-px self-stretch',
+              !showLeftClusterAtRest &&
+                'opacity-0 transition-opacity duration-100 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto',
+            )}
+          >
             <Button
               type="button"
               variant="ghost"
@@ -1997,7 +2110,11 @@ export const DopesheetEditor = memo(function DopesheetEditor({
               min={PROPERTY_VALUE_RANGES[row.property]?.min}
               max={PROPERTY_VALUE_RANGES[row.property]?.max}
               inputMode="decimal"
-              className="h-[18px] w-[44px] border-border/70 bg-background/85 px-1 py-0 text-right text-[9px] leading-none tabular-nums md:text-[9px]"
+              className={cn(
+                'h-[18px] border-border/70 bg-background/85 px-1 py-0 text-right text-[9px] leading-none tabular-nums md:text-[9px]',
+                '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
+                spacious ? 'w-[64px]' : 'w-[44px]',
+              )}
               disabled={
                 disabled ||
                 rowLocked ||
@@ -2014,7 +2131,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
+                className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground opacity-0 transition-opacity duration-100 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
                 onClick={() => handleRowNavigate(row.property, row.controls.prevKeyframe)}
                 disabled={disabled || row.controls.prevKeyframe === null || !onNavigateToKeyframe}
                 title={t('timeline.keyframeEditor.previousPropertyKeyframe', {
@@ -2084,7 +2201,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
+                className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground opacity-0 transition-opacity duration-100 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
                 onClick={() => handleRowNavigate(row.property, row.controls.nextKeyframe)}
                 disabled={disabled || row.controls.nextKeyframe === null || !onNavigateToKeyframe}
                 title={t('timeline.keyframeEditor.nextPropertyKeyframe', {
@@ -2103,7 +2220,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
+              className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground opacity-0 transition-opacity duration-100 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
               onClick={(event) => {
                 event.stopPropagation()
                 handleClearProperty(row.property)
@@ -2147,7 +2264,8 @@ export const DopesheetEditor = memo(function DopesheetEditor({
       togglePropertyCurve,
       toggleLockedProperty,
       valueDrafts,
-      visualizationMode,
+      showGraphPane,
+      spacious,
     ],
   )
   const renderGroupHeaderContent = useCallback(
@@ -2170,9 +2288,17 @@ export const DopesheetEditor = memo(function DopesheetEditor({
       const hasUnlockedCurrentKeyframes = unlockedCurrentKeyframes.length > 0
       const canToggleCurrentFrame = hasUnlockedCurrentKeyframes ? !!onRemoveKeyframes : canAddAny
 
+      const showGroupLeftClusterAtRest = curveVisible || allRowsLocked || groupAutoKeyEnabled
+
       return (
-        <div className="flex h-full items-center gap-px bg-muted/40 pl-3 pr-0.5">
-          <div className="flex items-center gap-px self-stretch">
+        <div className="group flex h-full items-center gap-px border-y border-border/60 bg-muted/70 pl-3 pr-0.5">
+          <div
+            className={cn(
+              'flex items-center gap-px self-stretch',
+              !showGroupLeftClusterAtRest &&
+                'opacity-0 transition-opacity duration-100 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto',
+            )}
+          >
             <Button
               type="button"
               variant="ghost"
@@ -2315,7 +2441,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
                 )}
               />
             )}
-            <span className="truncate pl-px text-[9px] font-medium uppercase leading-none tracking-[0.06em] text-foreground/90">
+            <span className="truncate pl-px text-[9px] font-semibold uppercase leading-none tracking-[0.08em] text-foreground">
               {groupLabel}
             </span>
           </button>
@@ -2324,7 +2450,11 @@ export const DopesheetEditor = memo(function DopesheetEditor({
               type="button"
               variant="ghost"
               size="sm"
-              className={cn(MINI_ICON_BUTTON_CLASS, 'text-muted-foreground hover:text-foreground')}
+              className={cn(
+                MINI_ICON_BUTTON_CLASS,
+                'text-muted-foreground hover:text-foreground',
+                'opacity-0 transition-opacity duration-100 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto',
+              )}
               onClick={(event) => {
                 event.stopPropagation()
                 handleRowNavigate(
@@ -2399,7 +2529,11 @@ export const DopesheetEditor = memo(function DopesheetEditor({
               type="button"
               variant="ghost"
               size="sm"
-              className={cn(MINI_ICON_BUTTON_CLASS, 'text-muted-foreground hover:text-foreground')}
+              className={cn(
+                MINI_ICON_BUTTON_CLASS,
+                'text-muted-foreground hover:text-foreground',
+                'opacity-0 transition-opacity duration-100 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto',
+              )}
               onClick={(event) => {
                 event.stopPropagation()
                 handleRowNavigate(
@@ -2424,7 +2558,11 @@ export const DopesheetEditor = memo(function DopesheetEditor({
               type="button"
               variant="ghost"
               size="sm"
-              className={cn(MINI_ICON_BUTTON_CLASS, 'text-muted-foreground hover:text-foreground')}
+              className={cn(
+                MINI_ICON_BUTTON_CLASS,
+                'text-muted-foreground hover:text-foreground',
+                'opacity-0 transition-opacity duration-100 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto',
+              )}
               onClick={(event) => {
                 event.stopPropagation()
                 handleClearGroup(group)
@@ -2478,81 +2616,24 @@ export const DopesheetEditor = memo(function DopesheetEditor({
               style={{ ...propertyGridStyle, height: GROUP_HEADER_HEIGHT }}
             >
               {renderGroupHeaderContent(entry.group)}
-              <div
-                className="relative border-l border-border/60 bg-muted/20 overflow-hidden"
-                onPointerDown={handleTimelineBackgroundPointerDown}
-              >
-                {ticks.map((frame) => (
-                  <div
-                    key={`${entry.group.id}-tick-${frame}`}
-                    className="absolute inset-y-0 border-l border-border/30 pointer-events-none"
-                    style={{ left: frameToX(frame) }}
-                  />
-                ))}
-
-                {(sheetPreviewDuplicateKeyframeIds
-                  ? entry.group.frameGroups
-                  : getDisplayedGroupFrameGroups(entry.group)
-                ).map((frameGroup) => {
-                  const renderedX = getRenderedKeyframeX(frameGroup.frame)
-                  if (renderedX === null) {
-                    return null
-                  }
-
-                  const movableEntries = frameGroup.keyframes.filter(
-                    ({ property }) => !isPropertyLocked(property),
-                  )
-                  const isSelected = movableEntries.some(({ keyframe }) =>
-                    selectedKeyframeIds.has(keyframe.id),
-                  )
-
-                  return (
-                    <button
-                      key={`${entry.group.id}-${frameGroup.frame}`}
-                      type="button"
-                      data-testid={`group-keyframe-${entry.group.id}-${frameGroup.frame}`}
-                      className={cn(
-                        'group absolute z-10 flex h-3 w-3 -ml-1.5 -mt-1.5 items-center justify-center',
-                        movableEntries.length === 0 && 'cursor-not-allowed opacity-50',
-                      )}
-                      style={{
-                        left: renderedX,
-                        top: '50%',
-                      }}
-                      disabled={movableEntries.length === 0 || disabled}
-                      onPointerDown={(event) => handleGroupKeyframePointerDown(frameGroup, event)}
-                      onClick={(event) => event.stopPropagation()}
-                      aria-label={`${entry.group.label} keyframe at frame ${frameGroup.frame}`}
-                    >
-                      <span
-                        className={cn(
-                          'pointer-events-none block h-2 w-2 rotate-45 border transition-colors',
-                          isSelected
-                            ? 'border-orange-50 bg-orange-500 shadow-[0_0_0_1px_rgba(249,115,22,0.45)]'
-                            : 'border-transparent bg-orange-500 group-hover:bg-orange-400',
-                        )}
-                      />
-                    </button>
-                  )
-                })}
-                {sheetPreviewDuplicateKeyframeIds &&
-                  getDisplayedGroupFrameGroups(entry.group).map((frameGroup) => {
-                    const renderedX = getRenderedKeyframeX(frameGroup.frame)
-                    if (renderedX === null) {
-                      return null
-                    }
-
-                    return (
-                      <div
-                        key={`preview-${entry.group.id}-${frameGroup.frame}`}
-                        className="absolute z-20 flex h-3 w-3 -ml-1.5 -mt-1.5 items-center justify-center pointer-events-none"
-                        style={{ left: renderedX, top: '50%' }}
-                      >
-                        <span className="block h-2 w-2 rotate-45 border border-primary/70 bg-primary/70 shadow-[0_0_0_1px_rgba(59,130,246,0.35)]" />
-                      </div>
-                    )
-                  })}
-              </div>
+              <GroupTimelineCell
+                groupId={entry.group.id}
+                groupLabel={entry.group.label}
+                frameGroups={
+                  groupTimelineById.get(entry.group.id)?.frameGroups ?? EMPTY_FRAME_GROUPS
+                }
+                rows={groupTimelineById.get(entry.group.id)?.rows ?? EMPTY_STRUCTURE_ROWS}
+                ticks={ticks}
+                frameToX={frameToX}
+                getRenderedKeyframeX={getRenderedKeyframeX}
+                selectedKeyframeIds={selectedKeyframeIds}
+                disabled={disabled}
+                isPropertyLocked={isPropertyLocked}
+                onGroupKeyframePointerDown={handleGroupKeyframePointerDown}
+                onBackgroundPointerDown={handleTimelineBackgroundPointerDown}
+                sheetPreviewFrames={sheetPreviewFrames}
+                sheetPreviewDuplicateKeyframeIds={sheetPreviewDuplicateKeyframeIds}
+              />
             </div>
           )
         }
@@ -2566,102 +2647,35 @@ export const DopesheetEditor = memo(function DopesheetEditor({
             style={{ ...propertyGridStyle, height: ROW_HEIGHT }}
           >
             {renderPropertyRowContent(row, { indented: true })}
-            <div
-              className="relative border-l border-border/60 overflow-hidden"
-              onPointerDown={(event) => handleRowPointerDown(row.property, event)}
-            >
-              {ticks.map((frame) => (
-                <div
-                  key={frame}
-                  className="absolute inset-y-0 border-l border-border/30 pointer-events-none"
-                  style={{ left: frameToX(frame) }}
-                />
-              ))}
-
-              {transitionBlockedRanges.map((range, index) => (
-                <div
-                  key={`${row.property}-${index}-${range.start}-${range.end}`}
-                  className="absolute inset-y-0 bg-destructive/10 border-x border-destructive/20 pointer-events-none"
-                  style={{
-                    left: frameToX(range.start),
-                    width: frameToX(range.end) - frameToX(range.start),
-                  }}
-                />
-              ))}
-
-              {row.keyframes.map((keyframe) => {
-                const renderedX = renderedKeyframeXById.get(keyframe.id)
-                if (renderedX === undefined) return null
-                const selected = selectedKeyframeIds.has(keyframe.id)
-                return (
-                  <button
-                    key={keyframe.id}
-                    ref={(node) => setKeyframeButtonRef(keyframe.id, node)}
-                    type="button"
-                    data-testid={`row-keyframe-${row.property}-${keyframe.id}`}
-                    className={cn(
-                      'group absolute z-10 flex h-3 w-3 -ml-1.5 -mt-1.5 items-center justify-center',
-                      rowLocked && 'cursor-not-allowed opacity-50',
-                    )}
-                    style={{
-                      left: renderedX,
-                      top: '50%',
-                    }}
-                    disabled={rowLocked || disabled}
-                    onPointerDown={(event) =>
-                      handleKeyframePointerDown(row.property, keyframe.id, event)
-                    }
-                    onClick={(event) => event.stopPropagation()}
-                    aria-label={`Keyframe at frame ${keyframe.frame}`}
-                  >
-                    <span
-                      className={cn(
-                        'pointer-events-none block h-2 w-2 rotate-45 border transition-colors',
-                        selected
-                          ? 'border-orange-50 bg-orange-500 shadow-[0_0_0_1px_rgba(249,115,22,0.45)]'
-                          : 'border-transparent bg-orange-500 group-hover:bg-orange-400',
-                      )}
-                    />
-                  </button>
-                )
-              })}
-              {sheetPreviewDuplicateKeyframeIds?.flatMap((keyframeId) => {
-                const meta = keyframeMetaByIdRef.current.get(keyframeId)
-                if (!meta || meta.property !== row.property) {
-                  return []
-                }
-
-                const previewFrame = sheetPreviewFrames?.[keyframeId]
-                if (previewFrame === undefined) {
-                  return []
-                }
-
-                const renderedX = getRenderedKeyframeX(previewFrame)
-                if (renderedX === null) {
-                  return []
-                }
-
-                return [
-                  <div
-                    key={`preview-${row.property}-${keyframeId}`}
-                    className="absolute z-20 flex h-3 w-3 -ml-1.5 -mt-1.5 items-center justify-center pointer-events-none"
-                    style={{ left: renderedX, top: '50%' }}
-                  >
-                    <span className="block h-2 w-2 rotate-45 border border-primary/70 bg-primary/70 shadow-[0_0_0_1px_rgba(59,130,246,0.35)]" />
-                  </div>,
-                ]
-              })}
-            </div>
+            <PropertyTimelineCell
+              property={row.property}
+              keyframes={rowKeyframesByProperty.get(row.property) ?? EMPTY_KEYFRAMES}
+              locked={rowLocked}
+              ticks={ticks}
+              frameToX={frameToX}
+              getRenderedKeyframeX={getRenderedKeyframeX}
+              renderedKeyframeXById={renderedKeyframeXById}
+              transitionBlockedRanges={transitionBlockedRanges}
+              selectedKeyframeIds={selectedKeyframeIds}
+              disabled={disabled}
+              onRowPointerDown={handleRowPointerDown}
+              onKeyframePointerDown={handleKeyframePointerDown}
+              setKeyframeButtonRef={setKeyframeButtonRef}
+              keyframeMetaByIdRef={keyframeMetaByIdRef}
+              sheetPreviewFrames={sheetPreviewFrames}
+              sheetPreviewDuplicateKeyframeIds={sheetPreviewDuplicateKeyframeIds}
+            />
           </div>
         )
       }),
     [
       renderedSheetEntries.entries,
       propertyGridStyle,
+      groupTimelineById,
+      rowKeyframesByProperty,
       handleRowPointerDown,
       handleTimelineBackgroundPointerDown,
       handleGroupKeyframePointerDown,
-      getDisplayedGroupFrameGroups,
       renderGroupHeaderContent,
       renderPropertyRowContent,
       getRenderedKeyframeX,
@@ -2676,6 +2690,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
       sheetPreviewFrames,
       handleKeyframePointerDown,
       setKeyframeButtonRef,
+      keyframeMetaByIdRef,
     ],
   )
   const propertyColumnElements = useMemo(
@@ -2709,6 +2724,132 @@ export const DopesheetEditor = memo(function DopesheetEditor({
   const emptyStateMessage = hasPropertyFilters
     ? t('timeline.keyframeEditor.noParametersMatch')
     : t('timeline.keyframeEditor.noKeyframesToDisplay')
+  const showEmptyGuidance = !hasPropertyFilters
+
+  // Hoisted so the graph pane and sheet body can be composed once and reused
+  // across the exclusive (`graph`/`dopesheet`) and the `split` placements.
+  const rulerHeaderElement = (
+    <DopesheetRulerHeader
+      propertyGridStyle={propertyGridStyle}
+      timelineRef={timelineRef}
+      onRulerPointerDown={handleRulerPointerDown}
+      onRulerPointerMove={handleRulerPointerMove}
+      onRulerPointerUp={handleRulerPointerUp}
+      rulerTickElements={rulerTickElements}
+      playheadFlag={
+        <DopesheetPlayheadLine
+          variant="flag"
+          relativeFrame={currentFrame}
+          itemFrom={itemFrom}
+          totalFrames={totalFrames}
+          frameToX={frameToX}
+          maxLeft={effectiveTimelineWidth - 1}
+          className="absolute top-0 bottom-0 pointer-events-none z-10"
+        />
+      }
+    />
+  )
+  // The timeline cells (ruler, rows, graph) all sit behind a 1px `border-l`, so
+  // their content origin is `columnWidth + 1`. The playhead overlay isn't inside
+  // those cells, so it must add that 1px to line up with ticks, keyframes and the
+  // ruler flag.
+  const timelineContentLeft = columnWidth + 1
+  const playheadOverlayElement = (
+    <div
+      data-testid="dopesheet-playhead-clip"
+      className="absolute top-0 bottom-0 right-0 overflow-hidden pointer-events-none z-20"
+      style={{ left: timelineContentLeft }}
+    >
+      <DopesheetPlayheadLine
+        relativeFrame={currentFrame}
+        itemFrom={itemFrom}
+        totalFrames={totalFrames}
+        frameToX={frameToX}
+        maxLeft={effectiveTimelineWidth - 1}
+        className="absolute top-0 bottom-0"
+      />
+    </div>
+  )
+  // Split view: one shared playhead line spanning the sheet + graph panes (the
+  // graph's own line is hidden via `hidePlayhead`). A single element guarantees
+  // the two panes can't drift in position or appearance.
+  const splitPlayheadOverlayElement = (
+    <div
+      data-testid="dopesheet-playhead-clip"
+      className="absolute right-0 bottom-0 overflow-hidden pointer-events-none z-30"
+      style={{ left: timelineContentLeft, top: RULER_HEIGHT }}
+    >
+      <DopesheetPlayheadLine
+        relativeFrame={currentFrame}
+        itemFrom={itemFrom}
+        totalFrames={totalFrames}
+        frameToX={frameToX}
+        maxLeft={effectiveTimelineWidth - 1}
+        className="absolute top-0 bottom-0"
+      />
+    </div>
+  )
+  const sheetBodyElement = (
+    <DopesheetSheetBody
+      scrollAreaRef={scrollAreaRef}
+      hasRows={sheetRows.length > 0}
+      emptyStateMessage={emptyStateMessage}
+      showEmptyGuidance={showEmptyGuidance}
+      rowElements={rowElements}
+      marqueeRect={marqueeRect}
+      marqueeJustEnded={marqueeJustEndedRef.current}
+      propertyColumnWidth={columnWidth}
+      onTimelineBackgroundPointerDown={handleTimelineBackgroundPointerDown}
+    />
+  )
+  const graphPaneElement = (
+    <DopesheetGraphPane
+      hasRows={propertyRows.length > 0}
+      emptyStateMessage={emptyStateMessage}
+      showEmptyGuidance={showEmptyGuidance}
+      propertyColumnElements={propertyColumnElements}
+      propertyColumnWidth={columnWidth}
+      graphPaneRef={graphPaneRef}
+      disabled={disabled}
+      graphDisplayPropertyLocked={graphDisplayPropertyLocked}
+      focusGraphPane={focusGraphPane}
+      handleGraphPaneKeyDown={handleGraphPaneKeyDown}
+      graphPaneSize={graphPaneSize}
+      graphVisiblePropertiesSize={graphVisibleProperties.size}
+      viewport={viewport}
+      updateViewport={updateViewport}
+      itemId={itemId}
+      keyframesByProperty={keyframesByProperty}
+      graphDisplayProperty={graphDisplayProperty}
+      graphVisibleProperties={[...graphVisibleProperties]}
+      selectedKeyframeIds={selectedKeyframeIds}
+      currentFrame={currentFrame}
+      itemFrom={itemFrom}
+      totalFrames={totalFrames}
+      fps={fps}
+      onKeyframeMove={onKeyframeMove}
+      timingStripPreviewFrames={timingStripPreviewFrames}
+      constrainGraphFrameDelta={constrainGraphFrameDelta}
+      onBezierHandleMove={onBezierHandleMove}
+      onSelectionChange={onSelectionChange}
+      onPropertyChange={onPropertyChange}
+      onScrub={onScrub}
+      onScrubStart={onScrubStart}
+      onScrubEnd={onScrubEnd}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onAddKeyframe={onAddKeyframe}
+      onRemoveKeyframes={onRemoveKeyframes}
+      onNavigateToKeyframe={onNavigateToKeyframe}
+      transitionBlockedRanges={transitionBlockedRanges}
+      snapEnabled={snapEnabled}
+      graphHandleVisibility={showAllGraphHandles ? 'all' : 'selected'}
+      graphRulerUnit={graphRulerUnit}
+      autoZoomGraphHeight={autoZoomGraphHeight}
+      graphVerticalZoomValue={graphVerticalZoomValue}
+      hidePlayhead={isSplitView}
+    />
+  )
 
   return (
     <div
@@ -2741,7 +2882,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
             </span>
           )}
 
-          {visualizationMode === 'graph' && graphDisplayProperty && (
+          {showGraphPane && graphDisplayProperty && (
             <span className="text-xs text-muted-foreground">
               {t('timeline.keyframeEditor.graphLabel', {
                 property: getKeyframePropertyLabel(t, graphDisplayProperty),
@@ -2774,7 +2915,7 @@ export const DopesheetEditor = memo(function DopesheetEditor({
         </div>
 
         <div className="flex items-center gap-1.5">
-          {visualizationMode === 'graph' && (
+          {showGraphPane && (
             <DopesheetInterpolationButtons
               options={interpolationOptions}
               selected={selectedInterpolation}
@@ -2800,14 +2941,15 @@ export const DopesheetEditor = memo(function DopesheetEditor({
             horizontalZoomDisabled={horizontalZoomRatioBase <= 1}
             setHorizontalZoomValue={setHorizontalZoomValue}
             resetViewport={resetViewport}
-            visualizationMode={visualizationMode}
+            visualizationMode={showGraphPane ? 'graph' : 'dopesheet'}
             graphVerticalZoomValue={graphVerticalZoomValue}
             verticalZoomDisabled={visibleGraphProperties.length === 0 || verticalZoomRatioBase <= 1}
             setGraphVerticalZoomValue={setGraphVerticalZoomValue}
           />
+          <DopesheetLegendPopover disabled={disabled} />
           <DopesheetViewOptionsMenu
             disabled={disabled}
-            visualizationMode={visualizationMode}
+            visualizationMode={showGraphPane ? 'graph' : 'dopesheet'}
             graphRulerUnit={graphRulerUnit}
             onChangeRulerUnit={setGraphRulerUnit}
             graphHandleVisibility={showAllGraphHandles ? 'all' : 'selected'}
@@ -2822,97 +2964,38 @@ export const DopesheetEditor = memo(function DopesheetEditor({
         className={cn(
           'border border-border rounded-md flex-1 min-h-0 overflow-hidden relative',
           disabled && 'opacity-60 pointer-events-none',
+          isSplitView && 'flex flex-col',
         )}
         onWheel={visualizationMode === 'dopesheet' ? handleWheel : undefined}
       >
-        <div
-          data-testid="dopesheet-playhead-clip"
-          className="absolute top-0 bottom-0 right-0 overflow-hidden pointer-events-none z-20"
-          style={{ left: PROPERTY_COLUMN_WIDTH }}
-        >
-          <div
-            data-testid="dopesheet-playhead-line"
-            className="absolute top-0 bottom-0 w-px bg-primary/80"
-            style={{ left: playheadLeft }}
-          />
-        </div>
-        {visualizationMode === 'graph' ? (
+        {isSplitView ? (
           <>
-            <DopesheetRulerHeader
-              propertyGridStyle={propertyGridStyle}
-              timelineRef={timelineRef}
-              onRulerPointerDown={handleRulerPointerDown}
-              onRulerPointerMove={handleRulerPointerMove}
-              onRulerPointerUp={handleRulerPointerUp}
-              rulerTickElements={rulerTickElements}
-            />
-
-            <DopesheetGraphPane
-              hasRows={propertyRows.length > 0}
-              emptyStateMessage={emptyStateMessage}
-              propertyColumnElements={propertyColumnElements}
-              graphPaneRef={graphPaneRef}
-              disabled={disabled}
-              graphDisplayPropertyLocked={graphDisplayPropertyLocked}
-              focusGraphPane={focusGraphPane}
-              handleGraphPaneKeyDown={handleGraphPaneKeyDown}
-              graphPaneSize={graphPaneSize}
-              graphVisiblePropertiesSize={graphVisibleProperties.size}
-              viewport={viewport}
-              updateViewport={updateViewport}
-              itemId={itemId}
-              keyframesByProperty={keyframesByProperty}
-              graphDisplayProperty={graphDisplayProperty}
-              graphVisibleProperties={[...graphVisibleProperties]}
-              selectedKeyframeIds={selectedKeyframeIds}
-              currentFrame={currentFrame}
-              totalFrames={totalFrames}
-              fps={fps}
-              onKeyframeMove={onKeyframeMove}
-              timingStripPreviewFrames={timingStripPreviewFrames}
-              constrainGraphFrameDelta={constrainGraphFrameDelta}
-              onBezierHandleMove={onBezierHandleMove}
-              onSelectionChange={onSelectionChange}
-              onPropertyChange={onPropertyChange}
-              onScrub={onScrub}
-              onScrubEnd={onScrubEnd}
-              onDragStart={onDragStart}
-              onDragEnd={onDragEnd}
-              onAddKeyframe={onAddKeyframe}
-              onRemoveKeyframes={onRemoveKeyframes}
-              onNavigateToKeyframe={onNavigateToKeyframe}
-              transitionBlockedRanges={transitionBlockedRanges}
-              snapEnabled={snapEnabled}
-              graphHandleVisibility={showAllGraphHandles ? 'all' : 'selected'}
-              graphRulerUnit={graphRulerUnit}
-              autoZoomGraphHeight={autoZoomGraphHeight}
-              graphVerticalZoomValue={graphVerticalZoomValue}
-            />
+            {rulerHeaderElement}
+            {/* Sheet on top, curve/graph below, with ONE shared playhead line
+                ({splitPlayheadOverlayElement}) drawn over both panes so they
+                stay identical in position and appearance. */}
+            <div
+              className="relative min-h-0 flex-1 overflow-hidden"
+              onWheel={handleSplitSheetWheel}
+            >
+              {sheetBodyElement}
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden border-t border-border/60">
+              {graphPaneElement}
+            </div>
+            {splitPlayheadOverlayElement}
           </>
         ) : (
           <>
-            <DopesheetRulerHeader
-              propertyGridStyle={propertyGridStyle}
-              timelineRef={timelineRef}
-              onRulerPointerDown={handleRulerPointerDown}
-              onRulerPointerMove={handleRulerPointerMove}
-              onRulerPointerUp={handleRulerPointerUp}
-              rulerTickElements={rulerTickElements}
-            />
-
-            <DopesheetSheetBody
-              scrollAreaRef={scrollAreaRef}
-              hasRows={sheetRows.length > 0}
-              emptyStateMessage={emptyStateMessage}
-              rowElements={rowElements}
-              marqueeRect={marqueeRect}
-              marqueeJustEnded={marqueeJustEndedRef.current}
-              onTimelineBackgroundPointerDown={handleTimelineBackgroundPointerDown}
-            />
+            {/* Sheet mode only: the graph renders its own aligned playhead
+                (GraphPlayhead) using the graph's coordinate space. */}
+            {showSheetPane && playheadOverlayElement}
+            {rulerHeaderElement}
+            {showGraphPane ? graphPaneElement : sheetBodyElement}
           </>
         )}
       </div>
-      {visualizationMode === 'graph' && (
+      {showGraphPane && (
         <div className="grid" style={propertyGridStyle}>
           <div className="h-4 border-t border-r border-border/60 bg-background/80" />
           <div data-testid="keyframe-timing-strip-viewport-column">

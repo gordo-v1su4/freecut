@@ -63,8 +63,10 @@ interface ValueGraphEditorSharedProps {
   overlayProperties?: AnimatableProperty[]
   /** Selected keyframe IDs */
   selectedKeyframeIds?: Set<string>
-  /** Current playhead frame */
+  /** Current playhead frame (clip-relative) */
   currentFrame?: number
+  /** Absolute timeline frame where the edited item starts (for live playhead) */
+  itemFrom?: number
   /** Total duration in frames */
   totalFrames?: number
   /** Timeline FPS for time ruler formatting */
@@ -91,6 +93,8 @@ interface ValueGraphEditorSharedProps {
   onPropertyChange?: (property: AnimatableProperty | null) => void
   /** Callback when playhead is scrubbed (frame is clip-relative) */
   onScrub?: (frame: number) => void
+  /** Callback when scrubbing starts */
+  onScrubStart?: () => void
   /** Callback when scrubbing ends */
   onScrubEnd?: () => void
   /** Callback when drag starts (for undo batching) */
@@ -117,6 +121,12 @@ interface ValueGraphEditorSharedProps {
   externalValueZoomLevel?: number
   /** Whether the editor is disabled */
   disabled?: boolean
+  /**
+   * Hide the graph's own playhead line/flag visuals (the scrub hit-area stays).
+   * Used when an outer editor (e.g. the dopesheet split view) draws a single
+   * shared playhead line spanning both panes instead.
+   */
+  hidePlayhead?: boolean
   /** Additional class name */
   className?: string
 }
@@ -149,6 +159,7 @@ const ValueGraphEditorBase = memo(function ValueGraphEditorBase({
   overlayProperties,
   selectedKeyframeIds = new Set(),
   currentFrame = 0,
+  itemFrom = 0,
   totalFrames = 300,
   fps = 30,
   width = 600,
@@ -161,6 +172,7 @@ const ValueGraphEditorBase = memo(function ValueGraphEditorBase({
   onSelectionChange,
   onPropertyChange,
   onScrub,
+  onScrubStart,
   onScrubEnd,
   onDragStart,
   onDragEnd,
@@ -174,6 +186,7 @@ const ValueGraphEditorBase = memo(function ValueGraphEditorBase({
   autoZoomGraphHeight = false,
   externalValueZoomLevel,
   disabled = false,
+  hidePlayhead = false,
   className,
   chrome,
 }: ValueGraphEditorBaseProps) {
@@ -854,7 +867,8 @@ const ValueGraphEditorBase = memo(function ValueGraphEditorBase({
   // Wrapped scrub handler that tracks scrubbing state
   const handlePlayheadScrubStart = useCallback(() => {
     isScrrubbingRef.current = true
-  }, [])
+    onScrubStart?.()
+  }, [onScrubStart])
 
   const handlePlayheadScrubEnd = useCallback(() => {
     onScrubEnd?.()
@@ -1228,14 +1242,16 @@ const ValueGraphEditorBase = memo(function ValueGraphEditorBase({
           {/* Playhead (rendered before keyframes so keyframes get click priority) */}
           <GraphPlayhead
             frame={currentFrame}
+            itemFrom={itemFrom}
             viewport={viewport}
             padding={padding}
             totalFrames={totalFrames}
+            fps={fps}
             onScrub={onScrub}
             onScrubStart={handlePlayheadScrubStart}
             onScrubEnd={handlePlayheadScrubEnd}
             disabled={disabled}
-            visuals="hidden"
+            visuals={hidePlayhead ? 'hidden' : 'visible'}
           />
 
           {/* Bezier handles (for selected keyframes with cubic-bezier easing) */}

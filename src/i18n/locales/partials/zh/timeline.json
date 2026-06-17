@@ -199,6 +199,13 @@
     },
     "keyframeEditor": {
       "bezier": "贝塞尔",
+      "bezierPreset": {
+        "soft": "柔和",
+        "easeOut": "缓出",
+        "easeIn": "缓入",
+        "easeInOut": "缓入/缓出",
+        "overshoot": "过冲"
+      },
       "custom": "自定义",
       "dragHandlesHint": "拖动控制点以调整曲线形状。",
       "mixedCurves": "混合曲线",

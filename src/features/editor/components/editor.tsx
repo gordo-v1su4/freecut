@@ -12,6 +12,7 @@ import { PropertiesSidebar } from './properties-sidebar'
 import { PreviewArea } from './preview-area'
 import { ColorGradingDock } from './color-grading-dock'
 import { ColorTimelineNavigator } from './color-timeline-navigator'
+import { AnimateLayout } from './animate-workspace/animate-layout'
 import { InteractionLockRegion } from './interaction-lock-region'
 import { AudioMeterPanel } from './audio-meter-panel'
 import {
@@ -605,6 +606,10 @@ export const LoadedEditor = memo(function LoadedEditor({
 
   const timelineDuration = 30
   const isColorWorkspace = workspace === 'color'
+  const isAnimateWorkspace = workspace === 'animate'
+  // Both the Color and Animate workspaces replace the default split layout and
+  // hide the inline media/properties sidebars.
+  const hidesDefaultSidebars = isColorWorkspace || isAnimateWorkspace
 
   return (
     <div
@@ -630,7 +635,7 @@ export const LoadedEditor = memo(function LoadedEditor({
       {/* Main Layout: Full-height sidebar + vertical split */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Media Library (full column mode) */}
-        {mediaFullColumn && !isColorWorkspace && (
+        {mediaFullColumn && !hidesDefaultSidebars && (
           <InteractionLockRegion locked={isMaskEditingActive}>
             <ErrorBoundary level="feature">
               <MediaSidebar />
@@ -639,7 +644,9 @@ export const LoadedEditor = memo(function LoadedEditor({
         )}
 
         {/* Right side: Preview/Properties + Timeline */}
-        {isColorWorkspace ? (
+        {isAnimateWorkspace ? (
+          <AnimateLayout project={project} />
+        ) : isColorWorkspace ? (
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <ErrorBoundary level="feature">
@@ -721,7 +728,7 @@ export const LoadedEditor = memo(function LoadedEditor({
         )}
 
         {/* Right Sidebar - Properties (full column mode) */}
-        {propertiesFullColumn && !isColorWorkspace && (
+        {propertiesFullColumn && !hidesDefaultSidebars && (
           <InteractionLockRegion locked={isMaskEditingActive}>
             <ErrorBoundary level="feature">
               <PropertiesSidebar />

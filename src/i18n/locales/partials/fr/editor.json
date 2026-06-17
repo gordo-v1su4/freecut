@@ -1,5 +1,70 @@
 {
   "editor": {
+    "animateTimeline": {
+      "label": "Chronologie d'animation",
+      "noClip": "Aucun clip à animer"
+    },
+    "animatePresets": {
+      "title": "Préréglages",
+      "animationsHeading": "Animations",
+      "saveButton": "Enregistrer",
+      "empty": "Aucune animation enregistrée pour le moment",
+      "savedToast": "« {{name}} » enregistré",
+      "appliedToast": "« {{name}} » appliqué",
+      "applyFailed": "Impossible d'appliquer le préréglage",
+      "saveFailed": "Impossible d'enregistrer le préréglage",
+      "deleteLabel": "Supprimer le préréglage",
+      "incompatibleType": "Nécessite un clip de type {{type}}",
+      "incompatibleProperty": "Il manque une propriété animée à la cible",
+      "selectClipFirst": "Sélectionnez un clip à appliquer",
+      "noAnimationToSave": "Sélectionnez un clip avec des images clés à enregistrer",
+      "dialog": {
+        "title": "Enregistrer le préréglage d'animation",
+        "description": "Enregistrez les images clés de ce clip comme préréglage réutilisable pour ce projet.",
+        "nameLabel": "Nom du préréglage",
+        "namePlaceholder": "Mon animation",
+        "duplicateWarning": "Un préréglage portant ce nom existe déjà et sera écrasé.",
+        "save": "Enregistrer",
+        "overwrite": "Écraser",
+        "cancel": "Annuler"
+      }
+    },
+    "motionPresets": {
+      "textIncompatible": "Inadapté au texte",
+      "categories": {
+        "entrance": "Entrée",
+        "exit": "Sortie",
+        "emphasis": "Accent",
+        "loop": "Boucle"
+      },
+      "items": {
+        "fadeIn": "Apparition en fondu",
+        "slideInLeft": "Glisser depuis la gauche",
+        "slideInRight": "Glisser depuis la droite",
+        "slideInUp": "Glisser depuis le bas",
+        "slideInDown": "Glisser depuis le haut",
+        "popIn": "Apparition rebond",
+        "zoomIn": "Zoom avant",
+        "spinIn": "Entrée en rotation",
+        "bounceIn": "Entrée rebond",
+        "fadeOut": "Disparition en fondu",
+        "slideOutLeft": "Glisser vers la gauche",
+        "slideOutRight": "Glisser vers la droite",
+        "slideOutUp": "Glisser vers le haut",
+        "slideOutDown": "Glisser vers le bas",
+        "popOut": "Sortie rebond",
+        "zoomOut": "Zoom arrière",
+        "pulse": "Pulsation",
+        "shake": "Secousse",
+        "wobble": "Oscillation",
+        "flash": "Flash",
+        "float": "Flottement",
+        "sway": "Balancement",
+        "breathe": "Respiration",
+        "spin": "Rotation",
+        "wiggle": "Frétillement"
+      }
+    },
     "shortcutsDialog": {
       "title": "Raccourcis clavier",
       "description": "Modifier les raccourcis clavier."

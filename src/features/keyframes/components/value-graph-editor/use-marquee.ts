@@ -33,6 +33,9 @@ interface UseMarqueeOptions {
   onSelectionChange?: (keyframeIds: Set<string>) => void
 }
 
+/** Rendered graph keyframe diamond half-extent (GraphKeyframe size 10 → ±5). */
+const KEYFRAME_HIT_RADIUS = 5
+
 export interface UseMarqueeReturn {
   marqueeRect: KeyframeMarqueeRect | null
   marqueeStateRef: React.RefObject<MarqueeState | null>
@@ -66,9 +69,17 @@ export function useMarquee({
       const minY = Math.min(state.startY, state.currentY)
       const maxY = Math.max(state.startY, state.currentY)
 
+      // Partial hit: select when the marquee overlaps any part of the keyframe
+      // diamond (size 10 → ±5 half-extent), not only when it covers the center.
+      const r = KEYFRAME_HIT_RADIUS
       const hitIds = new Set<string>()
       for (const point of pointsRef.current) {
-        if (point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY) {
+        if (
+          point.x + r >= minX &&
+          point.x - r <= maxX &&
+          point.y + r >= minY &&
+          point.y - r <= maxY
+        ) {
           hitIds.add(point.keyframe.id)
         }
       }

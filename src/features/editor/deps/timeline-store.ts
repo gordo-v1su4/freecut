@@ -15,4 +15,7 @@ export {
   useTimelineCommandStore,
   executeTimelineCommand,
   captureSnapshot,
+  applyAnimationPreset,
+  captureAnimationFromItem,
+  getPresetCompatibility,
 } from './timeline-contract'

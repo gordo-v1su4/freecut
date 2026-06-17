@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { KEYFRAME_MARQUEE_THRESHOLD, type KeyframeMarqueeRect } from '../keyframe-marquee'
 import { resolveMarqueeSelection } from '../marquee-selection'
 import { MARQUEE_SCROLL_EDGE_PX, MARQUEE_SCROLL_MAX_SPEED } from './dopesheet-constants'
+import { KEYFRAME_EDGE_INSET } from './layout'
 import { addWindowPointerListeners } from './dopesheet-pointer-listeners'
 import type { MarqueeMode, MarqueeState } from './dopesheet-types'
 
@@ -97,9 +98,17 @@ export function useDopesheetMarquee({
       const minY = Math.min(state.startY, state.currentY)
       const maxY = Math.max(state.startY, state.currentY)
 
+      // Partial hit: select when the marquee overlaps any part of the keyframe
+      // diamond (its rendered half-extent), not only when it covers the center.
+      const r = KEYFRAME_EDGE_INSET
       const hitIds = new Set<string>()
       for (const point of keyframePointsRef.current) {
-        if (point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY) {
+        if (
+          point.x + r >= minX &&
+          point.x - r <= maxX &&
+          point.y + r >= minY &&
+          point.y - r <= maxY
+        ) {
           hitIds.add(point.keyframeId)
         }
       }

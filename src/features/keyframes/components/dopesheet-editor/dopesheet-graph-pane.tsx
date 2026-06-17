@@ -14,12 +14,15 @@ import type {
 import type { BlockedFrameRange } from '../../utils/transition-region'
 import { EmbeddedValueGraphEditor } from '../value-graph-editor'
 import { PROPERTY_COLUMN_WIDTH, RULER_HEIGHT } from './dopesheet-constants'
+import { DopesheetEmptyState } from './dopesheet-empty-state'
 import type { Viewport } from './dopesheet-types'
 
 interface DopesheetGraphPaneProps {
   hasRows: boolean
   emptyStateMessage: string
+  showEmptyGuidance: boolean
   propertyColumnElements: ReactNode
+  propertyColumnWidth?: number
   graphPaneRef: React.RefObject<HTMLDivElement | null>
   disabled: boolean
   graphDisplayPropertyLocked: boolean
@@ -37,6 +40,7 @@ interface DopesheetGraphPaneProps {
   graphVisibleProperties: AnimatableProperty[]
   selectedKeyframeIds: Set<string>
   currentFrame: number
+  itemFrom: number
   totalFrames: number
   fps: number
   onKeyframeMove?: (ref: KeyframeRef, newFrame: number, newValue: number) => void
@@ -46,6 +50,7 @@ interface DopesheetGraphPaneProps {
   onSelectionChange?: (keyframeIds: Set<string>) => void
   onPropertyChange?: (property: AnimatableProperty | null) => void
   onScrub?: (frame: number) => void
+  onScrubStart?: () => void
   onScrubEnd?: () => void
   onDragStart?: () => void
   onDragEnd?: () => void
@@ -58,15 +63,18 @@ interface DopesheetGraphPaneProps {
   graphRulerUnit: 'frames' | 'seconds'
   autoZoomGraphHeight: boolean
   graphVerticalZoomValue: number
+  /** Hide the graph's own playhead line (the dopesheet draws a shared one). */
+  hidePlayhead?: boolean
 }
 
 const panelStyle: CSSProperties = { height: `calc(100% - ${RULER_HEIGHT}px)` }
-const propertyColumnStyle: CSSProperties = { width: PROPERTY_COLUMN_WIDTH }
 
 export function DopesheetGraphPane({
   hasRows,
   emptyStateMessage,
+  showEmptyGuidance,
   propertyColumnElements,
+  propertyColumnWidth = PROPERTY_COLUMN_WIDTH,
   graphPaneRef,
   disabled,
   graphDisplayPropertyLocked,
@@ -82,6 +90,7 @@ export function DopesheetGraphPane({
   graphVisibleProperties,
   selectedKeyframeIds,
   currentFrame,
+  itemFrom,
   totalFrames,
   fps,
   onKeyframeMove,
@@ -91,6 +100,7 @@ export function DopesheetGraphPane({
   onSelectionChange,
   onPropertyChange,
   onScrub,
+  onScrubStart,
   onScrubEnd,
   onDragStart,
   onDragEnd,
@@ -103,18 +113,17 @@ export function DopesheetGraphPane({
   graphRulerUnit,
   autoZoomGraphHeight,
   graphVerticalZoomValue,
+  hidePlayhead,
 }: DopesheetGraphPaneProps) {
   if (!hasRows) {
     return (
-      <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-        {emptyStateMessage}
-      </div>
+      <DopesheetEmptyState showGuidance={showEmptyGuidance} fallbackMessage={emptyStateMessage} />
     )
   }
 
   return (
     <div className="flex min-h-0" style={panelStyle}>
-      <div className="flex-shrink-0 overflow-auto" style={propertyColumnStyle}>
+      <div className="flex-shrink-0 overflow-auto" style={{ width: propertyColumnWidth }}>
         {propertyColumnElements}
       </div>
       <div
@@ -136,6 +145,7 @@ export function DopesheetGraphPane({
             overlayProperties={graphVisibleProperties}
             selectedKeyframeIds={selectedKeyframeIds}
             currentFrame={currentFrame}
+            itemFrom={itemFrom}
             totalFrames={totalFrames}
             fps={fps}
             width={graphPaneSize.width}
@@ -147,6 +157,7 @@ export function DopesheetGraphPane({
             onSelectionChange={onSelectionChange}
             onPropertyChange={onPropertyChange}
             onScrub={onScrub}
+            onScrubStart={onScrubStart}
             onScrubEnd={onScrubEnd}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
@@ -160,6 +171,7 @@ export function DopesheetGraphPane({
             autoZoomGraphHeight={autoZoomGraphHeight}
             externalValueZoomLevel={graphVerticalZoomValue}
             disabled={disabled || graphDisplayPropertyLocked}
+            hidePlayhead={hidePlayhead}
           />
         ) : null}
       </div>
