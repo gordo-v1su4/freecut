@@ -4,7 +4,41 @@ All notable changes to FreeCut. Weekly CalVer: `YYYY.MM.DD` = the Monday of the 
 
 <!-- Entries below are generated via the `changelog` skill. Newest first. -->
 
-## [Current] — week of 2026-05-25
+## [Current] — week of 2026-06-15
+
+### Added
+- New Animate workspace — keyframe animation with a dopesheet, curve (graph) editor, and side-by-side split view
+- Save, reuse, and apply animation presets, with a built-in motion-preset library that travels with exported projects
+- Live animated A/B previews in the transition picker, rendered through real GPU shaders
+- Live GPU-rendered previews in the effect picker
+- Drag text and shape presets straight onto the preview canvas as overlay layers
+- Track-size and add-track controls in the timeline header
+- Color picker hex input with live preview
+
+### Fixed
+- Ctrl+click now reliably toggles clip selection
+- Middle-click pans the timeline instead of starting a clip drag
+- Fixed decoder and video-source memory leaks during long editing sessions
+
+### Improved
+- Smoother playback of clips with keyframe animation
+- Smoother scrubbing — preview now reuses zero-copy video frames and cached text and warps
+
+## [2026.06.08] — week of 2026-06-08 to 2026-06-14
+
+### Added
+- DaVinci-style Color workspace — color wheels, curves, LUT import, grade presets, bypass, and copy/paste grading
+- Video scopes in the Color workspace — waveform, vectorscope, and histogram
+- In-app user guide, linked from the toolbar
+
+## [2026.06.01] — week of 2026-06-01 to 2026-06-07
+
+### Added
+- Audio clips show an interactive waveform instead of a flat placeholder
+- Hear audio while you scrub and skim the timeline
+- Export dialog warns before risky, very long renders
+
+## [2026.05.25] — week of 2026-05-25 to 2026-05-31
 
 ### Added
 - In-app render queue — line up several exports and they render one after another, surviving a page refresh
