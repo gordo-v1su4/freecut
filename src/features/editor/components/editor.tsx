@@ -371,8 +371,11 @@ export const LoadedEditor = memo(function LoadedEditor({
   // Preload export dialogs during idle time so they open instantly.
   useEffect(() => {
     const id = requestIdleCallback(() => {
-      preloadExportDialog()
-      preloadBundleExportDialog()
+      // Best-effort idle preloads: swallow rejections (offline chunk load, or
+      // the dynamic import racing test-environment teardown). The real load
+      // happens later via lazy() at render time with its own error boundary.
+      void preloadExportDialog().catch(() => {})
+      void preloadBundleExportDialog().catch(() => {})
     })
     return () => cancelIdleCallback(id)
   }, [])
@@ -381,9 +384,11 @@ export const LoadedEditor = memo(function LoadedEditor({
   // effects feature part of the initial editor route chunk.
   useEffect(() => {
     const id = requestIdleCallback(() => {
-      void import('@/features/editor/deps/effects-contract').then((module) =>
-        module.prewarmEffectPreviews(),
-      )
+      // Best-effort prewarm — ignore failures, including the import() promise
+      // rejecting when it resolves after the test environment is torn down.
+      void import('@/features/editor/deps/effects-contract')
+        .then((module) => module.prewarmEffectPreviews())
+        .catch(() => {})
     })
     return () => cancelIdleCallback(id)
   }, [])
