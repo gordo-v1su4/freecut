@@ -76,11 +76,10 @@ const TransitionCard = memo(function TransitionCard({
       onPointerLeave={showPreview ? () => setHovered(false) : undefined}
       aria-disabled={clickDisabled}
       className={cn(
-        'flex flex-col items-center justify-center gap-1 p-2 rounded-lg',
+        'flex flex-col items-center gap-1 p-2 rounded-lg min-w-[60px]',
         'border border-border bg-secondary/30',
         'hover:bg-secondary/50 hover:border-primary/50',
         'transition-colors group text-center cursor-grab active:cursor-grabbing',
-        showPreview ? 'min-w-[60px] h-[72px]' : 'min-w-[60px] h-[56px]',
         clickDisabled && 'focus-visible:outline-muted-foreground/40',
       )}
       title={config.description}
@@ -92,7 +91,9 @@ const TransitionCard = memo(function TransitionCard({
           active={hovered}
         />
       ) : (
-        <Icon className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
+        <div className="flex aspect-video w-full items-center justify-center rounded-[3px] bg-black/40">
+          <Icon className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
+        </div>
       )}
       <span className="text-[10px] text-muted-foreground group-hover:text-foreground truncate w-full">
         {config.label}
