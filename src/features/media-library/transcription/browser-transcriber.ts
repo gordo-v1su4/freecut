@@ -19,29 +19,8 @@ import {
   resolveTranscriptionEngine,
   type ResolvedTranscriptionEngine,
 } from './transcription-engine'
-import { MODEL_IDS } from './types'
-import type { MediaTranscriptModel } from '@/types/storage'
-import {
-  acquireTranscriptionWorker,
-  releaseTranscriptionWorker,
-} from './lib/transcription-worker-pool'
 import { DEFAULT_WHISPER_MODEL } from '@/shared/utils/whisper-settings'
 import { usePlaybackStore } from '@/shared/state/playback'
-
-/**
- * Eagerly spin up and compile the engine that a job with this model/language would use, so
- * the expensive one-time model load/compile (notably Parakeet's ~20s WebGPU encoder build)
- * happens in the background — e.g. while the transcribe dialog is open — instead of blocking
- * the first transcription. Safe to call repeatedly; the worker is shared and re-init is a
- * cheap no-op once compiled. If no job follows, the worker idle-evicts itself.
- */
-export function prewarmTranscription(model: MediaTranscriptModel, language?: string): void {
-  if (typeof window === 'undefined') return
-  const resolved = resolveTranscriptionEngine(model, language)
-  const worker = acquireTranscriptionWorker(resolved.engine)
-  worker.postMessage({ type: 'init', modelId: MODEL_IDS[resolved.model], language })
-  releaseTranscriptionWorker(resolved.engine)
-}
 
 export class BrowserTranscriber {
   private readonly defaultOptions: TranscribeOptions

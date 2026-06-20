@@ -24,7 +24,6 @@ import {
 import { useSettingsStore } from '@/features/media-library/deps/settings-contract'
 import { getMediaTranscriptionModelOptions } from '../transcription/registry'
 import { isParakeetModel } from '../transcription/transcription-engine'
-import { prewarmTranscription } from '../transcription/browser-transcriber'
 import {
   getWhisperLanguageSelectValue,
   getWhisperLanguageSettingValue,
@@ -109,13 +108,6 @@ export function TranscribeDialog({
     endTranscriptionDialog,
     open,
   ])
-
-  // Compile the model in the background while the dialog is open so the first transcription
-  // doesn't pay the one-time model load/compile (notably Parakeet's ~20s encoder build).
-  useEffect(() => {
-    if (!open) return
-    prewarmTranscription(model, getWhisperLanguageSettingValue(languageValue))
-  }, [open, model, languageValue])
 
   const handleStart = () => {
     onStart({
