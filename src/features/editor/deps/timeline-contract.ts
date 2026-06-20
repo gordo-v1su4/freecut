@@ -6,6 +6,7 @@ export type {
   FilmstripFrame,
   TimelineActions,
   TimelineState,
+  TranscriptSearchMatch,
 } from '@/features/timeline/contracts/editor'
 export {
   applyAnimationPreset,
@@ -39,6 +40,7 @@ export {
   setInOutPointsWithoutHistory,
   resolveEffectiveTrackStates,
   resolveTransitionTargetFromSelection,
+  searchTimelineTranscript,
   sourceToTimelineFrames,
   Timeline,
   TranscriptEditorPanel,

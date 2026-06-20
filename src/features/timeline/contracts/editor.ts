@@ -41,6 +41,8 @@ export { captureAnimationFromItem, getPresetCompatibility } from '../deps/keyfra
 export { rateStretchItemWithoutHistory } from '../stores/actions/item-edit-actions'
 export { setInOutPointsWithoutHistory } from '../stores/actions/marker-actions'
 export { timelineToSourceFrames, sourceToTimelineFrames } from '../utils/source-calculations'
+export { searchTimelineTranscript } from '../utils/transcript-search'
+export type { TranscriptSearchMatch } from '../utils/transcript-search'
 export { createScrubThrottleState, shouldCommitScrubFrame } from '../utils/scrub-throttle'
 export { initTransitionChainSubscription } from '../stores/transition-chain-store'
 

@@ -8,7 +8,7 @@ function lookupMediaFps(mediaId: string | undefined): number | undefined {
   return typeof fps === 'number' && Number.isFinite(fps) && fps > 0 ? fps : undefined
 }
 
-function getMediaSourceFps(item: TimelineItem, timelineFps: number): number {
+export function getMediaSourceFps(item: TimelineItem, timelineFps: number): number {
   if (item.type !== 'video' && item.type !== 'audio' && item.type !== 'composition') {
     return timelineFps
   }

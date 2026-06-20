@@ -62,7 +62,7 @@ import { getGpuEffectDefaultParams } from '@/infrastructure/gpu-effects'
 import { EffectThumbnail, useGpuEffectPreviewData } from '@/features/editor/deps/effects-contract'
 import { createLogger } from '@/shared/logging/logger'
 import { useSettingsStore } from '@/features/editor/deps/settings'
-const LazyAiPanel = lazy(() => import('./ai-panel').then((m) => ({ default: m.AiPanel })))
+const LazyAiPanel = lazy(() => import('./ai-tab').then((m) => ({ default: m.AiTab })))
 import {
   TEXT_STYLE_PRESETS,
   type TextStylePresetLayout,
