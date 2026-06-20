@@ -41,6 +41,7 @@ import { useDragVisualState } from './use-drag-visual-state'
 import { useTimelineItemActions } from './use-timeline-item-actions'
 import { useTimelineItemDropHandlers } from './use-timeline-item-drop-handlers'
 import { ItemContextMenu } from './item-context-menu'
+import { mediaTranscriptionService } from '../../deps/media-transcription-service'
 import { useSmartTrimHover } from './use-smart-trim-hover'
 import { useContextMenuState } from './use-context-menu-state'
 import { useTimelineItemOverlayStore } from '../../stores/timeline-item-overlay-store'
@@ -173,6 +174,43 @@ export const TimelineItem = memo(function TimelineItem({
     isBroken,
     linkedItemsForCaptionOwnership,
   })
+  const autoTranscriptCaptionAttemptRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (
+      !caption.canManageCaptions ||
+      !caption.mediaHasTranscript ||
+      hasGeneratedCaptions ||
+      isBroken ||
+      (item.type !== 'video' && item.type !== 'audio') ||
+      !item.mediaId
+    ) {
+      return
+    }
+
+    const attemptKey = `${item.id}:${item.mediaId}`
+    if (autoTranscriptCaptionAttemptRef.current === attemptKey) {
+      return
+    }
+    autoTranscriptCaptionAttemptRef.current = attemptKey
+
+    void mediaTranscriptionService
+      .enableTranscriptCaptions(item.mediaId, {
+        clipIds: [item.id],
+        replaceExisting: false,
+        selectUpdatedClips: false,
+      })
+      .catch(() => {
+        // Keep this silent: the explicit Generate Captions action remains the user-facing fallback.
+      })
+  }, [
+    caption.canManageCaptions,
+    caption.mediaHasTranscript,
+    hasGeneratedCaptions,
+    isBroken,
+    item.id,
+    item.mediaId,
+    item.type,
+  ])
   const reverseMenuShowsUnreverse = useMemo(() => {
     if (item.type !== 'video' && item.type !== 'audio') {
       return false
@@ -644,7 +682,6 @@ export const TimelineItem = memo(function TimelineItem({
     handleFreezeFrame,
     handleGenerateAudioFromText,
     handleCaptionsFromDialog,
-    handleApplyCaptionsFromTranscript,
     handleCreatePreComp,
     handleEnterComposition,
     handleDissolveComposition,
@@ -883,11 +920,9 @@ export const TimelineItem = memo(function TimelineItem({
         captionActions={{
           canManageCaptions: caption.canManageCaptions,
           hasCaptions: hasGeneratedCaptions,
-          hasTranscript: caption.mediaHasTranscript,
           isGeneratingCaptions:
             caption.transcriptStatus === 'queued' || caption.transcriptStatus === 'transcribing',
           onOpenCaptionDialog: caption.openDialog,
-          onApplyCaptionsFromTranscript: handleApplyCaptionsFromTranscript,
           canExtractEmbeddedSubtitles: caption.canExtractEmbeddedSubtitles,
           onExtractEmbeddedSubtitles: caption.handleExtractEmbeddedSubtitles,
           canConsolidateCaptionsToSegment: caption.hasConsolidatablePerCueCaptions,

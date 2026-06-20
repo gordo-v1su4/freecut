@@ -87,8 +87,7 @@
       "unreverse": "Annuler inversion",
       "updatingCaptions": "Mise a jour Sous-titres",
       "copyGrade": "Copier l'étalonnage",
-      "pasteGrade": "Coller l'étalonnage",
-      "showTranscriptCaptions": "Afficher les sous-titres de transcription"
+      "pasteGrade": "Coller l'étalonnage"
     },
     "fadeHandles": {
       "adjustAudioFadeIn": "Ajuster Audio fondu entree",

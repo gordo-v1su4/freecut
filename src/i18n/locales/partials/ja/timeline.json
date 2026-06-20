@@ -87,8 +87,7 @@
       "unreverse": "反転を解除",
       "updatingCaptions": "キャプションを更新中",
       "copyGrade": "グレーディングをコピー",
-      "pasteGrade": "グレーディングをペースト",
-      "showTranscriptCaptions": "文字起こし字幕を表示"
+      "pasteGrade": "グレーディングをペースト"
     },
     "fadeHandles": {
       "adjustAudioFadeIn": "オーディオのフェードインを調整",

@@ -87,8 +87,7 @@
       "unreverse": "Tersi kaldır",
       "updatingCaptions": "Altyazılar güncelleniyor",
       "copyGrade": "Renk düzenlemeyi kopyala",
-      "pasteGrade": "Renk düzenlemeyi yapıştır",
-      "showTranscriptCaptions": "Döküm altyazılarını göster"
+      "pasteGrade": "Renk düzenlemeyi yapıştır"
     },
     "fadeHandles": {
       "adjustAudioFadeIn": "Ses giriş yumuşatmasını ayarla",

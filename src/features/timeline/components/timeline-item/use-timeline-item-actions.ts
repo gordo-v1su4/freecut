@@ -21,7 +21,6 @@ import {
 } from '@/features/timeline/deps/media-transcription-service'
 import { useTimelineStore } from '../../stores/timeline-store'
 import { useItemsStore } from '../../stores/items-store'
-import { selectReplaceableCaptionClipIds } from '../../stores/items-store-indexes'
 import { useCompositionNavigationStore } from '../../stores/composition-navigation-store'
 import {
   insertFreezeFrame,
@@ -295,8 +294,8 @@ export function useTimelineItemActions({
       onError?: (error: unknown) => void,
     ) => {
       handleCaptionGeneration(values.model, {
-        // The dialog path is always "generate fresh captions". Reusing the
-        // current transcript is handled explicitly by "Insert Existing Captions".
+        // The dialog path is always "generate fresh captions". Existing
+        // transcripts are auto-enabled as virtual captions when clips load.
         forceTranscription: true,
         replaceExisting: hasExistingCaptions,
         quantization: values.quantization,
@@ -306,50 +305,6 @@ export function useTimelineItemActions({
     },
     [handleCaptionGeneration],
   )
-
-  const handleApplyCaptionsFromTranscript = useCallback(() => {
-    if ((item.type !== 'video' && item.type !== 'audio') || !item.mediaId || isBroken) {
-      return
-    }
-
-    const mediaId = item.mediaId
-    const clipId = item.id
-    const replaceExisting = selectReplaceableCaptionClipIds(useItemsStore.getState()).has(clipId)
-    const store = useMediaLibraryStore.getState()
-
-    const run = async () => {
-      try {
-        const existingTranscript = await mediaTranscriptionService.getTranscript(mediaId)
-        if (!existingTranscript) {
-          throw new Error('Generate a transcript first, then add captions from it.')
-        }
-
-        const result = await mediaTranscriptionService.enableTranscriptCaptions(mediaId, {
-          clipIds: [clipId],
-          replaceExisting,
-        })
-
-        store.showNotification({
-          type: 'success',
-          message: replaceExisting
-            ? result.updatedClipCount > 0 || result.removedItemCount > 0
-              ? i18n.t('timeline.captions.updatedFromTranscript')
-              : i18n.t('timeline.captions.removedFromSegment')
-            : i18n.t('timeline.captions.addedFromTranscript'),
-        })
-      } catch (error) {
-        store.showNotification({
-          type: 'error',
-          message:
-            error instanceof Error
-              ? error.message
-              : i18n.t('timeline.captions.failedUpdateSegment'),
-        })
-      }
-    }
-
-    void run()
-  }, [isBroken, item.id, item.mediaId, item.type])
 
   const isSceneDetectionActive = segmentOverlays.some(
     (overlay) => overlay.id === SCENE_DETECTION_OVERLAY_ID,
@@ -669,7 +624,6 @@ export function useTimelineItemActions({
     handleFreezeFrame,
     handleGenerateAudioFromText,
     handleCaptionsFromDialog,
-    handleApplyCaptionsFromTranscript,
     handleCreatePreComp,
     handleEnterComposition,
     handleDissolveComposition,

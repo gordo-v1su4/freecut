@@ -10,6 +10,7 @@ const useProjectStoreGetStateMock = vi.fn()
 const useSelectionStoreGetStateMock = vi.fn()
 const usePlaybackStoreGetStateMock = vi.fn()
 const removeTimelineItemsExactMock = vi.fn()
+const selectItemsMock = vi.fn()
 const transcribeCollectMock = vi.fn()
 const transcribeMock = vi.fn()
 const getMediaMock = vi.fn()
@@ -139,7 +140,7 @@ describe('mediaTranscriptionService.insertTranscriptAsCaptions', () => {
     vi.clearAllMocks()
     useSelectionStoreGetStateMock.mockReturnValue({
       selectedItemIds: [],
-      selectItems: vi.fn(),
+      selectItems: selectItemsMock,
     })
     usePlaybackStoreGetStateMock.mockReturnValue({ currentFrame: 0 })
     useProjectStoreGetStateMock.mockReturnValue({
@@ -575,6 +576,62 @@ describe('mediaTranscriptionService.enableTranscriptCaptions', () => {
         }),
       }),
     )
+  })
+
+  it('can enable transcript captions without changing selection', async () => {
+    const clip: VideoItem = {
+      id: 'clip-1',
+      type: 'video',
+      trackId: 'track-video',
+      from: 0,
+      durationInFrames: 150,
+      label: 'Clip',
+      mediaId: 'media-1',
+      src: 'blob:test',
+      sourceStart: 0,
+      sourceEnd: 150,
+      sourceDuration: 150,
+      sourceFps: 30,
+      speed: 1,
+    }
+    const updateItem = vi.fn()
+
+    useTimelineStoreGetStateMock.mockReturnValue({
+      fps: 30,
+      tracks: [makeTrack('track-video', 0)],
+      items: [clip],
+      setTracks: vi.fn(),
+      removeItems: vi.fn(),
+      addItems: vi.fn(),
+      updateItem,
+    })
+
+    getTranscriptMock.mockResolvedValue({
+      id: 'media-1',
+      mediaId: 'media-1',
+      model: 'whisper-tiny',
+      language: 'auto',
+      quantization: 'q8',
+      text: 'Fresh one',
+      segments: [{ text: 'Fresh one', start: 0, end: 1 }],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    } satisfies MediaTranscript)
+
+    await mediaTranscriptionService.enableTranscriptCaptions('media-1', {
+      clipIds: ['clip-1'],
+      selectUpdatedClips: false,
+    })
+
+    expect(updateItem).toHaveBeenCalledWith(
+      'clip-1',
+      expect.objectContaining({
+        transcriptCaptions: expect.objectContaining({
+          enabled: true,
+        }),
+      }),
+    )
+    expect(selectItemsMock).not.toHaveBeenCalled()
   })
 })
 

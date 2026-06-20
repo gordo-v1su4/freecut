@@ -66,6 +66,7 @@ type CaptionableClip = AudioItem | VideoItem
 interface InsertTranscriptAsCaptionsOptions {
   clipIds?: readonly string[]
   replaceExisting?: boolean
+  selectUpdatedClips?: boolean
 }
 
 interface InsertTranscriptAsCaptionsResult {
@@ -729,7 +730,7 @@ class MediaTranscriptionService {
       removeTimelineItemsExact([...generatedCaptionIdsToRemove])
     }
 
-    if (updatedClipCount > 0) {
+    if (updatedClipCount > 0 && options.selectUpdatedClips !== false) {
       useSelectionStore.getState().selectItems(targetClips.map((clip) => clip.id))
     }
 

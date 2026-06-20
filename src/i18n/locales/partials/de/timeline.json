@@ -87,8 +87,7 @@
       "unreverse": "Umkehrung aufheben",
       "updatingCaptions": "Aktualisieren Untertitel",
       "copyGrade": "Farbkorrektur kopieren",
-      "pasteGrade": "Farbkorrektur einfügen",
-      "showTranscriptCaptions": "Transkript-Untertitel anzeigen"
+      "pasteGrade": "Farbkorrektur einfügen"
     },
     "fadeHandles": {
       "adjustAudioFadeIn": "Anpassen Audio Fade ein",

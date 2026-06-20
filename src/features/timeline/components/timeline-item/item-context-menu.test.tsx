@@ -124,7 +124,6 @@ describe('ItemContextMenu captions', () => {
       captionActions: {
         canManageCaptions: true,
         hasCaptions: false,
-        hasTranscript: false,
         onOpenCaptionDialog,
       },
     })
@@ -136,26 +135,23 @@ describe('ItemContextMenu captions', () => {
     expect(onOpenCaptionDialog).toHaveBeenCalledTimes(1)
   })
 
-  it('shows a Captions submenu with Show + Generate when a transcript already exists', () => {
+  it('shows a single "Generate Captions" item when a transcript already exists', () => {
     const onOpenCaptionDialog = vi.fn()
-    const onApplyCaptionsFromTranscript = vi.fn()
 
     renderContextMenu({
       captionActions: {
         canManageCaptions: true,
         hasCaptions: false,
-        hasTranscript: true,
         onOpenCaptionDialog,
-        onApplyCaptionsFromTranscript,
       },
     })
 
-    expect(screen.getByText('Captions')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Show Transcript Captions' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Generate Captions' })).toBeInTheDocument()
+    const item = screen.getByRole('button', { name: 'Generate Captions' })
+    expect(item).toBeInTheDocument()
+    expect(screen.queryByText('Captions')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show Transcript Captions' }))
-    expect(onApplyCaptionsFromTranscript).toHaveBeenCalledTimes(1)
+    fireEvent.click(item)
+    expect(onOpenCaptionDialog).toHaveBeenCalledTimes(1)
   })
 
   it('labels the generate item "Regenerate Captions" when the clip already has captions', () => {
@@ -163,9 +159,7 @@ describe('ItemContextMenu captions', () => {
       captionActions: {
         canManageCaptions: true,
         hasCaptions: true,
-        hasTranscript: true,
         onOpenCaptionDialog: vi.fn(),
-        onApplyCaptionsFromTranscript: vi.fn(),
       },
     })
 
@@ -177,9 +171,7 @@ describe('ItemContextMenu captions', () => {
       captionActions: {
         canManageCaptions: true,
         hasCaptions: true,
-        hasTranscript: true,
         onOpenCaptionDialog: vi.fn(),
-        onApplyCaptionsFromTranscript: vi.fn(),
       },
     })
 
