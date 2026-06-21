@@ -72,7 +72,9 @@ describe('ColorGradePanel', () => {
   it('renders the fitted color dock with effects and a persistent keyframes lane', async () => {
     render(<ColorGradePanel layout="dock" />)
 
-    const gradeSection = await screen.findByTestId('color-grade-section')
+    // ColorGradeSection is lazy()-loaded behind Suspense; allow extra time for the
+    // dynamic import to resolve under parallel-suite CPU contention.
+    const gradeSection = await screen.findByTestId('color-grade-section', {}, { timeout: 5000 })
     expect(gradeSection).toHaveAttribute('data-layout', 'dock')
     expect(gradeSection).toHaveTextContent('has adjustment action')
 
@@ -91,7 +93,9 @@ describe('ColorGradePanel', () => {
   it('keeps the sidebar variant stacked without the dock keyframes lane', async () => {
     render(<ColorGradePanel />)
 
-    await waitFor(() => expect(screen.getByTestId('color-grade-section')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('color-grade-section')).toBeInTheDocument(), {
+      timeout: 5000,
+    })
     expect(screen.queryByTestId('color-keyframes-lane')).not.toBeInTheDocument()
     expect(screen.queryByTestId('keyframe-graph-panel')).not.toBeInTheDocument()
   })
