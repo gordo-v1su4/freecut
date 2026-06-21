@@ -319,7 +319,6 @@
       "bold": "Negrita",
       "underline": "Subrayado",
       "cuePosition": "Posición del subtítulo: {{vertical}} {{horizontal}}",
-      "cueCount": "{{count}} subtítulo(s)",
       "showSubtitle": "Mostrar subtítulo"
     },
     "audioSection": {
