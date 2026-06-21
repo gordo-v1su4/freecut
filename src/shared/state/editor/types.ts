@@ -15,6 +15,8 @@ export interface EditorState {
   rightSidebarOpen: boolean
   keyframeEditorOpen: boolean
   keyframeEditorShortcutScopeActive: boolean
+  /** True while the transcript editor owns Delete/Backspace (pointer or focus within). */
+  transcriptEditorShortcutScopeActive: boolean
   workspace: EditorWorkspaceId
   activeTab: EditorSidebarTab
   clipInspectorTab: ClipInspectorTab
@@ -45,6 +47,7 @@ export interface EditorActions {
   setRightSidebarOpen: (open: boolean) => void
   setKeyframeEditorOpen: (open: boolean) => void
   setKeyframeEditorShortcutScopeActive: (active: boolean) => void
+  setTranscriptEditorShortcutScopeActive: (active: boolean) => void
   toggleLeftSidebar: () => void
   toggleRightSidebar: () => void
   toggleKeyframeEditorOpen: () => void

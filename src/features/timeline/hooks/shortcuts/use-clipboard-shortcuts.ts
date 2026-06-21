@@ -20,6 +20,7 @@ import {
   isCompositionWrapperItem,
   wouldCreateCompositionCycle,
 } from '../../utils/composition-graph'
+import { handleTranscriptClipboardCopy } from '../../utils/transcript-copy-bridge'
 
 function revealPastedItems(itemIds: readonly string[]): void {
   if (itemIds.length === 0) {
@@ -73,7 +74,7 @@ export function useClipboardShortcuts() {
   const items = useTimelineStore((s) => s.items)
   const transitions = useTimelineStore((s) => s.transitions)
   const tracks = useTimelineStore((s) => s.tracks)
-  const addItem = useTimelineStore((s) => s.addItem)
+  const addItems = useTimelineStore((s) => s.addItems)
   const removeItems = useTimelineStore((s) => s.removeItems)
   const updateTransition = useTimelineStore((s) => s.updateTransition)
   const copyTransition = useClipboardStore((s) => s.copyTransition)
@@ -89,6 +90,11 @@ export function useClipboardShortcuts() {
   useHotkeys(
     hotkeys.COPY,
     (event) => {
+      // Transcript editor copies the selected words instead of the clip.
+      if (handleTranscriptClipboardCopy(false)) {
+        event.preventDefault()
+        return
+      }
       if (selectedTransitionId) {
         event.preventDefault()
         const transition = transitions.find((t: Transition) => t.id === selectedTransitionId)
@@ -131,6 +137,11 @@ export function useClipboardShortcuts() {
   useHotkeys(
     hotkeys.CUT,
     (event) => {
+      // Transcript editor cuts the selected words instead of the clip.
+      if (handleTranscriptClipboardCopy(true)) {
+        event.preventDefault()
+        return
+      }
       if (selectedItemIds.length > 0) {
         event.preventDefault()
         const currentFrame = usePlaybackStore.getState().currentFrame
@@ -169,6 +180,7 @@ export function useClipboardShortcuts() {
         const currentFrame = usePlaybackStore.getState().currentFrame
         const storeItems = useTimelineStore.getState().items
         const newItemIds: string[] = []
+        const newItems: TimelineItem[] = []
         const usedTrackIds = new Set<string>()
         const linkedGroupMap = new Map<string, string>()
 
@@ -187,6 +199,12 @@ export function useClipboardShortcuts() {
                   }),
               )
         if (pasteItems.length === 0) return
+
+        // When the clipboard spans more than one source track (e.g. a linked
+        // video+audio pair copied from the transcript), preserve each item's own
+        // track so the pair lands on video/audio tracks separately. A
+        // single-track copy still pastes onto the active track as before.
+        const preserveSourceTracks = new Set(pasteItems.map((item) => item.trackId)).size > 1
 
         const findNextAvailableSpace = (
           trackId: string,
@@ -224,7 +242,7 @@ export function useClipboardShortcuts() {
           const newId = crypto.randomUUID()
           newItemIds.push(newId)
 
-          let targetTrackId = activeTrackId
+          let targetTrackId = preserveSourceTracks ? itemData.trackId : activeTrackId
           if (!targetTrackId || !tracks.some((t) => t.id === targetTrackId)) {
             targetTrackId = itemData.trackId
           }
@@ -257,8 +275,14 @@ export function useClipboardShortcuts() {
               : undefined,
           }
 
-          addItem(newItem as Parameters<typeof addItem>[0])
+          newItems.push(newItem as TimelineItem)
           usedTrackIds.add(targetTrackId)
+        }
+
+        // Add every pasted item in a single ADD_ITEMS command so one Ctrl+Z
+        // undoes the whole paste (including a linked A/V pair), not item-by-item.
+        if (newItems.length > 0) {
+          addItems(newItems)
         }
 
         if (newItemIds.length > 0) {
@@ -296,7 +320,7 @@ export function useClipboardShortcuts() {
       updateTransition,
       itemsClipboard,
       tracks,
-      addItem,
+      addItems,
       selectItems,
       activeTrackId,
       selectedKeyframes.length,

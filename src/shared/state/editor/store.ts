@@ -125,6 +125,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
   rightSidebarOpen: true,
   keyframeEditorOpen: false,
   keyframeEditorShortcutScopeActive: false,
+  transcriptEditorShortcutScopeActive: false,
   workspace: initialWorkspace,
   activeTab: initialWorkspaceLayout.activeTab,
   clipInspectorTab: initialWorkspaceLayout.clipInspectorTab,
@@ -176,6 +177,8 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
     })),
   setKeyframeEditorShortcutScopeActive: (active) =>
     set({ keyframeEditorShortcutScopeActive: active }),
+  setTranscriptEditorShortcutScopeActive: (active) =>
+    set({ transcriptEditorShortcutScopeActive: active }),
   toggleLeftSidebar: () => set((state) => ({ leftSidebarOpen: !state.leftSidebarOpen })),
   toggleRightSidebar: () => set((state) => ({ rightSidebarOpen: !state.rightSidebarOpen })),
   toggleKeyframeEditorOpen: () =>

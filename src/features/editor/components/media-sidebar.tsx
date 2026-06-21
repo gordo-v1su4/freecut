@@ -28,6 +28,7 @@ import {
   Pentagon,
   Blend,
   Pen,
+  Captions,
   WandSparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -43,7 +44,7 @@ import {
   MediaLibrary,
   setMediaDragData,
 } from '@/features/editor/deps/media-library'
-import { KeyframeGraphPanel } from '@/features/editor/deps/timeline-contract'
+import { KeyframeGraphPanel, TranscriptEditorPanel } from '@/features/editor/deps/timeline-contract'
 import { TransitionsPanel } from './transitions-panel'
 import {
   createDefaultShapeItem,
@@ -61,7 +62,7 @@ import { getGpuEffectDefaultParams } from '@/infrastructure/gpu-effects'
 import { EffectThumbnail, useGpuEffectPreviewData } from '@/features/editor/deps/effects-contract'
 import { createLogger } from '@/shared/logging/logger'
 import { useSettingsStore } from '@/features/editor/deps/settings'
-const LazyAiPanel = lazy(() => import('./ai-panel').then((m) => ({ default: m.AiPanel })))
+const LazyAiPanel = lazy(() => import('./ai-tab').then((m) => ({ default: m.AiTab })))
 import {
   TEXT_STYLE_PRESETS,
   type TextStylePresetLayout,
@@ -544,6 +545,7 @@ export const MediaSidebar = memo(function MediaSidebar() {
     { id: 'shapes' as const, icon: Pentagon, label: t('editor.mediaSidebar.shapes') },
     { id: 'effects' as const, icon: Layers, label: t('editor.mediaSidebar.effects') },
     { id: 'transitions' as const, icon: Blend, label: t('editor.mediaSidebar.transitions') },
+    { id: 'transcript' as const, icon: Captions, label: t('transcript.tabLabel') },
     { id: 'ai' as const, icon: WandSparkles, label: t('editor.mediaSidebar.ai') },
   ]
 
@@ -1128,6 +1130,13 @@ export const MediaSidebar = memo(function MediaSidebar() {
                   className={`min-h-0 flex-1 overflow-hidden ${activeTab === 'transitions' ? 'block' : 'hidden'}`}
                 >
                   <TransitionsPanel />
+                </div>
+
+                {/* Transcript Tab */}
+                <div
+                  className={`min-h-0 flex-1 overflow-hidden ${activeTab === 'transcript' ? 'block' : 'hidden'}`}
+                >
+                  <TranscriptEditorPanel active={activeTab === 'transcript'} />
                 </div>
 
                 {/* AI Tab */}

@@ -5,6 +5,7 @@ import type {
   TranscriptSegment,
   TranscribeProgress,
   TranscribeRuntimeInfo,
+  TranscriptionEngine,
   WhisperModel,
 } from '../types'
 import { MODEL_IDS } from '../types'
@@ -12,6 +13,11 @@ import { createManagedWorkerSession } from '@/shared/utils/managed-worker-sessio
 import { Chunker } from './chunker'
 import { downmixToMono, resampleTo16kHz } from './resampler'
 import { DEFAULT_WHISPER_MODEL } from '@/shared/utils/whisper-settings'
+import {
+  acquireTranscriptionWorker,
+  releaseTranscriptionWorker,
+  disposeTranscriptionWorker,
+} from './transcription-worker-pool'
 
 export interface BridgeCallbacks {
   onSegment: (segment: TranscriptSegment) => void
@@ -23,6 +29,9 @@ export interface BridgeCallbacks {
 
 export class Bridge {
   private readonly callbacks: BridgeCallbacks
+  // Only the decoder is per-job. Both transcription engines run on shared, persistent
+  // workers (see transcription-worker-pool) so their compiled models are reused across
+  // jobs instead of recompiling each time.
   private readonly session = createManagedWorkerSession({
     decoder: {
       createWorker: () =>
@@ -43,26 +52,14 @@ export class Bridge {
         }
       },
     },
-    whisper: {
-      createWorker: () =>
-        new Worker(new URL('../workers/whisper.worker.ts', import.meta.url), { type: 'module' }),
-      setupWorker: (worker) => {
-        worker.onmessage = (event: MessageEvent<MainThreadMessage>) => {
-          this.handleWhisperMessage(event.data)
-        }
-
-        worker.onerror = (event) => {
-          this.callbacks.onError(`Whisper worker: ${event.message ?? 'unknown error'}`)
-          this.terminate()
-        }
-
-        return () => {
-          worker.onmessage = null
-          worker.onerror = null
-        }
-      },
-    },
   })
+
+  // The engine + shared worker driving the active job. The worker is owned by the pool, not
+  // this Bridge, so it survives across jobs; the Bridge only attaches/detaches its handlers.
+  private activeEngine: TranscriptionEngine = 'whisper'
+  private sharedWorker: Worker | null = null
+  private detachShared: (() => void) | null = null
+  private torndown = false
 
   constructor(callbacks: BridgeCallbacks) {
     this.callbacks = callbacks
@@ -73,11 +70,13 @@ export class Bridge {
     model: WhisperModel = DEFAULT_WHISPER_MODEL,
     language?: string,
     quantization?: QuantizationType,
+    engine: TranscriptionEngine = 'whisper',
   ): Promise<void> {
     const { port1, port2 } = new MessageChannel()
     const modelId = MODEL_IDS[model]
     const hasWebCodecs = typeof window !== 'undefined' && 'AudioDecoder' in window
-    const whisperWorker = this.session.getWorker('whisper')
+    this.activeEngine = engine
+    const transcriptionWorker = this.attachSharedWorker(engine)
 
     if (hasWebCodecs) {
       this.session.getWorker('decoder').postMessage({ type: 'port', port: port1 }, [port1])
@@ -90,8 +89,8 @@ export class Bridge {
       port2.close()
     })
 
-    whisperWorker.postMessage({ type: 'port', port: port2 }, [port2])
-    whisperWorker.postMessage({ type: 'init', modelId, language, quantization })
+    transcriptionWorker.postMessage({ type: 'port', port: port2 }, [port2])
+    transcriptionWorker.postMessage({ type: 'init', modelId, language, quantization })
 
     if (hasWebCodecs) {
       this.session.getWorker('decoder').postMessage({ type: 'init', file })
@@ -101,21 +100,64 @@ export class Bridge {
     void this.decodeWithAudioContext(file, port1)
   }
 
-  terminate(): void {
-    if (this.session.isTerminated()) {
+  // Attach this job's message handlers to the engine's shared, persistent worker without
+  // taking ownership of its lifecycle (it survives across jobs to avoid recompiling).
+  private attachSharedWorker(engine: TranscriptionEngine): Worker {
+    const worker = acquireTranscriptionWorker(engine)
+    this.sharedWorker = worker
+    const label = engine === 'parakeet' ? 'Parakeet' : 'Whisper'
+    const onMessage = (event: MessageEvent<MainThreadMessage>) => {
+      this.handleTranscriptionMessage(event.data)
+    }
+    const onError = (event: ErrorEvent) => {
+      this.callbacks.onError(`${label} worker: ${event.message ?? 'unknown error'}`)
+      this.teardown(true)
+    }
+    worker.addEventListener('message', onMessage)
+    worker.addEventListener('error', onError)
+    this.detachShared = () => {
+      worker.removeEventListener('message', onMessage)
+      worker.removeEventListener('error', onError)
+    }
+    return worker
+  }
+
+  // Tear down the job. `disposeShared` controls whether the persistent transcription worker
+  // is also destroyed (true on error/cancel) or kept warm for the next job (false on clean
+  // done) so its compiled model is reused.
+  private teardown(disposeShared: boolean): void {
+    if (this.torndown) {
       return
     }
+    this.torndown = true
 
-    this.session.terminate()
+    this.detachShared?.()
+    this.detachShared = null
+    if (this.sharedWorker) {
+      this.sharedWorker = null
+      if (disposeShared) {
+        disposeTranscriptionWorker(this.activeEngine)
+      } else {
+        releaseTranscriptionWorker(this.activeEngine)
+      }
+    }
+
+    if (!this.session.isTerminated()) {
+      this.session.terminate()
+    }
+  }
+
+  terminate(): void {
+    this.teardown(true)
   }
 
   setPaused(paused: boolean): void {
-    if (this.session.isTerminated()) {
+    if (this.torndown || this.session.isTerminated()) {
       return
     }
 
     const message = { type: paused ? 'pause' : 'resume' } as const
-    this.session.getWorker('whisper').postMessage(message)
+    this.sharedWorker?.postMessage(message)
     const hasWebCodecs = typeof window !== 'undefined' && 'AudioDecoder' in window
     if (hasWebCodecs) {
       this.session.getWorker('decoder').postMessage(message)
@@ -198,8 +240,8 @@ export class Bridge {
     }
   }
 
-  private handleWhisperMessage(message: MainThreadMessage): void {
-    if (this.session.isTerminated()) {
+  private handleTranscriptionMessage(message: MainThreadMessage): void {
+    if (this.torndown) {
       return
     }
 
@@ -215,11 +257,14 @@ export class Bridge {
         break
       case 'done':
         this.callbacks.onDone()
-        this.terminate()
+        // Both whisper and parakeet run on shared, persistent workers from the pool,
+        // so teardown(false) detaches this job's handlers but keeps the worker warm
+        // for the next job regardless of which engine ran.
+        this.teardown(false)
         break
       case 'error':
         this.callbacks.onError(message.message)
-        this.terminate()
+        this.teardown(true)
         break
       default:
         break

@@ -18,7 +18,9 @@ export {
   resolveEffectiveTrackStates,
   getMaxTransitionDurationForHandles,
   resolveTransitionTargetFromSelection,
+  searchTimelineTranscript,
   timelineToSourceFrames,
   sourceToTimelineFrames,
   linkItems,
 } from './timeline-contract'
+export type { TranscriptSearchMatch } from './timeline-contract'

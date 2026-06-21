@@ -41,6 +41,7 @@ import { useDragVisualState } from './use-drag-visual-state'
 import { useTimelineItemActions } from './use-timeline-item-actions'
 import { useTimelineItemDropHandlers } from './use-timeline-item-drop-handlers'
 import { ItemContextMenu } from './item-context-menu'
+import { useAutoTranscriptCaptions } from './use-auto-transcript-captions'
 import { useSmartTrimHover } from './use-smart-trim-hover'
 import { useContextMenuState } from './use-context-menu-state'
 import { useTimelineItemOverlayStore } from '../../stores/timeline-item-overlay-store'
@@ -136,15 +137,22 @@ export const TimelineItem = memo(function TimelineItem({
       [item.mediaId, item.id],
     ),
   )
-  // Lazy, items-keyed memo: legacy generated-caption detection rebuilds only
-  // when the items array identity changes (not on every store mutation).
-  const hasGeneratedCaptions = useItemsStore(
-    useCallback((s) => selectReplaceableCaptionClipIds(s).has(item.id), [item.id]),
-  )
   // O(1) via index, including legacy linked audio/video pairs.
   const isLinked = useItemsStore(useCallback((s) => !!s.linkedItemsByItemId[item.id], [item.id]))
   const linkedItemsForCaptionOwnership = useItemsStore(
     useCallback((s) => s.linkedItemsByItemId[item.id] ?? EMPTY_LINKED_ITEMS, [item.id]),
+  )
+  // Lazy, items-keyed memo: legacy generated-caption detection rebuilds only
+  // when the items array identity changes (not on every store mutation).
+  const hasGeneratedCaptions = useItemsStore(
+    useCallback(
+      (s) => {
+        const captionClipIds = selectReplaceableCaptionClipIds(s)
+        if (captionClipIds.has(item.id)) return true
+        return linkedItemsForCaptionOwnership.some((linkedItem) => captionClipIds.has(linkedItem.id))
+      },
+      [item.id, linkedItemsForCaptionOwnership],
+    ),
   )
   const linkedSelectionEnabled = useEditorStore((s) => s.linkedSelectionEnabled)
   const segmentOverlays = useTimelineItemOverlayStore(
@@ -166,6 +174,7 @@ export const TimelineItem = memo(function TimelineItem({
     isBroken,
     linkedItemsForCaptionOwnership,
   })
+  useAutoTranscriptCaptions({ item, caption, hasGeneratedCaptions, isBroken })
   const reverseMenuShowsUnreverse = useMemo(() => {
     if (item.type !== 'video' && item.type !== 'audio') {
       return false
@@ -637,7 +646,6 @@ export const TimelineItem = memo(function TimelineItem({
     handleFreezeFrame,
     handleGenerateAudioFromText,
     handleCaptionsFromDialog,
-    handleApplyCaptionsFromTranscript,
     handleCreatePreComp,
     handleEnterComposition,
     handleDissolveComposition,
@@ -876,11 +884,9 @@ export const TimelineItem = memo(function TimelineItem({
         captionActions={{
           canManageCaptions: caption.canManageCaptions,
           hasCaptions: hasGeneratedCaptions,
-          hasTranscript: caption.mediaHasTranscript,
           isGeneratingCaptions:
             caption.transcriptStatus === 'queued' || caption.transcriptStatus === 'transcribing',
           onOpenCaptionDialog: caption.openDialog,
-          onApplyCaptionsFromTranscript: handleApplyCaptionsFromTranscript,
           canExtractEmbeddedSubtitles: caption.canExtractEmbeddedSubtitles,
           onExtractEmbeddedSubtitles: caption.handleExtractEmbeddedSubtitles,
           canConsolidateCaptionsToSegment: caption.hasConsolidatablePerCueCaptions,

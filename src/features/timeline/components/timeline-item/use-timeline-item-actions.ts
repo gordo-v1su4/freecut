@@ -9,9 +9,7 @@ import { usePlaybackStore } from '@/shared/state/playback'
 import { useClearKeyframesDialogStore } from '@/shared/state/clear-keyframes-dialog'
 import { useTtsGenerateDialogStore } from '@/shared/state/tts-generate-dialog'
 import { getTextItemPlainText } from '@/shared/utils/text-item-spans'
-import { scheduleAfterPaint } from '@/shared/utils/schedule-after-paint'
 import {
-  isTranscriptionCancellationError,
   isTranscriptionOutOfMemoryError,
   TRANSCRIPTION_OOM_HINT,
 } from '@/shared/utils/transcription-cancellation'
@@ -19,10 +17,10 @@ import { useMediaLibraryStore } from '@/features/timeline/deps/media-library-sto
 import {
   getMediaTranscriptionModelLabel,
   mediaTranscriptionService,
+  runMediaTranscriptionJob,
 } from '@/features/timeline/deps/media-transcription-service'
 import { useTimelineStore } from '../../stores/timeline-store'
 import { useItemsStore } from '../../stores/items-store'
-import { selectReplaceableCaptionClipIds } from '../../stores/items-store-indexes'
 import { useCompositionNavigationStore } from '../../stores/composition-navigation-store'
 import {
   insertFreezeFrame,
@@ -221,58 +219,36 @@ export function useTimelineItemActions({
       const mediaId = item.mediaId
       const clipId = item.id
       const store = useMediaLibraryStore.getState()
-      const previousStatus = store.transcriptStatus.get(mediaId) ?? 'idle'
       const forceTranscription = options?.forceTranscription ?? false
       const replaceExisting = options?.replaceExisting ?? false
 
       const run = async () => {
-        let updatedTranscriptStatus = previousStatus
-
         try {
           const existingTranscript = await mediaTranscriptionService.getTranscript(mediaId)
           const needsTranscription =
             forceTranscription || !existingTranscript || existingTranscript.model !== model
 
           if (needsTranscription) {
-            store.setTranscriptStatus(mediaId, 'queued')
-            store.setTranscriptProgress(mediaId, { stage: 'queued', progress: 0 })
-
-            await mediaTranscriptionService.transcribeMedia(mediaId, {
+            const result = await runMediaTranscriptionJob(mediaId, {
               model,
               quantization: options?.quantization,
               language: options?.language || undefined,
-              onQueueStatusChange: (state) => {
-                if (state === 'queued') {
-                  store.setTranscriptStatus(mediaId, 'queued')
-                  store.setTranscriptProgress(mediaId, { stage: 'queued', progress: 0 })
-                  return
-                }
-
-                store.setTranscriptStatus(mediaId, 'transcribing')
-                store.setTranscriptProgress(mediaId, { stage: 'loading', progress: 0 })
-              },
-              onProgress: (progress) => {
-                const mediaLibraryStore = useMediaLibraryStore.getState()
-                mediaLibraryStore.setTranscriptProgress(mediaId, progress)
-              },
             })
-
-            updatedTranscriptStatus = 'ready'
-            store.setTranscriptStatus(mediaId, updatedTranscriptStatus)
-            store.clearTranscriptProgress(mediaId)
+            if (result.status === 'cancelled') {
+              return
+            }
           } else {
-            updatedTranscriptStatus = 'ready'
-            store.setTranscriptStatus(mediaId, updatedTranscriptStatus)
+            store.setTranscriptStatus(mediaId, 'ready')
             store.clearTranscriptProgress(mediaId)
           }
-          const result = await mediaTranscriptionService.insertTranscriptAsCaptions(mediaId, {
+          const result = await mediaTranscriptionService.enableTranscriptCaptions(mediaId, {
             clipIds: [clipId],
             replaceExisting,
           })
 
           const modelLabel = getMediaTranscriptionModelLabel(model)
           const successMessage = replaceExisting
-            ? result.insertedItemCount > 0
+            ? result.updatedClipCount > 0
               ? result.removedItemCount > 0
                 ? i18n.t('timeline.captions.updatedWithModel', { model: modelLabel })
                 : i18n.t('timeline.captions.refreshedWithModel', { model: modelLabel })
@@ -284,17 +260,6 @@ export function useTimelineItemActions({
             message: successMessage,
           })
         } catch (error) {
-          if (isTranscriptionCancellationError(error)) {
-            store.setTranscriptStatus(mediaId, previousStatus)
-            store.clearTranscriptProgress(mediaId)
-            return
-          }
-
-          store.setTranscriptStatus(
-            mediaId,
-            updatedTranscriptStatus === 'ready' ? 'ready' : 'error',
-          )
-          store.clearTranscriptProgress(mediaId)
           const fallbackMessage =
             error instanceof Error
               ? error.message
@@ -310,9 +275,10 @@ export function useTimelineItemActions({
         }
       }
 
-      scheduleAfterPaint(() => {
-        void run()
-      })
+      // Start directly rather than via requestAnimationFrame: rAF is suspended while the
+      // tab is hidden/occluded, which would leave caption generation hung until the tab
+      // regained focus. Transcription runs in workers, so there's no paint to wait for.
+      void run()
     },
     [item.id, item.mediaId, item.type, isBroken],
   )
@@ -328,8 +294,8 @@ export function useTimelineItemActions({
       onError?: (error: unknown) => void,
     ) => {
       handleCaptionGeneration(values.model, {
-        // The dialog path is always "generate fresh captions". Reusing the
-        // current transcript is handled explicitly by "Insert Existing Captions".
+        // The dialog path is always "generate fresh captions". Existing
+        // transcripts are auto-enabled as virtual captions when clips load.
         forceTranscription: true,
         replaceExisting: hasExistingCaptions,
         quantization: values.quantization,
@@ -339,50 +305,6 @@ export function useTimelineItemActions({
     },
     [handleCaptionGeneration],
   )
-
-  const handleApplyCaptionsFromTranscript = useCallback(() => {
-    if ((item.type !== 'video' && item.type !== 'audio') || !item.mediaId || isBroken) {
-      return
-    }
-
-    const mediaId = item.mediaId
-    const clipId = item.id
-    const replaceExisting = selectReplaceableCaptionClipIds(useItemsStore.getState()).has(clipId)
-    const store = useMediaLibraryStore.getState()
-
-    const run = async () => {
-      try {
-        const existingTranscript = await mediaTranscriptionService.getTranscript(mediaId)
-        if (!existingTranscript) {
-          throw new Error('Generate a transcript first, then add captions from it.')
-        }
-
-        const result = await mediaTranscriptionService.insertTranscriptAsCaptions(mediaId, {
-          clipIds: [clipId],
-          replaceExisting,
-        })
-
-        store.showNotification({
-          type: 'success',
-          message: replaceExisting
-            ? result.insertedItemCount > 0 || result.removedItemCount > 0
-              ? i18n.t('timeline.captions.updatedFromTranscript')
-              : i18n.t('timeline.captions.removedFromSegment')
-            : i18n.t('timeline.captions.addedFromTranscript'),
-        })
-      } catch (error) {
-        store.showNotification({
-          type: 'error',
-          message:
-            error instanceof Error
-              ? error.message
-              : i18n.t('timeline.captions.failedUpdateSegment'),
-        })
-      }
-    }
-
-    void run()
-  }, [isBroken, item.id, item.mediaId, item.type])
 
   const isSceneDetectionActive = segmentOverlays.some(
     (overlay) => overlay.id === SCENE_DETECTION_OVERLAY_ID,
@@ -702,7 +624,6 @@ export function useTimelineItemActions({
     handleFreezeFrame,
     handleGenerateAudioFromText,
     handleCaptionsFromDialog,
-    handleApplyCaptionsFromTranscript,
     handleCreatePreComp,
     handleEnterComposition,
     handleDissolveComposition,

@@ -162,6 +162,11 @@ async function run(file: File): Promise<void> {
 
   decoder.configure(decoderConfig)
 
+  // Throttle decoding progress to whole-percent steps. Audio has dozens of packets per
+  // second (thousands for a multi-minute clip) and decoding outruns realtime, so emitting
+  // per packet floods the main thread with progress events — which, when a consumer mirrors
+  // them into a store that the media library subscribes to, pins the UI in a re-render storm.
+  let lastDecodePct = -1
   try {
     const sink = new EncodedPacketSink(audioTrack)
     for await (const packet of sink.packets()) {
@@ -182,13 +187,12 @@ async function run(file: File): Promise<void> {
       decoder.decode(packet.toEncodedAudioChunk())
 
       if (duration > 0) {
-        postMain({
-          type: 'progress',
-          event: {
-            stage: 'decoding',
-            progress: Math.min(packet.timestamp / duration, 1),
-          },
-        })
+        const progress = Math.min(packet.timestamp / duration, 1)
+        const pct = Math.floor(progress * 100)
+        if (pct > lastDecodePct) {
+          lastDecodePct = pct
+          postMain({ type: 'progress', event: { stage: 'decoding', progress } })
+        }
       }
     }
 

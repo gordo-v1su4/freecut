@@ -71,12 +71,10 @@ type SceneDetectionActionsProps = ItemContextMenuSectionProps & {
 type CaptionActionsProps = ItemContextMenuSectionProps & {
   canManageCaptions?: boolean
   hasCaptions?: boolean
-  hasTranscript?: boolean
   isGeneratingCaptions?: boolean
   canExtractEmbeddedSubtitles?: boolean
   canConsolidateCaptionsToSegment?: boolean
   onOpenCaptionDialog?: () => void
-  onApplyCaptionsFromTranscript?: () => void
   onExtractEmbeddedSubtitles?: () => void
   onConsolidateCaptionsToSegment?: () => void
 }
@@ -610,12 +608,10 @@ function CaptionActions({
   t,
   canManageCaptions,
   hasCaptions,
-  hasTranscript,
   isGeneratingCaptions,
   canExtractEmbeddedSubtitles,
   canConsolidateCaptionsToSegment,
   onOpenCaptionDialog,
-  onApplyCaptionsFromTranscript,
   onExtractEmbeddedSubtitles,
   onConsolidateCaptionsToSegment,
 }: CaptionActionsProps) {
@@ -629,18 +625,6 @@ function CaptionActions({
         <>
           {isGeneratingCaptions ? (
             <ContextMenuItem disabled>{t('timeline.contextMenu.updatingCaptions')}</ContextMenuItem>
-          ) : hasTranscript && onApplyCaptionsFromTranscript ? (
-            <ContextMenuSub>
-              <ContextMenuSubTrigger>{t('timeline.contextMenu.captions')}</ContextMenuSubTrigger>
-              <ContextMenuSubContent className="w-56">
-                <ContextMenuItem onClick={onApplyCaptionsFromTranscript}>
-                  {t('timeline.contextMenu.insertExistingCaptions')}
-                </ContextMenuItem>
-                <ContextMenuItem onClick={onOpenCaptionDialog}>
-                  {captionActionLabel}
-                </ContextMenuItem>
-              </ContextMenuSubContent>
-            </ContextMenuSub>
           ) : (
             <ContextMenuItem onClick={onOpenCaptionDialog}>{captionActionLabel}</ContextMenuItem>
           )}

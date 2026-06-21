@@ -12,7 +12,7 @@ describe('mediaTranscriptionAdapterRegistry', () => {
       id: 'browser-whisper',
       label: 'Browser Whisper',
     })
-    expect(getDefaultMediaTranscriptionModel()).toBe('whisper-small')
+    expect(getDefaultMediaTranscriptionModel()).toBe('parakeet-tdt-v3')
     expect(getMediaTranscriptionModelOptions()).toContainEqual({
       value: 'whisper-small',
       label: 'Small',

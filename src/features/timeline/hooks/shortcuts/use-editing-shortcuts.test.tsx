@@ -98,6 +98,7 @@ describe('useEditingShortcuts delete ownership', () => {
     useEditorStore.setState({
       keyframeEditorOpen: false,
       keyframeEditorShortcutScopeActive: false,
+      transcriptEditorShortcutScopeActive: false,
     })
     usePlaybackStore.setState({
       currentFrame: 0,
@@ -196,6 +197,40 @@ describe('useEditingShortcuts delete ownership', () => {
     expect(deleteEvent.stopPropagation).toHaveBeenCalled()
     expect(backspaceEvent.preventDefault).toHaveBeenCalled()
     expect(backspaceEvent.stopPropagation).toHaveBeenCalled()
+  })
+
+  it('disables clip delete shortcuts while the transcript editor owns delete', () => {
+    useSelectionStore.setState({
+      selectedItemIds: ['clip-1'],
+      selectionType: 'item',
+    })
+    useEditorStore.setState({
+      transcriptEditorShortcutScopeActive: true,
+    })
+
+    render(<ShortcutHarness />)
+
+    const [, deleteCallback] = getHotkeyRegistration(HOTKEYS.DELETE_SELECTED)
+    const [, backspaceCallback] = getHotkeyRegistration(HOTKEYS.DELETE_SELECTED_ALT)
+    const [, rippleDeleteCallback] = getHotkeyRegistration(HOTKEYS.RIPPLE_DELETE)
+
+    const deleteEvent = createHotkeyEvent()
+    const backspaceEvent = createHotkeyEvent()
+    const rippleDeleteEvent = createHotkeyEvent()
+
+    act(() => {
+      deleteCallback(deleteEvent)
+      backspaceCallback(backspaceEvent)
+      rippleDeleteCallback(rippleDeleteEvent)
+    })
+
+    expect(useTimelineStore.getState().items).toHaveLength(1)
+    expect(deleteEvent.preventDefault).toHaveBeenCalled()
+    expect(deleteEvent.stopPropagation).toHaveBeenCalled()
+    expect(backspaceEvent.preventDefault).toHaveBeenCalled()
+    expect(backspaceEvent.stopPropagation).toHaveBeenCalled()
+    expect(rippleDeleteEvent.preventDefault).toHaveBeenCalled()
+    expect(rippleDeleteEvent.stopPropagation).toHaveBeenCalled()
   })
 
   it('keeps clip delete shortcuts active when the keyframe editor is closed', () => {

@@ -72,7 +72,6 @@
       "extractEmbeddedSubtitles": "Extract Embedded Subtitles",
       "generateAudioFromText": "Generate Audio From Text",
       "generateCaptions": "Generate Captions",
-      "insertExistingCaptions": "Insert Existing Captions",
       "insertFreezeFrame": "Insert Freeze Frame",
       "joinSelected": "Join Selected",
       "joinWithNext": "Join With Next",

@@ -72,7 +72,6 @@
       "extractEmbeddedSubtitles": "埋め込み字幕を抽出",
       "generateAudioFromText": "テキストから音声を生成",
       "generateCaptions": "キャプションを生成",
-      "insertExistingCaptions": "既存のキャプションを挿入",
       "insertFreezeFrame": "フリーズフレームを挿入",
       "joinSelected": "選択項目を結合",
       "joinWithNext": "次と結合",

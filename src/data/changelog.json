@@ -1,53 +1,132 @@
 {
   "current": {
     "version": "current",
-    "date": "2026-06-12",
+    "date": "2026-06-20",
     "groups": {
       "added": [
         {
-          "title": "In-app render queue — line up several exports and they render one after another, surviving a page refresh"
+          "title": "New Animate workspace — keyframe animation with a dopesheet, curve (graph) editor, and side-by-side split view"
         },
         {
-          "title": "One-click quality presets in the export dialog"
+          "title": "Save, reuse, and apply animation presets, with a built-in motion-preset library that travels with exported projects"
         },
         {
-          "title": "Exports now save to a per-project folder, with a notice showing where files land"
+          "title": "Live animated A/B previews in the transition picker, rendered through real GPU shaders"
         },
         {
-          "title": "Automatic caption styling, with per-item progress in the AI panel"
+          "title": "Live GPU-rendered previews in the effect picker"
         },
         {
-          "title": "DaVinci-style Color workspace with wheels, curves, LUT import, grade presets, bypass, and copy/paste grading"
+          "title": "Drag text and shape presets straight onto the preview canvas as overlay layers"
+        },
+        {
+          "title": "Track-size and add-track controls in the timeline header"
+        },
+        {
+          "title": "Color picker hex input with live preview"
         }
       ],
       "fixed": [
         {
-          "title": "Waveforms render from true audio peaks and stay sharp when zoomed in"
+          "title": "Ctrl+click now reliably toggles clip selection"
         },
         {
-          "title": "Waveforms no longer flash a skeleton when moving a clip to another track"
+          "title": "Middle-click pans the timeline instead of starting a clip drag"
         },
         {
-          "title": "Preview no longer jumps when entering pen/path edit mode"
-        },
-        {
-          "title": "Preview stays continuous through transitions during playback"
-        },
-        {
-          "title": "Remaining placeholder strings are now translated across all 9 languages"
+          "title": "Fixed decoder and video-source memory leaks during long editing sessions"
         }
       ],
       "improved": [
         {
-          "title": "Much smoother timeline zooming and scrolling, especially with many clips on screen"
+          "title": "Smoother playback of clips with keyframe animation"
         },
         {
-          "title": "The editor stays responsive while audio loads — decoding now runs in the background"
+          "title": "Smoother scrubbing — preview now reuses zero-copy video frames and cached text and warps"
         }
       ]
     }
   },
   "releases": [
+    {
+      "version": "2026.06.08",
+      "date": "2026-06-08",
+      "groups": {
+        "added": [
+          {
+            "title": "DaVinci-style Color workspace — color wheels, curves, LUT import, grade presets, bypass, and copy/paste grading"
+          },
+          {
+            "title": "Video scopes in the Color workspace — waveform, vectorscope, and histogram"
+          },
+          {
+            "title": "In-app user guide, linked from the toolbar"
+          }
+        ]
+      }
+    },
+    {
+      "version": "2026.06.01",
+      "date": "2026-06-01",
+      "groups": {
+        "added": [
+          {
+            "title": "Audio clips show an interactive waveform instead of a flat placeholder"
+          },
+          {
+            "title": "Hear audio while you scrub and skim the timeline"
+          },
+          {
+            "title": "Export dialog warns before risky, very long renders"
+          }
+        ]
+      }
+    },
+    {
+      "version": "2026.05.25",
+      "date": "2026-05-25",
+      "groups": {
+        "added": [
+          {
+            "title": "In-app render queue — line up several exports and they render one after another, surviving a page refresh"
+          },
+          {
+            "title": "One-click quality presets in the export dialog"
+          },
+          {
+            "title": "Exports now save to a per-project folder, with a notice showing where files land"
+          },
+          {
+            "title": "Automatic caption styling, with per-item progress in the AI panel"
+          }
+        ],
+        "fixed": [
+          {
+            "title": "Waveforms render from true audio peaks and stay sharp when zoomed in"
+          },
+          {
+            "title": "Waveforms no longer flash a skeleton when moving a clip to another track"
+          },
+          {
+            "title": "Preview no longer jumps when entering pen/path edit mode"
+          },
+          {
+            "title": "Preview stays continuous through transitions during playback"
+          },
+          {
+            "title": "Remaining placeholder strings are now translated across all 9 languages"
+          }
+        ],
+        "improved": [
+          {
+            "title": "Much smoother timeline zooming and scrolling, especially with many clips on screen"
+          },
+          {
+            "title": "The editor stays responsive while audio loads — decoding now runs in the background"
+          }
+        ]
+      }
+    },
     {
       "version": "2026.05.18",
       "date": "2026-05-18",

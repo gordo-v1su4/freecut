@@ -43,6 +43,10 @@ import { CARD_GRID_BASE, CARD_LIST_BASE, CARD_PERF_STYLE } from './card-styles'
 import { setMediaDragData, clearMediaDragData } from '../utils/drag-data-cache'
 import { proxyService } from '../services/proxy-service'
 import { mediaTranscriptionService } from '../services/media-transcription-service'
+import {
+  cancelMediaTranscriptionJob,
+  runMediaTranscriptionJob,
+} from '../services/media-transcription-runner'
 import { subtitleSidecarService } from '../services/subtitle-sidecar-service'
 import { useEditorStore } from '@/shared/state/editor'
 import { usePlaybackStore } from '@/shared/state/playback'
@@ -51,9 +55,7 @@ import {
   getTranscriptionOverallPercent,
   getTranscriptionStageLabel,
 } from '@/shared/utils/transcription-progress'
-import { scheduleAfterPaint } from '@/shared/utils/schedule-after-paint'
 import {
-  isTranscriptionCancellationError,
   isTranscriptionOutOfMemoryError,
   TRANSCRIPTION_OOM_HINT,
 } from '@/shared/utils/transcription-cancellation'
@@ -642,55 +644,33 @@ const MediaCardInternal = memo(function MediaCardInternal({
     (values: TranscribeDialogValues) => {
       const store = useMediaLibraryStore.getState()
       const targets = getTargetMediaItems()
-      const previousStatusById = new Map<string, ReturnType<typeof store.transcriptStatus.get>>(
-        targets.map((t) => [t.id, store.transcriptStatus.get(t.id) ?? 'idle']),
-      )
 
       setTranscribeErrorMessage(null)
-      for (const t of targets) {
-        store.setTranscriptStatus(t.id, 'queued')
-        store.setTranscriptProgress(t.id, { stage: 'queued', progress: 0 })
-      }
 
-      scheduleAfterPaint(() => {
-        void (async () => {
+      // Close the dialog and transcribe in the background — exactly like the transcript
+      // panel, which just calls transcribeMedia and tracks status. Keeping the modal open
+      // during the job (animated spinner + backdrop forcing continuous compositing) while
+      // the WebGPU encoder runs in the media-library view deadlocked the renderer.
+      setTranscribeDialogOpen(false)
+
+      void (async () => {
+        {
           let succeeded = 0
           let failed = 0
           let lastErrorMessage: string | null = null
 
           for (const target of targets) {
-            const previousStatus = previousStatusById.get(target.id) ?? 'idle'
             try {
-              await mediaTranscriptionService.transcribeMedia(target.id, {
+              const result = await runMediaTranscriptionJob(target.id, {
                 model: values.model,
                 quantization: values.quantization,
                 language: values.language || undefined,
-                onQueueStatusChange: (state) => {
-                  if (state === 'queued') {
-                    store.setTranscriptStatus(target.id, 'queued')
-                    store.setTranscriptProgress(target.id, { stage: 'queued', progress: 0 })
-                    return
-                  }
-                  store.setTranscriptStatus(target.id, 'transcribing')
-                  store.setTranscriptProgress(target.id, { stage: 'loading', progress: 0 })
-                },
-                onProgress: (progress) => {
-                  store.setTranscriptProgress(target.id, progress)
-                },
               })
-              store.setTranscriptStatus(target.id, 'ready')
-              store.clearTranscriptProgress(target.id)
-              succeeded += 1
-            } catch (error) {
-              if (isTranscriptionCancellationError(error)) {
-                store.setTranscriptStatus(target.id, previousStatus)
-                store.clearTranscriptProgress(target.id)
+              if (result.status === 'cancelled') {
                 continue
               }
-
-              store.setTranscriptStatus(target.id, previousStatus === 'ready' ? 'ready' : 'error')
-              store.clearTranscriptProgress(target.id)
-
+              succeeded += 1
+            } catch (error) {
               const baseMessage =
                 error instanceof Error ? error.message : i18n.t('media.card.transcribeFailed')
               lastErrorMessage = isTranscriptionOutOfMemoryError(error)
@@ -729,8 +709,8 @@ const MediaCardInternal = memo(function MediaCardInternal({
           } else {
             setTranscribeDialogOpen(false)
           }
-        })()
-      })
+        }
+      })()
     },
     [getTargetMediaItems],
   )
@@ -744,7 +724,7 @@ const MediaCardInternal = memo(function MediaCardInternal({
       return status === 'queued' || status === 'transcribing'
     })
     for (const item of targets) {
-      mediaTranscriptionService.cancelTranscription(item.id)
+      cancelMediaTranscriptionJob(item.id)
     }
   }
 
