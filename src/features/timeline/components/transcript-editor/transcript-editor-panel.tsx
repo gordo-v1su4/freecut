@@ -870,54 +870,69 @@ export function TranscriptEditorPanel({ active }: TranscriptEditorPanelProps) {
 
       {/* Pending edits bar */}
       {ignoredSpanCount > 0 && (
-        <div className="flex items-center justify-between gap-2 border-t border-border bg-secondary/30 px-2 py-1.5">
-          <span className="text-xs font-medium text-foreground">
+        <div className="@container flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-t border-border bg-secondary/30 px-2 py-1.5">
+          <span className="min-w-0 text-xs font-medium text-foreground">
             {t('transcript.pendingHidden', {
               defaultValue: '{{count}} marked for deletion · {{seconds}}s',
               count: ignoredSpanCount,
               seconds: ignoredSeconds.toFixed(1),
             })}
           </span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
             <Button
               size="sm"
               variant="ghost"
               className="h-7 gap-1.5 text-muted-foreground"
               onClick={handleRestoreAll}
+              aria-label={t('transcript.restoreAll', { defaultValue: 'Restore all' })}
+              data-tooltip={t('transcript.restoreAll', { defaultValue: 'Restore all' })}
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              {t('transcript.restoreAll', { defaultValue: 'Restore all' })}
+              <span className="hidden @[340px]:inline">
+                {t('transcript.restoreAll', { defaultValue: 'Restore all' })}
+              </span>
             </Button>
-            <Button size="sm" className="h-7 gap-1.5" onClick={handleApply}>
+            <Button
+              size="sm"
+              className="h-7 gap-1.5"
+              onClick={handleApply}
+              aria-label={t('transcript.applyEdits', { defaultValue: 'Delete marked' })}
+              data-tooltip={t('transcript.applyEdits', { defaultValue: 'Delete marked' })}
+            >
               <Trash2 className="h-3.5 w-3.5" />
-              {t('transcript.applyEdits', { defaultValue: 'Delete marked' })}
+              <span className="hidden @[340px]:inline">
+                {t('transcript.applyEdits', { defaultValue: 'Delete marked' })}
+              </span>
             </Button>
           </div>
         </div>
       )}
 
       {/* Footer actions */}
-      <div className="flex items-center justify-between gap-2 border-t border-border p-2">
-        <span className="text-xs text-muted-foreground">
+      <div className="@container flex flex-wrap items-center justify-between gap-x-2 gap-y-2 border-t border-border p-2">
+        <span className="min-w-0 text-xs text-muted-foreground">
           {selectionCount > 0
             ? t('transcript.wordsSelected', { count: selectionCount })
             : t('transcript.ignoreHint', {
                 defaultValue: 'Select words, then Backspace to mark them for deletion',
               })}
         </span>
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
           <Button
             size="sm"
             variant="ghost"
             className="h-7 gap-1.5 px-2 text-muted-foreground"
             onClick={() => handleCopyWords(false)}
             disabled={selectionCount === 0}
+            aria-label={t('transcript.copy', { defaultValue: 'Copy' })}
             data-tooltip={t('transcript.copyHint', {
               defaultValue: 'Copy words (paste onto the timeline with Ctrl+V)',
             })}
           >
             <Copy className="h-3.5 w-3.5" />
-            {t('transcript.copy', { defaultValue: 'Copy' })}
+            <span className="hidden @[340px]:inline">
+              {t('transcript.copy', { defaultValue: 'Copy' })}
+            </span>
           </Button>
           <Button
             size="sm"
@@ -925,24 +940,41 @@ export function TranscriptEditorPanel({ active }: TranscriptEditorPanelProps) {
             className="h-7 gap-1.5 px-2 text-muted-foreground"
             onClick={() => handleCopyWords(true)}
             disabled={selectionCount === 0}
+            aria-label={t('transcript.cut', { defaultValue: 'Cut' })}
+            data-tooltip={t('transcript.cut', { defaultValue: 'Cut' })}
           >
             <Scissors className="h-3.5 w-3.5" />
-            {t('transcript.cut', { defaultValue: 'Cut' })}
+            <span className="hidden @[340px]:inline">
+              {t('transcript.cut', { defaultValue: 'Cut' })}
+            </span>
           </Button>
           <Button
             size="sm"
             variant="secondary"
+            className="gap-1.5"
             onClick={handleIgnoreToggle}
             disabled={selectionCount === 0}
+            aria-label={
+              selectionAllIgnored
+                ? t('transcript.restoreSelection', { defaultValue: 'Restore' })
+                : t('transcript.ignoreSelection', { defaultValue: 'Mark for delete' })
+            }
+            data-tooltip={
+              selectionAllIgnored
+                ? t('transcript.restoreSelection', { defaultValue: 'Restore' })
+                : t('transcript.ignoreSelection', { defaultValue: 'Mark for delete' })
+            }
           >
             {selectionAllIgnored ? (
-              <Undo2 className="mr-1.5 h-3.5 w-3.5" />
+              <Undo2 className="h-3.5 w-3.5" />
             ) : (
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              <Trash2 className="h-3.5 w-3.5" />
             )}
-            {selectionAllIgnored
-              ? t('transcript.restoreSelection', { defaultValue: 'Restore' })
-              : t('transcript.ignoreSelection', { defaultValue: 'Mark for delete' })}
+            <span className="hidden @[340px]:inline">
+              {selectionAllIgnored
+                ? t('transcript.restoreSelection', { defaultValue: 'Restore' })
+                : t('transcript.ignoreSelection', { defaultValue: 'Mark for delete' })}
+            </span>
           </Button>
         </div>
       </div>
