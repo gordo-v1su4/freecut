@@ -907,6 +907,95 @@ export class EffectsPipeline {
     return outCanvas
   }
 
+  /**
+   * Like applyEffectsToVideo, but writes the result into a caller-owned
+   * GPUTexture instead of blitting to a WebGPU canvas. Keeps the effected video
+   * frame GPU-native so it can be fed straight into the GPU compositor as a
+   * layer — avoiding the per-item `drawImage(gpuCanvas -> 2D canvas)` readback
+   * the canvas-output path forces during preview compositing.
+   *
+   * Zero-copy source (importExternalTexture). Returns false if
+   * importExternalTexture is unsupported, the video isn't ready, or the output
+   * texture's dimensions don't match canvasWidth/canvasHeight.
+   */
+  applyEffectsToVideoTexture(
+    video: HTMLVideoElement,
+    effects: GpuEffectInstance[],
+    destRect: { x: number; y: number; width: number; height: number },
+    canvasWidth: number,
+    canvasHeight: number,
+    outputTexture: GPUTexture,
+  ): boolean {
+    const enabled = effects.filter((e) => e.enabled)
+    if (!this.importPipeline || !this.importBindGroupLayout || !this.importUniformBuffer)
+      return false
+    if (video.readyState < 2 || video.videoWidth < 2) return false
+
+    const w = canvasWidth
+    const h = canvasHeight
+    if (w < 2 || h < 2) return false
+    if (outputTexture.width !== w || outputTexture.height !== h) return false
+
+    this.ensurePingPong(w, h)
+    if (!this.pingTexture || !this.pongTexture) return false
+
+    let externalTexture: GPUExternalTexture
+    try {
+      externalTexture = this.device.importExternalTexture({ source: video })
+    } catch {
+      return false
+    }
+
+    const uvRect = new Float32Array([
+      destRect.x / w,
+      destRect.y / h,
+      (destRect.x + destRect.width) / w,
+      (destRect.y + destRect.height) / h,
+    ])
+    this.device.queue.writeBuffer(this.importUniformBuffer, 0, uvRect.buffer)
+
+    const commandEncoder = this.device.createCommandEncoder()
+
+    // Pass 1: import external video texture → ping (with positioning).
+    const importBindGroup = this.device.createBindGroup({
+      layout: this.importBindGroupLayout,
+      entries: [
+        { binding: 0, resource: this.sampler },
+        { binding: 1, resource: externalTexture },
+        { binding: 2, resource: { buffer: this.importUniformBuffer } },
+      ],
+    })
+    const importPass = commandEncoder.beginRenderPass({
+      colorAttachments: [
+        {
+          view: this.pingView!,
+          loadOp: 'clear',
+          clearValue: { r: 0, g: 0, b: 0, a: 0 },
+          storeOp: 'store',
+        },
+      ],
+    })
+    importPass.setPipeline(this.importPipeline)
+    importPass.setBindGroup(0, importBindGroup)
+    importPass.draw(6)
+    importPass.end()
+
+    // Pass 2+: effect chain (no-op when empty — ping already holds the frame).
+    const finalTex =
+      enabled.length > 0
+        ? this.runEffectChain(commandEncoder, enabled, this.pingTexture, this.pongTexture, w, h)
+        : this.pingTexture
+
+    commandEncoder.copyTextureToTexture(
+      { texture: finalTex },
+      { texture: outputTexture },
+      { width: w, height: h },
+    )
+    this.device.queue.submit([commandEncoder.finish()])
+    this.trackSubmittedWork()
+    return true
+  }
+
   getDevice(): GPUDevice {
     return this.device
   }

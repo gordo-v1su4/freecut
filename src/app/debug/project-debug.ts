@@ -145,7 +145,7 @@ interface ProjectDebugAPI {
       iterations?: number
       warmup?: number
       batchSize?: number
-      source?: 'texture' | 'canvas'
+      source?: 'texture' | 'canvas' | 'video' | 'video-canvas'
       readback?: boolean
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -672,7 +672,40 @@ function createDebugAPI(): ProjectDebugAPI {
         readbackCtx = new OffscreenCanvas(width, height).getContext('2d')
       }
 
+      // Video modes compare the two preview paths on the real zero-copy import:
+      //  - 'video': prototype — applyEffectsToVideoTexture (GPU-native, fed to
+      //    the GPU compositor; no per-item drawImage readback).
+      //  - 'video-canvas': current path — applyEffectsToVideo (OffscreenCanvas)
+      //    + drawImage onto a 2D canvas (the readback we want to kill).
+      // Both need a ready <video> in the DOM (seek onto a video clip first).
+      let benchVideo: HTMLVideoElement | null = null
+      if (sourceMode === 'video' || sourceMode === 'video-canvas') {
+        benchVideo =
+          [...document.querySelectorAll('video')].find(
+            (v) => v.readyState >= 2 && v.videoWidth > 1,
+          ) ?? null
+        if (!benchVideo) {
+          return { error: 'No ready <video> in DOM — seek the playhead onto a video clip first.' }
+        }
+      }
+      const fullRect = { x: 0, y: 0, width, height }
+
       const runOnce = () => {
+        if (sourceMode === 'video' && benchVideo) {
+          return pipeline.applyEffectsToVideoTexture(
+            benchVideo,
+            effects,
+            fullRect,
+            width,
+            height,
+            outputTexture,
+          )
+        }
+        if (sourceMode === 'video-canvas' && benchVideo) {
+          const out = pipeline.applyEffectsToVideo(benchVideo, effects, fullRect, width, height)
+          if (out && readbackCtx) readbackCtx.drawImage(out, 0, 0)
+          return out !== null
+        }
         if (sourceMode === 'canvas' && sourceCanvas) {
           const out = pipeline.applyEffectsToCanvas(sourceCanvas, effects)
           if (out && readbackCtx) readbackCtx.drawImage(out, 0, 0)
