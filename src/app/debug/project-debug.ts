@@ -16,6 +16,7 @@ import type {
   FixtureOptions,
   FixtureResult,
 } from '@/features/project-bundle/services/test-fixtures'
+import type { GpuEffectInstance } from '@/infrastructure/gpu-effects'
 import {
   exportProjectJson,
   exportProjectJsonString,
@@ -642,8 +643,15 @@ function createDebugAPI(): ProjectDebugAPI {
         { width, height },
       )
 
-      const params = { ...getGpuEffectDefaultParams(effectType), ...(paramOverrides ?? {}) }
-      const effects = [{ id: 'bench', type: effectType, name: effectType, enabled: true, params }]
+      // paramOverrides is intentionally loose (Record<string, unknown>) for ad-hoc
+      // debugging; cast back to the instance param shape for the pipeline call.
+      const params = {
+        ...getGpuEffectDefaultParams(effectType),
+        ...(paramOverrides ?? {}),
+      } as GpuEffectInstance['params']
+      const effects: GpuEffectInstance[] = [
+        { id: 'bench', type: effectType, name: effectType, enabled: true, params },
+      ]
 
       // `source` selects which real entry point to time, isolating cost layers:
       //  - 'texture' (default): passes only (texture -> texture). Pure shader ALU.
@@ -711,7 +719,13 @@ function createDebugAPI(): ProjectDebugAPI {
           if (out && readbackCtx) readbackCtx.drawImage(out, 0, 0)
           return out !== null
         }
-        return pipeline.applyTextureEffectsToTexture(sourceTexture, effects, outputTexture, width, height)
+        return pipeline.applyTextureEffectsToTexture(
+          sourceTexture,
+          effects,
+          outputTexture,
+          width,
+          height,
+        )
       }
 
       try {
@@ -757,6 +771,10 @@ function createDebugAPI(): ProjectDebugAPI {
       } finally {
         sourceTexture.destroy()
         outputTexture.destroy()
+        // Release the pipeline's GPU resources (ping/pong textures, uniform buffers,
+        // pipelines, bind-group caches) — otherwise each benchmark run leaks a full
+        // EffectsPipeline until GC.
+        pipeline.destroy()
       }
     },
 

@@ -915,8 +915,11 @@ export class EffectsPipeline {
    * the canvas-output path forces during preview compositing.
    *
    * Zero-copy source (importExternalTexture). Returns false if
-   * importExternalTexture is unsupported, the video isn't ready, or the output
-   * texture's dimensions don't match canvasWidth/canvasHeight.
+   * importExternalTexture is unsupported, the video isn't ready, the output
+   * texture's dimensions don't match canvasWidth/canvasHeight, or its format is
+   * not 'rgba8unorm' (the format of the internal ping/pong textures the final
+   * copyTextureToTexture reads from — mismatched formats would silently corrupt
+   * the output via an async device error).
    */
   applyEffectsToVideoTexture(
     video: HTMLVideoElement,
@@ -935,6 +938,9 @@ export class EffectsPipeline {
     const h = canvasHeight
     if (w < 2 || h < 2) return false
     if (outputTexture.width !== w || outputTexture.height !== h) return false
+    // copyTextureToTexture requires copy-compatible formats; 'rgba8unorm' is the
+    // format used by the internal ping/pong textures this copies from.
+    if (outputTexture.format !== 'rgba8unorm') return false
 
     this.ensurePingPong(w, h)
     if (!this.pingTexture || !this.pongTexture) return false

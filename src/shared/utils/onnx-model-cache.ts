@@ -67,15 +67,20 @@ async function readWithProgress(
   return merged.buffer
 }
 
+type ProgressFn = (received: number, total: number) => void
+
 /**
- * Fetch model weights as an ArrayBuffer, serving from (and populating) Cache Storage.
- * Progress is reported on both the network and the cache-hit path so the loading bar
- * behaves identically whether or not the model was already downloaded.
+ * In-flight `fetchOnnxModelBytes` requests, keyed by URL. Without this, two callers
+ * racing on the same uncached URL (a component mounting twice, or shared config/weights
+ * URLs) would each `fetch` and download multi-hundred-MB weights in parallel. Concurrent
+ * callers share the single download; their progress callbacks are fanned out via `listeners`.
  */
-export async function fetchOnnxModelBytes(
-  url: string,
-  onBytes?: (received: number, total: number) => void,
-): Promise<ArrayBuffer> {
+const inFlightModelBytes = new Map<
+  string,
+  { promise: Promise<ArrayBuffer>; listeners: Set<ProgressFn> }
+>()
+
+async function downloadOnnxModelBytes(url: string, onBytes: ProgressFn): Promise<ArrayBuffer> {
   const cache = await openCache()
   const cached = cache ? await cache.match(url).catch(() => undefined) : undefined
 
@@ -104,6 +109,35 @@ export async function fetchOnnxModelBytes(
   }
 
   return bytes
+}
+
+/**
+ * Fetch model weights as an ArrayBuffer, serving from (and populating) Cache Storage.
+ * Progress is reported on both the network and the cache-hit path so the loading bar
+ * behaves identically whether or not the model was already downloaded.
+ *
+ * Concurrent requests for the same URL are deduplicated to a single download; each
+ * caller's `onBytes` still receives progress. Returns the same ArrayBuffer instance to
+ * all in-flight callers.
+ */
+export function fetchOnnxModelBytes(url: string, onBytes?: ProgressFn): Promise<ArrayBuffer> {
+  const existing = inFlightModelBytes.get(url)
+  if (existing) {
+    if (onBytes) existing.listeners.add(onBytes)
+    return existing.promise
+  }
+
+  const listeners = new Set<ProgressFn>()
+  if (onBytes) listeners.add(onBytes)
+  const broadcast: ProgressFn = (received, total) => {
+    for (const fn of listeners) fn(received, total)
+  }
+
+  const promise = downloadOnnxModelBytes(url, broadcast).finally(() => {
+    inFlightModelBytes.delete(url)
+  })
+  inFlightModelBytes.set(url, { promise, listeners })
+  return promise
 }
 
 /** Fetch a small text asset (vocab, etc.), serving from / populating Cache Storage. */
