@@ -213,6 +213,7 @@ export function GlobalTooltip() {
           hovers snap (duration 0) via the instant flag. */}
       <div
         role="tooltip"
+        aria-hidden={!state.visible}
         data-visible={state.visible}
         className="overflow-hidden rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground opacity-0 scale-[0.97] transition-[opacity,transform] ease-out-strong data-[visible=true]:opacity-100 data-[visible=true]:scale-100"
         style={{

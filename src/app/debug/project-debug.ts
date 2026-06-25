@@ -603,10 +603,17 @@ function createDebugAPI(): ProjectDebugAPI {
         }
       }
 
-      const width = opts?.width ?? 1920
-      const height = opts?.height ?? 1080
-      const iterations = opts?.iterations ?? 200
-      const warmup = opts?.warmup ?? 30
+      // Coerce options to finite positive numbers — a stray NaN/0/negative from
+      // the console must not become an Infinity loop bound or an invalid texture
+      // size. width/height need >= 2 (the pipeline rejects < 2); warmup may be 0.
+      const toCount = (value: number | undefined, fallback: number, min: number) => {
+        const n = Math.floor(Number(value))
+        return Number.isFinite(n) && n >= min ? n : fallback
+      }
+      const width = toCount(opts?.width, 1920, 2)
+      const height = toCount(opts?.height, 1080, 2)
+      const iterations = toCount(opts?.iterations, 200, 1)
+      const warmup = toCount(opts?.warmup, 30, 0)
 
       const pipeline = await EffectsPipeline.create()
       if (!pipeline) return { error: 'WebGPU unavailable — could not create EffectsPipeline.' }
@@ -627,6 +634,16 @@ function createDebugAPI(): ProjectDebugAPI {
         format: 'rgba8unorm',
         usage,
       })
+
+      // Shared cleanup for every exit path. The pipeline + textures are allocated
+      // before the no-ready-video early return below, so that path must release
+      // them too — not just the success path's finally — or each call leaks a full
+      // EffectsPipeline (device, ping/pong textures, buffers) until GC.
+      const releaseGpuResources = () => {
+        sourceTexture.destroy()
+        outputTexture.destroy()
+        pipeline.destroy()
+      }
 
       // Non-uniform source content so texture sampling isn't degenerately cheap.
       const pixels = new Uint8Array(width * height * 4)
@@ -693,6 +710,7 @@ function createDebugAPI(): ProjectDebugAPI {
             (v) => v.readyState >= 2 && v.videoWidth > 1,
           ) ?? null
         if (!benchVideo) {
+          releaseGpuResources()
           return { error: 'No ready <video> in DOM — seek the playhead onto a video clip first.' }
         }
       }
@@ -741,7 +759,7 @@ function createDebugAPI(): ProjectDebugAPI {
         // `batchSize` passes, fence once, and divide — the fence is then a few
         // percent of the batch, not 100% of one pass. Each sample is a batch's
         // mean per-pass GPU time; the distribution comes from many batches.
-        const batchSize = opts?.batchSize ?? 50
+        const batchSize = toCount(opts?.batchSize, 50, 1)
         const batches = Math.max(1, Math.round(iterations / batchSize))
         const samples: number[] = []
         for (let b = 0; b < batches; b++) {
@@ -769,12 +787,7 @@ function createDebugAPI(): ProjectDebugAPI {
           params,
         }
       } finally {
-        sourceTexture.destroy()
-        outputTexture.destroy()
-        // Release the pipeline's GPU resources (ping/pong textures, uniform buffers,
-        // pipelines, bind-group caches) — otherwise each benchmark run leaks a full
-        // EffectsPipeline until GC.
-        pipeline.destroy()
+        releaseGpuResources()
       }
     },
 

@@ -1590,11 +1590,15 @@ export const TimelineContent = memo(function TimelineContent({
 
   // Momentum scroll/zoom loop using requestAnimationFrame
   const startMomentumScroll = useCallback(() => {
+    // Already running: the wheel handler has updated the velocity refs in place,
+    // so let the active RAF pick them up next frame. Cancelling and restarting on
+    // every wheel event during a continuous gesture would reset the frame-time to
+    // 0 each frame, corrupting the frame-rate-independent decay below.
     if (momentumIdRef.current !== null) {
-      cancelAnimationFrame(momentumIdRef.current)
+      return
     }
-    // Reset frame-time so the first momentum frame is a clean 1-frame step
-    // rather than measuring the gap since the last gesture.
+    // Starting from idle: reset frame-time so the first momentum frame is a clean
+    // 1-frame step rather than measuring the gap since the last gesture.
     momentumLastTimeRef.current = 0
 
     const momentumLoop = () => {

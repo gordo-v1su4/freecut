@@ -297,6 +297,17 @@ export const MediaSidebar = memo(function MediaSidebar() {
     if (activeTab === 'ai') setAiTabActivated(true)
   }, [activeTab])
 
+  // The collapsed panel stays mounted (clipped to 0 width, see NOTE below), so
+  // its buttons/inputs would remain in the tab order while invisible. Mark the
+  // content `inert` once the close animation settles to pull them out of tab
+  // order without yanking focus mid-animation; clear it immediately on open so
+  // the panel is interactive as it slides in. Mirrors the right sidebar's
+  // contentVisible/onAnimationComplete handoff.
+  const [contentInert, setContentInert] = useState(!leftSidebarOpen)
+  useEffect(() => {
+    if (leftSidebarOpen) setContentInert(false)
+  }, [leftSidebarOpen])
+
   // NOTE: the heavy media-library subtree is deliberately NOT gated behind
   // Activity `hidden` when collapsed. React defers the hidden→visible reveal, so
   // on open the content lands after the (ease-out) width has already raced open —
@@ -705,6 +716,9 @@ export const MediaSidebar = memo(function MediaSidebar() {
             ? { duration: 0 }
             : { type: 'tween', duration: leftSidebarOpen ? 0.26 : 0.2, ease: [0.32, 0.72, 0, 1] }
         }
+        onAnimationComplete={() => {
+          if (!leftSidebarOpen) setContentInert(true)
+        }}
       >
         {/* Promote the content to its own GPU layer so the panel's width/clip
             animation reveals it without repainting the subtree each frame. The
@@ -713,6 +727,7 @@ export const MediaSidebar = memo(function MediaSidebar() {
         <div
           className="h-full min-h-0 flex flex-col"
           style={{ width: sidebarWidth, transform: 'translateZ(0)' }}
+          inert={contentInert}
         >
           {keyframeEditorOpen ? (
             /* Dedicated keyframe editor — takes over the full sidebar column with a

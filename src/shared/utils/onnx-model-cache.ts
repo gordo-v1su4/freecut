@@ -47,9 +47,49 @@ async function readWithProgress(
 
   const total = Number(response.headers.get('content-length')) || 0
   const reader = response.body.getReader()
-  const chunks: Uint8Array[] = []
   let received = 0
 
+  // Fast path: with a known length, stream chunks straight into one
+  // preallocated buffer. Avoids retaining every chunk and then copying the whole
+  // thing again into a second full-size array — which doubles peak memory for
+  // multi-hundred-MB ONNX weights. `prefixLen` tracks bytes written into the
+  // buffer; if the server's content-length undercounts the body, overflow chunks
+  // spill into `tail` and we merge once at the end.
+  if (total > 0) {
+    const buffer = new Uint8Array(total)
+    const tail: Uint8Array[] = []
+    let prefixLen = 0
+
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (tail.length === 0 && prefixLen + value.byteLength <= total) {
+        buffer.set(value, prefixLen)
+        prefixLen += value.byteLength
+      } else {
+        tail.push(value)
+      }
+      received += value.byteLength
+      onBytes(received, total)
+    }
+
+    if (tail.length === 0) {
+      // Common case: content-length was exact (or the body was shorter).
+      return prefixLen === total ? buffer.buffer : buffer.buffer.slice(0, prefixLen)
+    }
+
+    const merged = new Uint8Array(received)
+    merged.set(buffer.subarray(0, prefixLen))
+    let offset = prefixLen
+    for (const chunk of tail) {
+      merged.set(chunk, offset)
+      offset += chunk.byteLength
+    }
+    return merged.buffer
+  }
+
+  // Fallback: unknown length — accumulate chunks, then merge once.
+  const chunks: Uint8Array[] = []
   for (;;) {
     const { done, value } = await reader.read()
     if (done) break

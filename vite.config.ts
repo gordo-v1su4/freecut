@@ -245,7 +245,10 @@ export default defineConfig({
             return 'vendor-icons'
           }
           // Animation - keep motion in its own chunk for better caching
-          if (id.includes('/node_modules/motion/') || id.includes('/node_modules/framer-motion/')) {
+          if (
+            normalizedId.includes('/node_modules/motion/') ||
+            normalizedId.includes('/node_modules/framer-motion/')
+          ) {
             return 'vendor-motion'
           }
           return undefined
