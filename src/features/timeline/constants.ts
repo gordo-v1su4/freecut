@@ -66,6 +66,9 @@ export const DRAG_OPACITY = 0.8
 export const SCROLL_SENSITIVITY = 1.5
 export const SCROLL_FRICTION = 0.8 // 0-1, lower = more friction
 export const SCROLL_MIN_VELOCITY = 0.5
+// Reference frame (60Hz) for frame-rate-independent momentum decay so scroll
+// feels identical on 60/120/144Hz displays.
+export const MOMENTUM_REF_FRAME_MS = 1000 / 60
 export const SCROLL_SMOOTHING = 0.15
 export const SCROLL_GESTURE_TIMEOUT = 100 // ms
 

@@ -24,6 +24,7 @@ import {
   SCROLL_SENSITIVITY,
   SCROLL_FRICTION,
   SCROLL_MIN_VELOCITY,
+  MOMENTUM_REF_FRAME_MS,
   SCROLL_SMOOTHING,
   SCROLL_GESTURE_TIMEOUT,
   ZOOM_FRICTION,
@@ -827,6 +828,9 @@ export const TimelineContent = memo(function TimelineContent({
   const velocityYRef = useRef(0)
   const velocityZoomRef = useRef(0)
   const momentumIdRef = useRef<number | null>(null)
+  // Last momentum-frame timestamp; drives frame-rate-independent decay so flick
+  // and smoothed-wheel scrolling feel identical on 60/120/144Hz displays.
+  const momentumLastTimeRef = useRef(0)
   const lastWheelTimeRef = useRef(0)
   const zoomCursorXRef = useRef(0) // Cursor X position (relative to container) for zoom anchor
   const pendingScrollRef = useRef<number | null>(null) // Queued scroll to apply after render
@@ -1586,9 +1590,16 @@ export const TimelineContent = memo(function TimelineContent({
 
   // Momentum scroll/zoom loop using requestAnimationFrame
   const startMomentumScroll = useCallback(() => {
+    // Already running: the wheel handler has updated the velocity refs in place,
+    // so let the active RAF pick them up next frame. Cancelling and restarting on
+    // every wheel event during a continuous gesture would reset the frame-time to
+    // 0 each frame, corrupting the frame-rate-independent decay below.
     if (momentumIdRef.current !== null) {
-      cancelAnimationFrame(momentumIdRef.current)
+      return
     }
+    // Starting from idle: reset frame-time so the first momentum frame is a clean
+    // 1-frame step rather than measuring the gap since the last gesture.
+    momentumLastTimeRef.current = 0
 
     const momentumLoop = () => {
       const container = containerRef.current
@@ -1601,10 +1612,20 @@ export const TimelineContent = memo(function TimelineContent({
       let hasScrollMomentum = false
       let hasZoomMomentum = false
 
+      // Frame-rate-independent decay: normalise to a 60Hz reference frame so the
+      // hand-tuned feel is preserved at 60Hz (frames ≈ 1) but no longer dies
+      // twice as fast on 120/144Hz displays. Clamp to avoid a jump on the first
+      // frame or after a tab stall.
+      const now = performance.now()
+      const last = momentumLastTimeRef.current
+      momentumLastTimeRef.current = now
+      const frames = last === 0 ? 1 : Math.min(4, Math.max(0, (now - last) / MOMENTUM_REF_FRAME_MS))
+      const scrollDecay = Math.pow(SCROLL_FRICTION, frames)
+
       // Apply velocity to scroll position
       if (Math.abs(velocityXRef.current) > SCROLL_MIN_VELOCITY) {
-        container.scrollLeft += velocityXRef.current
-        velocityXRef.current *= SCROLL_FRICTION
+        container.scrollLeft += velocityXRef.current * frames
+        velocityXRef.current *= scrollDecay
         hasScrollMomentum = true
       } else {
         velocityXRef.current = 0
@@ -1612,8 +1633,8 @@ export const TimelineContent = memo(function TimelineContent({
 
       const verticalScrollTarget = verticalScrollTargetRef.current
       if (verticalScrollTarget && Math.abs(velocityYRef.current) > SCROLL_MIN_VELOCITY) {
-        verticalScrollTarget.scrollTop += velocityYRef.current
-        velocityYRef.current *= SCROLL_FRICTION
+        verticalScrollTarget.scrollTop += velocityYRef.current * frames
+        velocityYRef.current *= scrollDecay
         hasScrollMomentum = true
       } else {
         velocityYRef.current = 0
@@ -1622,7 +1643,6 @@ export const TimelineContent = memo(function TimelineContent({
       // Apply velocity to zoom using logarithmic scale for symmetric feel
       // This makes zoom in and zoom out feel equally fast
       if (Math.abs(velocityZoomRef.current) > ZOOM_MIN_VELOCITY) {
-        const now = performance.now()
         const timeSinceLastApply = now - lastZoomApplyTimeRef.current
 
         // Calculate new velocity after decay

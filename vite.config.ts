@@ -244,6 +244,13 @@ export default defineConfig({
           if (id.includes('lucide-react')) {
             return 'vendor-icons'
           }
+          // Animation - keep motion in its own chunk for better caching
+          if (
+            normalizedId.includes('/node_modules/motion/') ||
+            normalizedId.includes('/node_modules/framer-motion/')
+          ) {
+            return 'vendor-motion'
+          }
           return undefined
         },
       },
