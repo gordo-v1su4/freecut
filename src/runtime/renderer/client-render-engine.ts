@@ -24,7 +24,6 @@ import { createLogger } from '@/shared/logging/logger'
 import { blobUrlManager } from '@/infrastructure/browser/blob-url-manager'
 import { resolveMediaUrl, resolveProxyUrl } from '@/runtime/renderer/deps/media-library-contract'
 import { VideoSourcePool } from '@/runtime/player/video/VideoSourcePool'
-import { recordPreviewCanvasPool } from '@/shared/logging/preview-scrub-performance'
 
 // Import subsystems
 import { buildKeyframesMap } from './canvas-keyframes'
@@ -47,10 +46,11 @@ import { createFrameCompositionSceneCache, type PreviewPathVerticesOverride, res
 import { renderItem, type CanvasSettings, type WorkerLoadedImage, type ItemRenderContext, type SubCompRenderData } from './canvas-item-renderer'
 import { ScrubbingCache } from '@/runtime/renderer/deps/preview-contract'
 import { shouldUseScrubbingFrameCache } from './render-path-optimizer'
-import { ReverseVideoFrameCache } from './reverse-video-frame-cache'
 import { resolveReverseConformedVideoItem } from '@/shared/utils/reverse-conform-item'
 import { resolveCompositionSourceFrame } from './render-span'
 import { itemHasEnabledGpuEffect, isAnimatedImage, isGifFormat, subCompositionRenderDataHasGpuEffects } from './render-engine-predicates'
+import { buildTransitionTrackOrderById, collectTopLevelMediaItems, collectTopLevelVideoItems, resolveCompositionRenderTracks } from './composition-render-inputs'
+import { CANVAS_POOL_OBSERVER_BY_RENDER_MODE, createRendererCrossFrameCaches } from './render-mode-resources'
 
 function getLog() {
   return createLogger('ClientRenderEngine')
@@ -572,25 +572,14 @@ export async function createCompositionRenderer(
   const renderMode = executionPolicy.itemRenderMode
   const isComparisonMode = rendererMode === 'comparison'
   const useProxyMedia = options.useProxyMedia === true
-  const compositionTracks =
-    options.renderText === false
-      ? composition.tracks?.map((track) => ({
-          ...track,
-          items: (track.items ?? []).filter((item) => item.type !== 'text'),
-        }))
-      : composition.tracks
-  const tracks =
-    compositionTracks?.map((track) => ({
-      ...track,
-      items: (track.items ?? []).map((item) =>
-        item.type === 'video'
-          ? resolveReverseConformedVideoItem(item, fps, {
-              mode: isComparisonMode ? 'preview' : renderMode,
-              useProxy: options.useProxyMedia,
-            })
-          : item,
-      ),
-    })) ?? []
+  const tracks = resolveCompositionRenderTracks({
+    tracks: composition.tracks,
+    fps,
+    renderText: options.renderText,
+    isComparisonMode,
+    renderMode,
+    useProxy: options.useProxyMedia,
+  })
   const getPreviewTransformOverride = options.getPreviewTransformOverride
   const getPreviewEffectsOverride = options.getPreviewEffectsOverride
   const getPreviewCornerPinOverride = options.getPreviewCornerPinOverride
@@ -600,6 +589,8 @@ export async function createCompositionRenderer(
   const domVideoElementProvider = options.domVideoElementProvider
   const hasDom = typeof document !== 'undefined'
   const previewStrictDecode = executionPolicy.usesStrictPreviewDecode
+  // Workers render through mediabunny only; the HTML5 fallback pool is main-thread.
+  const canUseFallbackVideoElements = hasDom && !previewStrictDecode
 
   const canvasSettings: CanvasSettings = {
     width: canvas.width,
@@ -632,7 +623,7 @@ export async function createCompositionRenderer(
     canvas.height,
     10,
     24,
-    renderMode === 'preview' ? recordPreviewCanvasPool : undefined,
+    CANVAS_POOL_OBSERVER_BY_RENDER_MODE[renderMode],
   )
 
   // === PERFORMANCE OPTIMIZATION: Text Measurement Cache ===
@@ -643,8 +634,7 @@ export async function createCompositionRenderer(
   // Tier 2: Per-video last-frame for instant clip boundary display
   // Tier 3: Deep RAM ImageBitmap buffer (~900 frames) with GPU promotion
   // When all tiers are warm, scrubbing doesn't decode at all.
-  const FRAME_CACHE_ENABLED = renderMode === 'preview'
-  const scrubbingCache = FRAME_CACHE_ENABLED ? new ScrubbingCache() : null
+  const scrubbingCache = renderMode === 'preview' ? new ScrubbingCache() : null
   let lastRenderedFrame: number | null = null
   let nonBlockingVideoFrameToleranceSeconds: number | undefined
   let liveDomVideoPlaybackActive = Boolean(domVideoElementProvider)
@@ -751,7 +741,7 @@ export async function createCompositionRenderer(
   const videoItemsById = new Map<string, VideoItem>()
   // Keep video elements as fallback if mediabunny fails
   const videoElements = new Map<string, HTMLVideoElement>()
-  const fallbackVideoPool = hasDom && !previewStrictDecode ? new VideoSourcePool() : null
+  const fallbackVideoPool = canUseFallbackVideoElements ? new VideoSourcePool() : null
   const fallbackVideoBySrc = new Set<string>()
   const fallbackVideoClipIdByItem = new Map<string, string>()
   let fallbackVideoClipCounter = 0
@@ -801,27 +791,30 @@ export async function createCompositionRenderer(
     videoElements.set(itemId, element)
   }
 
-  for (const track of tracks) {
-    for (const item of track.items ?? []) {
-      if (item.type === 'video') {
-        const videoItem = item as VideoItem
-        videoItemsById.set(item.id, videoItem)
-        if (videoItem.src) {
-          getLog().debug('Registering shared video extractor', {
-            itemId: item.id,
-            src: videoItem.src.substring(0, 80),
-          })
+  /**
+   * Registers one top-level video item: its extractor wrapper, and (main thread,
+   * non-comparison) the HTML5 fallback element used when mediabunny fails.
+   */
+  const registerTopLevelVideoItem = (videoItem: VideoItem): void => {
+    videoItemsById.set(videoItem.id, videoItem)
+    if (!videoItem.src) return
 
-          // Create item-bound wrapper backed by a shared per-source extractor pool.
-          registerVideoItem(item.id, videoItem.src)
+    getLog().debug('Registering shared video extractor', {
+      itemId: videoItem.id,
+      src: videoItem.src.substring(0, 80),
+    })
 
-          // Also create fallback video element in case mediabunny fails (main thread only).
-          if (hasDom && !previewStrictDecode && !isComparisonMode) {
-            bindFallbackVideoElement(item.id, videoItem.src)
-          }
-        }
-      }
+    // Create item-bound wrapper backed by a shared per-source extractor pool.
+    registerVideoItem(videoItem.id, videoItem.src)
+
+    // Also create fallback video element in case mediabunny fails (main thread only).
+    if (canUseFallbackVideoElements && !isComparisonMode) {
+      bindFallbackVideoElement(videoItem.id, videoItem.src)
     }
+  }
+
+  for (const videoItem of collectTopLevelVideoItems(tracks)) {
+    registerTopLevelVideoItem(videoItem)
   }
 
   let isDisposed = false
@@ -829,16 +822,11 @@ export async function createCompositionRenderer(
   // Image elements and animated frames are loaded through per-item promises so
   // comparison panels can warm only the exact target dependencies.
   const imageElements = new Map<string, WorkerLoadedImage>()
-  const imageLoadPromises: Promise<void>[] = []
   const imageLoadByKey = new Map<string, Promise<void>>()
   const animatedImageLoadByKey = new Map<string, Promise<void>>()
-  const imageItems: ImageItem[] = []
-  const gifItems: ImageItem[] = []
-  const webpItems: ImageItem[] = []
   const gifFramesMap = new Map<string, CachedGifFrames>()
 
   // Lottie animations: rendered on demand via dotlottie-web (no frame pre-extraction).
-  const lottieItems: LottieItem[] = []
   const lottieProvider = new LottieExportProvider()
 
   // Preview only: a persistent renderer outlives edits, so when a top-level
@@ -1015,37 +1003,20 @@ export async function createCompositionRenderer(
     )
   }
 
-  for (const track of tracks) {
-    for (const item of track.items ?? []) {
-      if (item.type === 'lottie' && (item.src || item.mediaId)) {
-        lottieItems.push(item as LottieItem)
-      }
-      if (item.type === 'image' && (item.src || item.mediaId)) {
-        const imageItem = item as ImageItem
-        imageItems.push(imageItem)
-        if (isAnimatedImage(imageItem)) {
-          if (isGifFormat(imageItem)) {
-            gifItems.push(imageItem)
-          } else {
-            webpItems.push(imageItem)
-          }
-        }
-        if (!isComparisonMode) {
-          imageLoadPromises.push(ensureImageItemReady(imageItem))
-        }
-      }
-    }
-  }
+  const { lottieItems, imageItems, gifItems, webpItems } = collectTopLevelMediaItems(tracks)
+  // Comparison panels warm only the exact target dependencies, so they skip the
+  // top-level image loads and pick their own in `preload`.
+  const imageLoadPromises = isComparisonMode
+    ? []
+    : imageItems.map((imageItem) => ensureImageItemReady(imageItem))
 
   // Collect adjustment layers
   const adjustmentLayers = renderPlan.visibleAdjustmentLayers as AdjustmentLayerWithTrackOrder[]
 
-  const transitionTrackOrderById = new Map<string, number>()
-  for (const window of renderPlan.transitionWindows) {
-    const transitionTrackId = window.transition.trackId
-    const trackOrder = transitionTrackId ? (trackOrderMap.get(transitionTrackId) ?? 0) : 0
-    transitionTrackOrderById.set(window.transition.id, trackOrder)
-  }
+  const transitionTrackOrderById = buildTransitionTrackOrderById(
+    renderPlan.transitionWindows,
+    trackOrderMap,
+  )
 
   const maskSettings: MaskCanvasSettings = canvasSettings
   const maskFrameIndex = buildMaskFrameIndex(tracks, maskSettings)
@@ -1113,7 +1084,8 @@ export async function createCompositionRenderer(
   let prewarmCanvas: OffscreenCanvas | HTMLCanvasElement | null = null
   let prewarmCtx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null = null
   let prewarmAttempted = false
-  const reverseVideoFrameCache = renderMode === 'export' ? new ReverseVideoFrameCache() : undefined
+  const { reverseVideoFrameCache, textRasterCache, cornerPinWarpCache } =
+    createRendererCrossFrameCaches(renderMode)
 
   // Build the shared ItemRenderContext used by canvas-item-renderer functions
   const itemRenderContext: ItemRenderContext = {
@@ -1181,11 +1153,10 @@ export async function createCompositionRenderer(
     gpuMaskCombinePipeline: null,
     gpuTextTextureCache: gpu.textTextureCache,
     gpuBitmapMaskTextureCache: gpu.bitmapMaskTextureCache,
-    // Cross-frame text raster cache (preview scrub). Only populated in preview
-    // mode; export renders each frame once so caching there only wastes RAM.
-    textRasterCache: renderMode === 'preview' ? new Map() : undefined,
-    // Cross-frame corner-pin warp cache for text (preview scrub only).
-    cornerPinWarpCache: renderMode === 'preview' ? new Map() : undefined,
+    // Cross-frame caches keyed on content, not frame: preview keeps them across
+    // scrubs, export renders each frame once.
+    textRasterCache,
+    cornerPinWarpCache,
     gpuScratchTexturePool: {
       acquire: (width, height, format) =>
         gpu.texturePool?.acquire(width, height, format) ??
@@ -1382,11 +1353,15 @@ export async function createCompositionRenderer(
   }
   itemRenderContext.ensureVideoItemReady = ensureVideoItemReady
 
-  // Wire up pre-decoded bitmap cache from the decoder prewarm worker.
-  // Resolve the adapter before returning the preview renderer. The first held
-  // scrub may call renderFrame immediately; a fire-and-forget import lets that
-  // first frame enter blocking MediaBunny before cancellation is wired.
-  if (renderMode === 'preview' || isComparisonMode) {
+  /**
+   * Wires the pre-decoded bitmap cache from the decoder prewarm worker. Resolves
+   * the adapter before the factory returns: the first held scrub may call
+   * renderFrame immediately, and only a resolved (already imported) adapter lets
+   * that frame enter blocking MediaBunny with cancellation wired. Callers gate
+   * this on preview/comparison; the inner preview gate keeps comparison frames on
+   * the shared decode-session lookups only.
+   */
+  const wirePreviewDecodeAdapter = async (): Promise<void> => {
     try {
       const {
         getCachedPredecodedBitmap,
@@ -1413,6 +1388,10 @@ export async function createCompositionRenderer(
       // Preview can still fall back to its ordinary media path if the optional
       // worker adapter is unavailable in a constrained runtime.
     }
+  }
+
+  if (renderMode === 'preview' || isComparisonMode) {
+    await wirePreviewDecodeAdapter()
   }
 
   const reportPreviewDecodeCoverage = (expectedReadyItemIds: Iterable<string>) => {

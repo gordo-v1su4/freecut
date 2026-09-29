@@ -11,20 +11,27 @@
  * progress reporting and cancellation.
  */
 
-import type { CompositionInputProps, SubtitleExportMode } from '@/types/export'
+import type { CompositionInputProps } from '@/types/export'
 import type { ClientExportSettings, RenderProgress, ClientRenderResult } from './client-renderer'
-import { createOutputFormat, getDefaultAudioCodec, getMimeType } from './client-renderer'
+import { createOutputFormat, getMimeType } from './client-renderer'
 import { createMediabunnyInputSource } from '@/infrastructure/browser/mediabunny-input-source'
 import { createLogger } from '@/shared/logging/logger'
 import { ensureAudioEncoderSupport } from '@/shared/media/audio-encoder-support'
 import { DEFAULT_PROJECT_HEIGHT, DEFAULT_PROJECT_WIDTH } from '@/shared/projects/defaults'
-import { getPacketRemuxPlan } from './packet-remux-plan'
 import {
-  buildTranscriptSubtitleWebVtt,
-  omitTranscriptSubtitleItemsForSoftSubtitleExport,
-  resolveSubtitleExportPlan,
-} from './embedded-subtitle-export'
+  getPacketRemuxPlan,
+  isRemuxEligibleSourceAudio,
+  isRemuxEligibleSourceVideo,
+} from './packet-remux-plan'
 import { createExportOutputTarget } from './export-output-target'
+import {
+  resolveAudioOnlyCodec,
+  resolveMuxedAudioCodec,
+  resolveRenderScalePlan,
+  resolveTranscriptSubtitleExport,
+  shouldUseWindowedAudioProcessing,
+  summarizeCompositionForRender,
+} from './render-export-policy'
 
 // Subsystems
 import { createCompositionRenderer } from './client-render-engine'
@@ -209,14 +216,6 @@ async function feedAudioPacketCopy(params: {
   }
 }
 
-function getAudioOnlyCodec(
-  container: ClientExportSettings['container'],
-): 'mp3' | 'aac' | 'pcm-s16' {
-  if (container === 'mp3') return 'mp3'
-  if (container === 'aac') return 'aac'
-  return 'pcm-s16'
-}
-
 async function registerMp3EncoderIfNeeded(container: ClientExportSettings['container']) {
   if (container !== 'mp3') return
   try {
@@ -245,6 +244,105 @@ async function assertAudioOnlyEncoderSupported(
     )
   }
   getLog().info(`Using ${codec.toUpperCase()} codec`)
+}
+
+/**
+ * Build the encoded audio track for a video export: pick the container's
+ * muxable codec, confirm this browser can encode it, then construct and
+ * register the sample source. The caller keeps ownership of the output target,
+ * so a failure here just throws into its existing discard-and-rethrow handling.
+ */
+async function addEncodedAudioTrack(params: {
+  output: InstanceType<MediabunnyModule['Output']>
+  AudioSampleSource: MediabunnyModule['AudioSampleSource']
+  settings: ClientExportSettings
+  durationSeconds: number
+  useWindowedAudio: boolean
+}): Promise<InstanceType<MediabunnyModule['AudioSampleSource']>> {
+  const { output, AudioSampleSource, settings, durationSeconds, useWindowedAudio } = params
+
+  // Select the container-compatible audio codec for the muxer.
+  const audioCodec = resolveMuxedAudioCodec(settings.container)
+  const supported = await ensureAudioEncoderSupport(audioCodec, {
+    bitrate: settings.audioBitrate ?? 192_000,
+    numberOfChannels: 2,
+    sampleRate: 48_000,
+  })
+  if (!supported) {
+    throw new Error(
+      `${audioCodec.toUpperCase()} audio encoding is not supported in this browser. ` +
+        'Choose WebM or MKV with Opus audio.',
+    )
+  }
+
+  // Create audio source for encoding
+  const audioSource = new AudioSampleSource({
+    codec: audioCodec,
+    bitrate: settings.audioBitrate ?? 192000,
+  })
+
+  // Add audio track to output (audio data fed after start())
+  output.addAudioTrack(audioSource)
+  getLog().info('Audio track added to output', {
+    duration: durationSeconds,
+    channels: 2,
+    sampleRate: 48_000,
+    codec: audioCodec,
+    windowed: useWindowedAudio,
+  })
+
+  return audioSource
+}
+
+/**
+ * Encode-phase reporting for the audio task. Audio and video advance together,
+ * so once frames start rendering the audio phases stop being worth reporting.
+ */
+function createAudioProgressReporter(params: {
+  onProgress: (progress: RenderProgress) => void
+  totalFrames: number
+  durationSeconds: number
+  hasVideoRenderingStarted: () => boolean
+}): (completedSeconds: number, mode: 'copying' | 'processing') => void {
+  const { onProgress, totalFrames, durationSeconds, hasVideoRenderingStarted } = params
+
+  return (completedSeconds, mode) => {
+    if (hasVideoRenderingStarted()) return
+    const boundedSeconds = Math.min(durationSeconds, completedSeconds)
+    const progress = 20 + Math.round((boundedSeconds / durationSeconds) * 15)
+    onProgress({
+      phase: 'preparing',
+      progress,
+      totalFrames,
+      message: `${mode === 'copying' ? 'Copying' : 'Processing'} audio ${formatClock(boundedSeconds)} / ${formatClock(durationSeconds)}`,
+    })
+  }
+}
+
+/**
+ * Register the soft (muxed) transcript subtitle track and hand it back so the
+ * caller can flush the WebVTT payload after `output.start()`.
+ */
+function addTranscriptSubtitleTrack(params: {
+  output: InstanceType<MediabunnyModule['Output']>
+  TextSubtitleSource: MediabunnyModule['TextSubtitleSource']
+  container: ClientExportSettings['container']
+}): InstanceType<MediabunnyModule['TextSubtitleSource']> {
+  const { output, TextSubtitleSource, container } = params
+
+  const transcriptSubtitleSource = new TextSubtitleSource('webvtt')
+  output.addSubtitleTrack(transcriptSubtitleSource, {
+    languageCode: 'eng',
+    name: 'Transcript',
+    disposition: {
+      default: true,
+    },
+  })
+  getLog().info('Transcript subtitles will be embedded as WebVTT track', {
+    container,
+  })
+
+  return transcriptSubtitleSource
 }
 
 export interface RenderEngineOptions {
@@ -312,29 +410,29 @@ async function tryPacketRemuxComposition(
 
   try {
     const videoTrack = await input.getPrimaryVideoTrack()
-    if (!videoTrack?.codec) {
-      return null
-    }
-
-    const supportedVideoCodecs = validationFormat.getSupportedVideoCodecs?.() ?? []
-    if (!supportedVideoCodecs.includes(videoTrack.codec) || videoTrack.codec !== settings.codec) {
-      return null
-    }
-
     if (
-      videoTrack.displayWidth !== settings.resolution.width ||
-      videoTrack.displayHeight !== settings.resolution.height
+      !isRemuxEligibleSourceVideo(
+        {
+          codec: videoTrack?.codec ?? null,
+          displayWidth: videoTrack?.displayWidth ?? 0,
+          displayHeight: videoTrack?.displayHeight ?? 0,
+          getSupportedCodecs: () => validationFormat.getSupportedVideoCodecs?.() ?? [],
+        },
+        settings,
+      )
     ) {
       return null
     }
 
     if (plan.includeAudio) {
       const audioTrack = await input.getPrimaryAudioTrack()
-      if (audioTrack?.codec) {
-        const supportedAudioCodecs = validationFormat.getSupportedAudioCodecs?.() ?? []
-        if (!supportedAudioCodecs.includes(audioTrack.codec)) {
-          return null
-        }
+      if (
+        !isRemuxEligibleSourceAudio({
+          codec: audioTrack?.codec ?? null,
+          getSupportedCodecs: () => validationFormat.getSupportedAudioCodecs?.() ?? [],
+        })
+      ) {
+        return null
       }
     }
 
@@ -456,9 +554,7 @@ export async function renderComposition(options: RenderEngineOptions): Promise<C
     width: settings.resolution.width,
     height: settings.resolution.height,
     codec: settings.codec,
-    tracksCount: composition.tracks?.length ?? 0,
-    hasTransitions: (composition.transitions?.length ?? 0) > 0,
-    hasKeyframes: (composition.keyframes?.length ?? 0) > 0,
+    ...summarizeCompositionForRender(composition),
   })
 
   // Validate inputs
@@ -506,10 +602,11 @@ export async function renderComposition(options: RenderEngineOptions): Promise<C
   })
 
   const compositionHasAudio = await canvasAudio.hasAudioContent(composition)
-  const useWindowedAudio =
-    compositionHasAudio &&
-    durationInFrames / fps >= 5 * 60 &&
-    canvasAudio.supportsWindowedAudioProcessing(composition)
+  const useWindowedAudio = shouldUseWindowedAudioProcessing({
+    hasAudioContent: compositionHasAudio,
+    durationSeconds,
+    supportsWindowedProcessing: () => canvasAudio.supportsWindowedAudioProcessing(composition),
+  })
 
   onProgress({
     phase: 'preparing',
@@ -539,20 +636,17 @@ export async function renderComposition(options: RenderEngineOptions): Promise<C
   })
 
   // Subtitle handling per mode — see resolveSubtitleExportPlan for the matrix.
-  const subtitleMode: SubtitleExportMode = settings.subtitleMode ?? 'burn'
-  const transcriptSubtitleVtt =
-    subtitleMode === 'embedded' ? buildTranscriptSubtitleWebVtt(composition) : null
-  const { embedTranscriptSubtitles, burnInSubtitles, fallbackToBurnIn } = resolveSubtitleExportPlan(
-    {
-      subtitleMode,
-      container: settings.container,
-      supportsWebVttSubtitles: format.getSupportedSubtitleCodecs().includes('webvtt'),
-      hasTranscriptVtt: transcriptSubtitleVtt !== null,
-    },
-  )
-  const renderCompositionInput = burnInSubtitles
-    ? composition
-    : omitTranscriptSubtitleItemsForSoftSubtitleExport(composition)
+  const {
+    embedTranscriptSubtitles,
+    fallbackToBurnIn,
+    transcriptSubtitleVtt,
+    renderCompositionInput,
+  } = resolveTranscriptSubtitleExport({
+    composition,
+    subtitleMode: settings.subtitleMode,
+    container: settings.container,
+    supportsWebVttSubtitles: format.getSupportedSubtitleCodecs().includes('webvtt'),
+  })
 
   if (fallbackToBurnIn) {
     getLog().warn(
@@ -561,31 +655,14 @@ export async function renderComposition(options: RenderEngineOptions): Promise<C
     )
   }
 
-  let transcriptSubtitleSource: InstanceType<typeof TextSubtitleSource> | null = null
-  if (embedTranscriptSubtitles) {
-    transcriptSubtitleSource = new TextSubtitleSource('webvtt')
-    output.addSubtitleTrack(transcriptSubtitleSource, {
-      languageCode: 'eng',
-      name: 'Transcript',
-      disposition: {
-        default: true,
-      },
-    })
-    getLog().info('Transcript subtitles will be embedded as WebVTT track', {
-      container: settings.container,
-    })
-  }
+  const transcriptSubtitleSource = embedTranscriptSubtitles
+    ? addTranscriptSubtitleTrack({ output, TextSubtitleSource, container: settings.container })
+    : null
 
-  // Get composition (project) resolution – this is what we render at
-  const compositionWidth = renderCompositionInput.width ?? settings.resolution.width
-  const compositionHeight = renderCompositionInput.height ?? settings.resolution.height
-
-  // Export resolution – this is what we output (may be different from composition)
-  const exportWidth = settings.resolution.width
-  const exportHeight = settings.resolution.height
-
-  // Check if we need to scale (export resolution differs from composition)
-  const needsScaling = exportWidth !== compositionWidth || exportHeight !== compositionHeight
+  // Get composition (project) resolution – this is what we render at, and the
+  // export resolution we output, plus whether the two differ.
+  const { compositionWidth, compositionHeight, exportWidth, exportHeight, needsScaling } =
+    resolveRenderScalePlan(renderCompositionInput, settings.resolution)
 
   getLog().info('Resolution settings', {
     composition: { width: compositionWidth, height: compositionHeight },
@@ -652,39 +729,12 @@ export async function renderComposition(options: RenderEngineOptions): Promise<C
     getLog().info('Audio will be copied without decoding or re-encoding')
   } else if (compositionHasAudio) {
     try {
-      // Select the container-compatible audio codec for the muxer.
-      const audioCodec = getDefaultAudioCodec(settings.container)
-      if (audioCodec !== 'aac' && audioCodec !== 'opus') {
-        throw new Error(
-          `Unsupported audio codec ${audioCodec} for ${settings.container.toUpperCase()} export`,
-        )
-      }
-      const supported = await ensureAudioEncoderSupport(audioCodec, {
-        bitrate: settings.audioBitrate ?? 192_000,
-        numberOfChannels: 2,
-        sampleRate: 48_000,
-      })
-      if (!supported) {
-        throw new Error(
-          `${audioCodec.toUpperCase()} audio encoding is not supported in this browser. ` +
-            'Choose WebM or MKV with Opus audio.',
-        )
-      }
-
-      // Create audio source for encoding
-      audioSource = new AudioSampleSource({
-        codec: audioCodec,
-        bitrate: settings.audioBitrate ?? 192000,
-      })
-
-      // Add audio track to output (audio data fed after start())
-      output.addAudioTrack(audioSource)
-      getLog().info('Audio track added to output', {
-        duration: durationInFrames / fps,
-        channels: 2,
-        sampleRate: 48_000,
-        codec: audioCodec,
-        windowed: useWindowedAudio,
+      audioSource = await addEncodedAudioTrack({
+        output,
+        AudioSampleSource,
+        settings,
+        durationSeconds,
+        useWindowedAudio,
       })
     } catch (error) {
       getLog().error('Failed to setup audio track', { error })
@@ -714,17 +764,12 @@ export async function renderComposition(options: RenderEngineOptions): Promise<C
 
   let videoRenderingStarted = false
   let audioError: unknown
-  const reportAudioProgress = (completedSeconds: number, mode: 'copying' | 'processing') => {
-    if (videoRenderingStarted) return
-    const boundedSeconds = Math.min(durationSeconds, completedSeconds)
-    const progress = 20 + Math.round((boundedSeconds / durationSeconds) * 15)
-    onProgress({
-      phase: 'preparing',
-      progress,
-      totalFrames,
-      message: `${mode === 'copying' ? 'Copying' : 'Processing'} audio ${formatClock(boundedSeconds)} / ${formatClock(durationSeconds)}`,
-    })
-  }
+  const reportAudioProgress = createAudioProgressReporter({
+    onProgress,
+    totalFrames,
+    durationSeconds,
+    hasVideoRenderingStarted: () => videoRenderingStarted,
+  })
 
   // Audio and video now advance together. Mediabunny's source backpressure
   // bounds encoded data while windowed processing bounds decoded PCM memory.
@@ -1023,8 +1068,12 @@ export async function renderAudioOnly(options: AudioRenderOptions): Promise<Clie
     throw new Error('No audio content found in composition')
   }
 
-  const useWindowedAudio =
-    durationSeconds >= 5 * 60 && canvasAudio.supportsWindowedAudioProcessing(composition)
+  // Audio content was validated above, so only the duration/windowing gates remain.
+  const useWindowedAudio = shouldUseWindowedAudioProcessing({
+    hasAudioContent: true,
+    durationSeconds,
+    supportsWindowedProcessing: () => canvasAudio.supportsWindowedAudioProcessing(composition),
+  })
 
   onProgress({
     phase: 'preparing',
@@ -1033,7 +1082,7 @@ export async function renderAudioOnly(options: AudioRenderOptions): Promise<Clie
     message: 'Creating encoder...',
   })
 
-  const audioCodec = getAudioOnlyCodec(settings.container)
+  const audioCodec = resolveAudioOnlyCodec(settings.container)
   const audioBitrate = settings.audioBitrate ?? 192_000
   await assertAudioOnlyEncoderSupported(audioCodec, audioBitrate)
 

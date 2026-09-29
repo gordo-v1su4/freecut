@@ -47,7 +47,7 @@ function getMotionTimelinePanGesture(
   return { axis, delta: axis === 'x' ? event.deltaX : event.deltaY }
 }
 
-export function getMotionPlayheadEdgeScrollVelocity(
+function getMotionPlayheadEdgeScrollVelocity(
   clientX: number,
   bounds: Pick<DOMRect, 'left' | 'right'>,
 ): number {
@@ -68,7 +68,7 @@ export function getMotionPlayheadEdgeScrollVelocity(
   return 0
 }
 
-export function panMotionTimeViewport(
+function panMotionTimeViewport(
   viewport: MotionTimeViewport,
   panPixels: number,
   timelineWidth: number,
@@ -83,6 +83,149 @@ export function panMotionTimeViewport(
     },
     totalFrames,
     false,
+  )
+}
+
+/** What one animation frame of a playhead scrub means for the axis. */
+export interface MotionScrubPanStep {
+  /** Viewport the rest of the frame should use; the previous one when nothing panned. */
+  viewport: MotionTimeViewport
+  /** Reading to store for the next frame's elapsed time; `null` once the pointer stops panning. */
+  clock: number | null
+  /** Whether the pane is still auto-panning and wants another animation frame. */
+  panning: boolean
+}
+
+/**
+ * Advance a scrubbed viewport by one frame of edge auto-scroll.
+ *
+ * Wraps `resolveMotionScrubViewport` with the loop's own bookkeeping — the pan
+ * clock and whether to keep requesting frames — so the caller only has to store
+ * what it gets back. The axis ends at the authored comp end when the comp has
+ * one: a layer may overhang the duration, but there is no frame past the comp.
+ */
+export function advanceMotionScrubPan(input: {
+  viewport: MotionTimeViewport
+  clientX: number
+  bounds: Pick<DOMRect, 'left' | 'right' | 'width'>
+  compositionEndFrame: number | null
+  durationInFrames: number
+  previousTimestamp: number | null
+  timestamp: number
+}): MotionScrubPanStep {
+  const { viewport, clientX, bounds, compositionEndFrame, durationInFrames } = input
+  const pannedViewport = resolveMotionScrubViewport({
+    viewport,
+    clientX,
+    bounds,
+    totalFrames: compositionEndFrame ?? durationInFrames,
+    previousTimestamp: input.previousTimestamp,
+    timestamp: input.timestamp,
+  })
+  if (!pannedViewport) return { viewport, clock: null, panning: false }
+  const panning =
+    pannedViewport.startFrame !== viewport.startFrame ||
+    pannedViewport.endFrame !== viewport.endFrame
+  return {
+    viewport: panning ? pannedViewport : viewport,
+    clock: input.timestamp,
+    panning,
+  }
+}
+
+/** What a scrubbed frame publishes to the preview, if anything. */
+export interface MotionScrubFramePaint {
+  /** Frame worth storing and previewing; `null` when it repeats the last one. */
+  frame: number | null
+  /** Viewport the drag visuals should follow; `null` when the committed one already matches. */
+  viewport: MotionTimeViewport | null
+  /** Pointer progress across the pane, when the pane can be measured. */
+  progress: number | undefined
+}
+
+/**
+ * Decide what a scrubbed frame publishes.
+ *
+ * The preview frame stays integer-quantized while the viewport advances by
+ * fractional frames, so progress is only handed over when the drag actually has
+ * a moved viewport to lock its visuals to.
+ */
+export function resolveMotionScrubFramePaint(input: {
+  frame: number | null
+  latestFrame: number | null
+  viewport: MotionTimeViewport
+  committedViewport: MotionTimeViewport
+  clientX: number
+  bounds: Pick<DOMRect, 'left' | 'width'>
+}): MotionScrubFramePaint {
+  const publishes = input.frame !== null && input.frame !== input.latestFrame
+  const locksViewport = input.viewport !== input.committedViewport
+  return {
+    frame: publishes ? input.frame : null,
+    viewport: locksViewport ? input.viewport : null,
+    progress:
+      locksViewport && input.bounds.width > 0
+        ? (input.clientX - input.bounds.left) / input.bounds.width
+        : undefined,
+  }
+}
+
+/**
+ * Snap a panned viewport to a terminal edge once the axis has run past it.
+ *
+ * Fractional motion is preserved inside the range; only the ends are
+ * canonicalized. Floating-point residue at 0/comp-end otherwise leaves the
+ * imperative preview a fraction away from the settled boundary.
+ */
+function clampMotionScrubEdge(
+  viewport: MotionTimeViewport,
+  velocity: number,
+  totalFrames: number,
+  visibleRange: number,
+): MotionTimeViewport {
+  const boundaryVisibleRange =
+    Math.abs(visibleRange - Math.round(visibleRange)) < 1e-9
+      ? Math.round(visibleRange)
+      : visibleRange
+  if (velocity < 0 && viewport.startFrame <= Number.EPSILON * totalFrames * 4) {
+    return { startFrame: 0, endFrame: boundaryVisibleRange }
+  }
+  if (velocity > 0 && totalFrames - viewport.endFrame <= Number.EPSILON * totalFrames * 4) {
+    return { startFrame: Math.max(0, totalFrames - boundaryVisibleRange), endFrame: totalFrames }
+  }
+  return viewport
+}
+
+/**
+ * One animation frame of viewport motion while the playhead is scrubbed.
+ *
+ * `null` means the pointer is not held deep enough into a pane edge to pan (or
+ * the pane has no measurable width), which is also the caller's signal that the
+ * scrub clock has stalled. The caller owns the clock: it hands over the reading
+ * it stored on the previous frame so this stays a pure function of the pointer
+ * position and the elapsed frame time.
+ */
+function resolveMotionScrubViewport(input: {
+  viewport: MotionTimeViewport
+  clientX: number
+  bounds: Pick<DOMRect, 'left' | 'right' | 'width'>
+  totalFrames: number
+  previousTimestamp: number | null
+  timestamp: number
+}): MotionTimeViewport | null {
+  const { viewport, clientX, bounds, totalFrames, previousTimestamp, timestamp } = input
+  const visibleRange = Math.max(1, viewport.endFrame - viewport.startFrame)
+  const velocity =
+    visibleRange < totalFrames ? getMotionPlayheadEdgeScrollVelocity(clientX, bounds) : 0
+  if (velocity === 0 || bounds.width <= 0) return null
+
+  const elapsedSeconds =
+    Math.min(32, Math.max(0, timestamp - (previousTimestamp ?? timestamp - 1000 / 60))) / 1000
+  return clampMotionScrubEdge(
+    panMotionTimeViewport(viewport, velocity * elapsedSeconds, bounds.width, totalFrames),
+    velocity,
+    totalFrames,
+    visibleRange,
   )
 }
 
@@ -358,4 +501,88 @@ export function createMotionTimeViewportController(
   }
 
   return { cancel, prepareNavigatorPreview, attach }
+}
+
+/**
+ * The frame a pointer position addresses on the axis.
+ *
+ * The playhead stays inside the comp, After Effects style — the axis may run
+ * past the comp end to show an overhanging layer, but there is no frame out
+ * there to sit on. `null` means the surface has no measurable width.
+ */
+export function resolveMotionFrameFromClientX(input: {
+  clientX: number
+  bounds: Pick<DOMRect, 'left' | 'width'>
+  viewport: MotionTimeViewport
+  /** Last frame the axis addresses, inclusive. */
+  maxFrame: number
+}): number | null {
+  const { clientX, bounds, viewport, maxFrame } = input
+  if (bounds.width <= 0) return null
+  const frameRange = Math.max(1, viewport.endFrame - viewport.startFrame)
+  return Math.max(
+    0,
+    Math.min(
+      maxFrame - 1,
+      Math.round(viewport.startFrame + ((clientX - bounds.left) / bounds.width) * frameRange),
+    ),
+  )
+}
+
+/** What releasing a playhead scrub commits. */
+export interface MotionScrubRelease {
+  /** Frame worth committing; `null` when the gesture produced none. */
+  frame: number | null
+  /** Viewport worth committing; `null` when the committed one already matches. */
+  viewport: MotionTimeViewport | null
+}
+
+/**
+ * Box of the scrub surface at release, when there is one to measure.
+ *
+ * A pointer that was cancelled mid-gesture carries no usable coordinate, and an
+ * unmounted surface has none to measure, so both leave the release without a
+ * box; the caller then falls back on the last frame the loop previewed.
+ */
+export function resolveMotionScrubReleaseBounds(input: {
+  cancelled: boolean
+  surface: HTMLElement | null
+}): Pick<DOMRect, 'left' | 'width'> | null {
+  if (input.cancelled || !input.surface) return null
+  return input.surface.getBoundingClientRect()
+}
+
+/**
+ * Decide what a scrub release commits.
+ *
+ * The axis is only committed once the scrub actually panned it; a release that
+ * kept the axis where the render already had it leaves it to the render.
+ */
+export function resolveMotionScrubRelease(input: {
+  clientX: number
+  /** Release-point box; `null` when there is nothing to measure. */
+  bounds: Pick<DOMRect, 'left' | 'width'> | null
+  viewport: MotionTimeViewport
+  /** Viewport the render has committed; the release only commits a change. */
+  committedViewport: MotionTimeViewport
+  compositionEndFrame: number | null
+  durationInFrames: number
+  latestFrame: number | null
+}): MotionScrubRelease {
+  const { clientX, bounds, viewport, committedViewport, latestFrame } = input
+  const pointerFrame = bounds
+    ? resolveMotionFrameFromClientX({
+        clientX,
+        bounds,
+        viewport,
+        maxFrame: input.compositionEndFrame ?? input.durationInFrames,
+      })
+    : null
+  const viewportChanged =
+    committedViewport.startFrame !== viewport.startFrame ||
+    committedViewport.endFrame !== viewport.endFrame
+  return {
+    frame: pointerFrame ?? latestFrame,
+    viewport: viewportChanged ? viewport : null,
+  }
 }

@@ -904,7 +904,11 @@ function setDocumentVisibility(hidden: boolean) {
   })
 }
 
-describe('VideoPreview sync behavior', () => {
+// These tests drive a real renderer through several awaited render/warm cycles; under
+// coverage instrumentation on a loaded runner the 5s default is a ceiling they hit while
+// doing correct work (not a target). Scoped to this suite so a hang elsewhere still fails
+// in five seconds.
+describe('VideoPreview sync behavior', { timeout: 15_000 }, () => {
   beforeEach(() => {
     mockedPlayerFrame = 0
     mockedPlayerIsPlaying = false
@@ -3403,6 +3407,34 @@ describe('VideoPreview sync behavior', () => {
     // does not need to complete before frame 48 (or its black pixels) is gone.
     expect(getDisplayedFrame()).toBe(47)
     expect(scrubCanvas.style.visibility).toBe('visible')
+  })
+
+  it('presents the frame the paused lookahead already prepared when the ruler hovers it', async () => {
+    setSingleCompoundItemWithGpuEffectAtFrame(47)
+    const { scrubCanvas, renderer } = await renderReadySingleRendererPreview(47)
+
+    // The pump prepares the frame after the paused playhead offscreen, deferred
+    // behind an idle window. Nothing else may request 48 while the playhead is
+    // paused and no ruler hover exists, so the first 48 render is that
+    // speculative lookahead — and it must not move the display off the
+    // committed frame.
+    await waitFor(() => {
+      expect(renderer.renderFrame).toHaveBeenCalledWith(48)
+      expect(getDisplayedFrame()).toBe(47)
+    })
+
+    act(() => {
+      usePlaybackStore.getState().setPreviewFrame(48)
+    })
+
+    // Hovering the frame the lookahead prepared is an explicit presentation
+    // request. Its requested-frame slot is consumed when the render is
+    // dequeued, so dropping the presentation here would leave the overlay on
+    // the committed frame until the next pointer move.
+    await waitFor(() => {
+      expect(getDisplayedFrame()).toBe(48)
+      expect(scrubCanvas.style.visibility).toBe('visible')
+    })
   })
 
   it('keeps the last valid front buffer visible until a fast ruler swipe settles', async () => {
