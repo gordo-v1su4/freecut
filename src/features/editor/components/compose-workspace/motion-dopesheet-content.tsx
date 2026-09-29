@@ -1,20 +1,101 @@
-import { type MotionSelectionDragState, buildMotionSelectionDragState, buildMotionSelectionFrameUpdates, getMotionCompositionSnapFrames, mergeMotionKeyframeSelection } from './motion-keyframe-selection'
-import type { MotionTimeViewport } from './motion-time-viewport-controller'
-import { LAYER_COLUMN_WIDTH, MOTION_INLINE_PROPERTY_GROUP_IDS, RULER_DIVISIONS, useSettledMotionFrame } from './motion-timeline-primitives'
-import { MOTION_VECTOR_ROW_DEFINITIONS, buildMotionVectorSeparationProperties, canCombineMotionVectorRowWithoutBake, isMotionVectorRowSeparated, motionVectorSeparationNeedsBake, shouldUseMotionVectorRow, toMotionVectorProxyKeyframes } from './motion-vector-rows'
-import { getSourceDimensions, resolveItemTransformAtFrame, resolveTransform } from '@/features/editor/deps/composition-runtime'
+import {
+  type MotionSelectionDragState,
+  buildMotionSelectionDragState,
+  buildMotionSelectionFrameUpdates,
+  getMotionCompositionSnapFrames,
+  mergeMotionKeyframeSelection,
+} from './motion-keyframe-selection'
+import {
+  areMotionDopesheetLanesPropsEqual,
+  type MotionDopesheetLanesProps,
+} from './motion-dopesheet-lanes-equality'
+import {
+  LAYER_COLUMN_WIDTH,
+  MOTION_INLINE_PROPERTY_GROUP_IDS,
+  RULER_DIVISIONS,
+  useSettledMotionFrame,
+} from './motion-timeline-primitives'
+import {
+  MOTION_VECTOR_ROW_DEFINITIONS,
+  buildMotionVectorSeparationProperties,
+  canCombineMotionVectorRowWithoutBake,
+  isMotionVectorRowSeparated,
+  motionVectorSeparationNeedsBake,
+  shouldUseMotionVectorRow,
+  toMotionVectorProxyKeyframes,
+} from './motion-vector-rows'
+import {
+  getSourceDimensions,
+  resolveItemTransformAtFrame,
+  resolveTransform,
+} from '@/features/editor/deps/composition-runtime'
 import { getAnimatablePropertyBaseValue } from '@/features/editor/deps/keyframes'
-import { findStoredVectorKeyframe, getStoredVectorKeyframeId, getVectorPropertyProxy, toVectorScalePercent } from '@/features/editor/deps/keyframes-contract'
+import {
+  findStoredVectorKeyframe,
+  getStoredVectorKeyframeId,
+  getVectorPropertyProxy,
+  toVectorScalePercent,
+} from '@/features/editor/deps/keyframes-contract'
 import { type ItemPreview, useGizmoStore } from '@/features/editor/deps/preview'
-import { DopesheetEditor, GROUP_HEADER_HEIGHT, ROW_HEIGHT, addKeyframe, buildVectorPromotionPlan, captureSnapshot, getProceduralBands, getPropertyAccordionGroups, getPropertyDisplayGroups, getShapeAnimatableBaseValue, interpolatePropertyValue, promoteTransformToVector, removeKeyframes, removeVectorKeyframe, resolveAnimatedShapeItem, resolveAnimatedTransform, resolveExpressionReferenceValue, setVectorDimensionsSeparated, updateItem, updateKeyframe, updateKeyframes, updateVectorKeyframe, upsertVectorKeyframe, useItemsStore, useKeyframeSelectionStore, useKeyframesStore, useRafCoalescedValue, useTimelineCommandStore, useTimelineSettingsStore } from '@/features/editor/deps/timeline-motion'
+import {
+  DopesheetEditor,
+  GROUP_HEADER_HEIGHT,
+  ROW_HEIGHT,
+  addKeyframe,
+  buildVectorPromotionPlan,
+  captureSnapshot,
+  getProceduralBands,
+  getPropertyAccordionGroups,
+  getPropertyDisplayGroups,
+  getShapeAnimatableBaseValue,
+  interpolatePropertyValue,
+  promoteTransformToVector,
+  removeKeyframes,
+  removeVectorKeyframe,
+  resolveAnimatedShapeItem,
+  resolveAnimatedTransform,
+  resolveExpressionReferenceValue,
+  setVectorDimensionsSeparated,
+  updateItem,
+  updateKeyframe,
+  updateKeyframes,
+  updateVectorKeyframe,
+  upsertVectorKeyframe,
+  useItemsStore,
+  useKeyframeSelectionStore,
+  useKeyframesStore,
+  useRafCoalescedValue,
+  useTimelineCommandStore,
+  useTimelineSettingsStore,
+} from '@/features/editor/deps/timeline-motion'
 import { useEditorStore } from '@/shared/state/editor'
 import { hasEnabledProceduralMotion } from '@/shared/timeline/procedural-motion'
 import { cn } from '@/shared/ui/cn'
 import { worldToLocalTransform } from '@/shared/utils/transform-parenting'
-import { type AnimatableProperty, type DirectLinkableProperty, type ItemKeyframes, type Keyframe, type KeyframeRef, type VectorAnimatableProperty, type VectorKeyframe, getDirectPropertyLinks, isShapeAnimatableProperty, isTransformAnimatableProperty } from '@/types/keyframe'
+import {
+  type AnimatableProperty,
+  type DirectLinkableProperty,
+  type ItemKeyframes,
+  type Keyframe,
+  type KeyframeRef,
+  type VectorAnimatableProperty,
+  type VectorKeyframe,
+  getDirectPropertyLinks,
+  isShapeAnimatableProperty,
+  isTransformAnimatableProperty,
+} from '@/types/keyframe'
 import type { TimelineItem } from '@/types/timeline'
 import type { ResolvedTransform } from '@/types/transform'
-import {memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { toast } from 'sonner'
 
 // The embedded dopesheet: the row/property model, the content tree and the
@@ -34,82 +115,6 @@ const MOTION_GRAPH_INLINE_PROPERTY_GROUP_IDS = [
 const MOTION_INLINE_PROPERTY_GROUP_ID_SET: ReadonlySet<string> = new Set(
   MOTION_INLINE_PROPERTY_GROUP_IDS,
 )
-
-interface MotionDopesheetLanesProps {
-  item: TimelineItem
-  itemById: Record<string, TimelineItem>
-  itemKeyframes: ItemKeyframes | undefined
-  properties: AnimatableProperty[]
-  compositionDurationInFrames: number
-  fps: number
-  canvas: { width: number; height: number }
-  propertyFilter: 'all' | 'keyframed'
-  timeViewport: MotionTimeViewport
-  inlineCurveProperty: AnimatableProperty | null
-  paneMode?: 'lanes' | 'graph'
-  disabled?: boolean
-  onSelectItem: (itemId: string) => void
-  onInlineCurveChange: (property: AnimatableProperty | null) => void
-  onScrub: (frame: number) => void
-  onTimeViewportChange: (viewport: MotionTimeViewport) => void
-  onPropertyLinkPointerDown?: (
-    event: ReactPointerEvent<HTMLButtonElement>,
-    itemId: string,
-    property: DirectLinkableProperty,
-  ) => void
-  onRemovePropertyLink?: (itemId: string, property: DirectLinkableProperty) => void
-  onSetPropertyExpression?: (
-    itemId: string,
-    property: DirectLinkableProperty,
-    source: string,
-    enabled: boolean,
-  ) => void
-  onRemovePropertyExpression?: (itemId: string, property: DirectLinkableProperty) => void
-}
-
-function areItemsEqualForMotionDopesheet(previous: TimelineItem, next: TimelineItem): boolean {
-  if (previous === next) return true
-
-  const previousRecord = previous as unknown as Record<string, unknown>
-  const nextRecord = next as unknown as Record<string, unknown>
-  const keys = new Set([...Object.keys(previousRecord), ...Object.keys(nextRecord)])
-  for (const key of keys) {
-    // Text-motion bands are rendered by TextMotionTimelineLanes. Their live
-    // duration edits do not affect keyframes or base property values, so they
-    // must not invalidate the much heavier dopesheet subtree.
-    if (key === 'textMotion') continue
-    if (previousRecord[key] !== nextRecord[key]) return false
-  }
-  return true
-}
-
-// fallow-ignore-next-line complexity
-function areMotionDopesheetLanesPropsEqual(
-  previous: MotionDopesheetLanesProps,
-  next: MotionDopesheetLanesProps,
-): boolean {
-  return (
-    areItemsEqualForMotionDopesheet(previous.item, next.item) &&
-    previous.compositionDurationInFrames === next.compositionDurationInFrames &&
-    previous.fps === next.fps &&
-    previous.canvas.width === next.canvas.width &&
-    previous.canvas.height === next.canvas.height &&
-    previous.propertyFilter === next.propertyFilter &&
-    previous.timeViewport.startFrame === next.timeViewport.startFrame &&
-    previous.timeViewport.endFrame === next.timeViewport.endFrame &&
-    previous.inlineCurveProperty === next.inlineCurveProperty &&
-    previous.paneMode === next.paneMode &&
-    previous.disabled === next.disabled &&
-    previous.onPropertyLinkPointerDown === next.onPropertyLinkPointerDown &&
-    previous.onRemovePropertyLink === next.onRemovePropertyLink &&
-    previous.onSetPropertyExpression === next.onSetPropertyExpression &&
-    previous.onRemovePropertyExpression === next.onRemovePropertyExpression &&
-    previous.itemById === next.itemById &&
-    previous.itemKeyframes === next.itemKeyframes &&
-    previous.properties.length === next.properties.length &&
-    previous.properties.every((property, index) => property === next.properties[index])
-  )
-}
 
 function useNearMotionScrollViewport(
   rootRef: React.RefObject<HTMLDivElement | null>,
@@ -1770,7 +1775,9 @@ const MotionDopesheetContent = memo(function MotionDopesheetContent({
   )
 }, areMotionDopesheetLanesPropsEqual)
 
-export const MotionDopesheetLanes = memo(function MotionDopesheetLanes(props: MotionDopesheetLanesProps) {
+export const MotionDopesheetLanes = memo(function MotionDopesheetLanes(
+  props: MotionDopesheetLanesProps,
+) {
   const { item, itemKeyframes, properties, propertyFilter, paneMode = 'lanes' } = props
   const shellRef = useRef<HTMLDivElement>(null)
   const isNearScrollViewport = useNearMotionScrollViewport(shellRef, paneMode === 'lanes')
