@@ -103,13 +103,14 @@ export function useTtsGeneration(params: TtsGenerationParams) {
   }, [])
 
   const beginGeneration = useCallback(() => {
+    releasePendingResult()
     setError(null)
     setResult(null)
     setInserted(false)
     setIsGenerating(true)
     setProgress(t('editor.tts.progressPreparing'))
     return sessionIdRef.current
-  }, [t])
+  }, [releasePendingResult, t])
 
   const applyResult = useCallback(
     (output: TtsGenerateOutput) => {
