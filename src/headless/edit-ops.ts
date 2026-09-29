@@ -472,6 +472,8 @@ const OP_HANDLERS: Record<EditOperationName, (op: EditOp) => unknown> = {
 /** Apply a single op by driving the real timeline action modules. Throws on bad input. */
 export function applyOp(op: EditOp): unknown {
   const handler = OP_HANDLERS[op.op]
-  if (!handler) throw new Error(`Unknown edit op: ${String(op.op)}`)
+  if (!Object.hasOwn(OP_HANDLERS, op.op) || !handler) {
+    throw new Error(`Unknown edit op: ${String(op.op)}`)
+  }
   return handler(op)
 }

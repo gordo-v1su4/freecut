@@ -160,6 +160,15 @@ describe('editProject', () => {
     ).rejects.toThrow(/Duplicate edit callerId/)
   })
 
+  it('rejects operation names inherited from Object.prototype', async () => {
+    await expect(
+      editProject({
+        project: baseProject(),
+        ops: [{ op: 'toString' } as unknown as EditOp],
+      }),
+    ).rejects.toThrow(/Unknown edit op: toString/)
+  })
+
   it('rejects a $ref to an unknown prior operation', async () => {
     await expect(
       editProject({

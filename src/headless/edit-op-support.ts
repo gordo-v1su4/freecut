@@ -36,7 +36,7 @@ export type EditOperationName =
   | 'removeEffect'
   | 'setTransform'
 
-/** A wire operation. Node validates its discriminator and fields before this browser boundary. */
+/** A wire operation. Runtime dispatch validates its discriminator before invoking a handler. */
 export type EditOp = Record<string, unknown> & { op: EditOperationName }
 
 // Canvas of the project being edited (set per editProject call) — transform-parent
