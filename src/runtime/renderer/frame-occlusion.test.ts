@@ -13,7 +13,9 @@ vi.mock('./canvas-keyframes', () => ({
   getAnimatedCrop: vi.fn(),
 }))
 vi.mock('@/shared/utils/media-crop', () => ({ hasMediaCrop: vi.fn() }))
-vi.mock('@/runtime/renderer/deps/keyframes-contract', () => ({ resolveAnimatedColorEffects: vi.fn() }))
+vi.mock('@/runtime/renderer/deps/keyframes-contract', () => ({
+  resolveAnimatedColorEffects: vi.fn(),
+}))
 vi.mock('./canvas-effects', () => ({ getAdjustmentLayerEffects: vi.fn() }))
 
 const CANVAS_W = 1920
@@ -163,5 +165,24 @@ describe('isItemFullyOccluding', () => {
       { enabled: false, effect: { opacity: 0.5 } },
     ] as never)
     expect(isItemFullyOccluding(makeVideoItem(), 0, makeContext())).toBe(true)
+  })
+
+  it('accepts the one-pixel coverage tolerance but rejects a larger gap', () => {
+    vi.mocked(getAnimatedTransform).mockReturnValue(
+      fullCoverTransform({ x: 1, width: CANVAS_W }) as never,
+    )
+    expect(isItemFullyOccluding(makeVideoItem(), 0, makeContext())).toBe(true)
+
+    vi.mocked(getAnimatedTransform).mockReturnValue(
+      fullCoverTransform({ x: 2, width: CANVAS_W }) as never,
+    )
+    expect(isItemFullyOccluding(makeVideoItem(), 0, makeContext())).toBe(false)
+  })
+
+  it('rejects an enabled item effect that adds transparency', () => {
+    vi.mocked(resolveAnimatedColorEffects).mockReturnValue([
+      { enabled: true, effect: { opacity: 0.75 } },
+    ] as never)
+    expect(isItemFullyOccluding(makeVideoItem(), 0, makeContext())).toBe(false)
   })
 })
