@@ -32,6 +32,36 @@ const transform: ResolvedTransform = {
   cornerRadius: 0,
 }
 
+const perimeterCases: Array<{
+  name: string
+  overrides: Partial<ShapeItem>
+  expected: number
+}> = [
+  {
+    name: 'rounded rectangle',
+    overrides: { shapeType: 'rectangle', cornerRadius: 10 },
+    expected: 582.8318530717959,
+  },
+  {
+    name: 'unlocked ellipse',
+    overrides: {
+      shapeType: 'ellipse',
+      transform: { ...shape.transform!, aspectRatioLocked: false },
+    },
+    expected: 484.4210548835644,
+  },
+  { name: 'heart', overrides: { shapeType: 'heart' }, expected: 335 },
+  {
+    name: 'horizontal unlocked triangle',
+    overrides: {
+      shapeType: 'triangle',
+      direction: 'left',
+      transform: { ...shape.transform!, aspectRatioLocked: false },
+    },
+    expected: 512.3105625617661,
+  },
+]
+
 describe('renderShape Canvas gradients', () => {
   beforeEach(() => {
     vi.stubGlobal('Path2D', class {})
@@ -64,4 +94,41 @@ describe('renderShape Canvas gradients', () => {
     expect(addColorStop).toHaveBeenNthCalledWith(2, 1, '#aabbcc')
     expect(context.fill).toHaveBeenCalledTimes(1)
   })
+
+  it.each(perimeterCases)(
+    'uses the $name perimeter for trim-path dashes',
+    ({ overrides, expected }) => {
+      const context = {
+        save: vi.fn(),
+        restore: vi.fn(),
+        fill: vi.fn(),
+        stroke: vi.fn(),
+        setLineDash: vi.fn(),
+        globalAlpha: 1,
+        fillStyle: '',
+        strokeStyle: '',
+        lineCap: 'butt',
+        lineJoin: 'miter',
+        miterLimit: 4,
+        lineWidth: 0,
+        lineDashOffset: 0,
+      } as unknown as OffscreenCanvasRenderingContext2D
+      const trimmedShape: ShapeItem = {
+        ...shape,
+        fillEnabled: false,
+        strokeEnabled: true,
+        strokeColor: '#ffffff',
+        strokeWidth: 2,
+        trimPathStart: 0,
+        trimPathEnd: 50,
+        ...overrides,
+      }
+
+      renderShape(context, trimmedShape, transform, { width: 1920, height: 1080 })
+
+      const [dash, gap] = vi.mocked(context.setLineDash).mock.calls[0]![0]
+      expect(dash).toBeCloseTo(expected / 2)
+      expect(gap).toBeCloseTo(expected / 2)
+    },
+  )
 })

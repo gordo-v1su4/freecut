@@ -40,40 +40,61 @@ function estimatePathShapeLength(shape: ShapeItem, width: number, height: number
     .totalLength
 }
 
-// fallow-ignore-next-line complexity
-function estimateShapePerimeter(shape: ShapeItem, width: number, height: number): number {
-  const w = Math.max(0, width)
-  const h = Math.max(0, height)
-  if (shape.shapeType === 'path') return estimatePathShapeLength(shape, w, h)
-  if (shape.shapeType === 'rectangle') {
-    const radius = Math.min(shape.cornerRadius ?? 0, w / 2, h / 2)
-    return 2 * (w + h - 4 * radius) + 2 * Math.PI * radius
-  }
-  const aspectLocked = shape.transform?.aspectRatioLocked ?? true
-  if (shape.shapeType === 'circle' || shape.shapeType === 'ellipse') {
-    const lockedCircleSize = Math.min(w, h)
-    const a = shape.shapeType === 'circle' && aspectLocked ? lockedCircleSize / 2 : w / 2
-    const b = shape.shapeType === 'circle' && aspectLocked ? lockedCircleSize / 2 : h / 2
-    return Math.PI * (3 * (a + b) - Math.sqrt(Math.max(0, (3 * a + b) * (a + 3 * b))))
-  }
-  if (shape.shapeType === 'heart') return Math.min(w, h) * 3.35
-  if (shape.shapeType === 'triangle') {
-    if (aspectLocked) return Math.min(w, h) * 3
-    return shape.direction === 'left' || shape.direction === 'right'
-      ? h + 2 * Math.hypot(w, h / 2)
-      : w + 2 * Math.hypot(w / 2, h)
-  }
+function estimateRoundedRectanglePerimeter(
+  shape: ShapeItem,
+  width: number,
+  height: number,
+): number {
+  const radius = Math.min(shape.cornerRadius ?? 0, width / 2, height / 2)
+  return 2 * (width + height - 4 * radius) + 2 * Math.PI * radius
+}
 
-  const count = Math.max(
-    3,
-    Math.round(
-      shape.points ?? (shape.shapeType === 'star' ? 5 : shape.shapeType === 'polygon' ? 6 : 3),
-    ),
+function estimateEllipsePerimeter(shape: ShapeItem, width: number, height: number): number {
+  const aspectLocked = shape.transform?.aspectRatioLocked ?? true
+  const lockedCircleSize = Math.min(width, height)
+  const horizontalRadius =
+    shape.shapeType === 'circle' && aspectLocked ? lockedCircleSize / 2 : width / 2
+  const verticalRadius =
+    shape.shapeType === 'circle' && aspectLocked ? lockedCircleSize / 2 : height / 2
+  return (
+    Math.PI *
+    (3 * (horizontalRadius + verticalRadius) -
+      Math.sqrt(
+        Math.max(
+          0,
+          (3 * horizontalRadius + verticalRadius) * (horizontalRadius + 3 * verticalRadius),
+        ),
+      ))
   )
+}
+
+function estimateTrianglePerimeter(shape: ShapeItem, width: number, height: number): number {
+  const aspectLocked = shape.transform?.aspectRatioLocked ?? true
+  if (aspectLocked) return Math.min(width, height) * 3
+  return shape.direction === 'left' || shape.direction === 'right'
+    ? height + 2 * Math.hypot(width, height / 2)
+    : width + 2 * Math.hypot(width / 2, height)
+}
+
+function resolveRadialPointCount(shape: ShapeItem): number {
+  const defaultCount = shape.shapeType === 'star' ? 5 : shape.shapeType === 'polygon' ? 6 : 3
+  return Math.max(3, Math.round(shape.points ?? defaultCount))
+}
+
+function buildRadialShapeVertices(
+  shape: ShapeItem,
+  width: number,
+  height: number,
+  count: number,
+): Array<[number, number]> {
   const vertices: Array<[number, number]> = []
   const vertexCount = shape.shapeType === 'star' ? count * 2 : count
-  const polygonWidth = aspectLocked ? Math.min(w, h) : w
-  const polygonHeight = aspectLocked ? Math.min(w, h) : h
+  let polygonWidth = width
+  let polygonHeight = height
+  if (shape.transform?.aspectRatioLocked ?? true) {
+    polygonWidth = Math.min(width, height)
+    polygonHeight = polygonWidth
+  }
   for (let index = 0; index < vertexCount; index++) {
     const angle = (index / vertexCount) * Math.PI * 2 - Math.PI / 2
     const radius = shape.shapeType === 'star' && index % 2 === 1 ? (shape.innerRadius ?? 0.5) : 1
@@ -82,10 +103,36 @@ function estimateShapePerimeter(shape: ShapeItem, width: number, height: number)
       Math.sin(angle) * (polygonHeight / 2) * radius,
     ])
   }
+  return vertices
+}
+
+function estimateRadialShapePerimeter(shape: ShapeItem, width: number, height: number): number {
+  const count = resolveRadialPointCount(shape)
+  const vertices = buildRadialShapeVertices(shape, width, height, count)
   return vertices.reduce(
     (sum, vertex, index) => sum + distance(vertex, vertices[(index + 1) % vertices.length]!),
     0,
   )
+}
+
+function estimateShapePerimeter(shape: ShapeItem, width: number, height: number): number {
+  const safeWidth = Math.max(0, width)
+  const safeHeight = Math.max(0, height)
+  switch (shape.shapeType) {
+    case 'path':
+      return estimatePathShapeLength(shape, safeWidth, safeHeight)
+    case 'rectangle':
+      return estimateRoundedRectanglePerimeter(shape, safeWidth, safeHeight)
+    case 'circle':
+    case 'ellipse':
+      return estimateEllipsePerimeter(shape, safeWidth, safeHeight)
+    case 'heart':
+      return Math.min(safeWidth, safeHeight) * 3.35
+    case 'triangle':
+      return estimateTrianglePerimeter(shape, safeWidth, safeHeight)
+    default:
+      return estimateRadialShapePerimeter(shape, safeWidth, safeHeight)
+  }
 }
 
 function applyTrimPathStroke(
